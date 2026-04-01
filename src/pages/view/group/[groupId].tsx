@@ -24,6 +24,7 @@ import Link from 'next/link';
 import ProfileImage from '@/components/ui/ProfileImage';
 import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import { CheckCircle, XCircle, MinusCircle, Award as AwardIcon } from 'lucide-react';
+import { getPublicJvsBadges, type PublicJvsBadge } from '@/services/jvsMembershipService';
 
 // Typ-Guard für Firestore Timestamp
 function isFirestoreTimestamp(value: unknown): value is Timestamp {
@@ -81,6 +82,9 @@ const PublicGroupPage = () => {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
+
+  // JVS Badges für öffentliche Gruppenansicht
+  const [publicJvsBadges, setPublicJvsBadges] = useState<Record<string, PublicJvsBadge>>({});
 
   // 🚀 PERFORMANCE-OPTIMIERUNG: Member-Map für schnellen Zugriff
   const memberMap = useMemberMap(members);
@@ -264,6 +268,16 @@ const PublicGroupPage = () => {
 
     loadMembers();
   }, [currentGroup]);
+
+  // ===== JVS BADGES LADEN (sobald Mitglieder bekannt) =====
+  useEffect(() => {
+    if (!members || members.length === 0) return;
+    const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
+    if (playerIds.length === 0) return;
+    getPublicJvsBadges(playerIds)
+      .then(badges => setPublicJvsBadges(badges))
+      .catch(() => { /* Badge ist nicht kritisch */ });
+  }, [members]);
 
   // ===== STATISTIKEN LADEN =====
   useEffect(() => {
@@ -712,6 +726,7 @@ const PublicGroupPage = () => {
       handleCloseInviteModal={noOpFunction}
       isGeneratingInvite={false}
       handleGenerateNewInvite={noOpFunction}
+      publicJvsBadges={publicJvsBadges}
     />
     </>
   );

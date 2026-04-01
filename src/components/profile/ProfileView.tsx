@@ -151,8 +151,11 @@ interface ProfileViewProps {
   inputKey?: number;
   
   // Theme - KORRIGIERT: Nur noch theme und profileTheme nötig
-  theme?: any; // THEME_COLORS[groupTheme] 
+  theme?: any; // THEME_COLORS[groupTheme]
   profileTheme?: string;
+
+  // Öffentlicher JVS-Badge (für public profiles)
+  publicJvsBadge?: { isMember: boolean; memberNumber?: number | null; season?: number | null } | null;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -190,7 +193,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   handleSelectClick,
   inputKey,
   theme,
-  profileTheme
+  profileTheme,
+  publicJvsBadge
 }) => {
   const trumpfStatistikRef = useRef<HTMLDivElement>(null);
   useNestedScrollFix(trumpfStatistikRef);
@@ -2028,7 +2032,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             {displayName || <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} />}
           </h1>
 
-          {/* JVS-Mitglied Badge */}
+          {/* JVS-Mitglied Badge — eigenes Profil */}
           {!isPublicView && jvsMembership?.isMember && (
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-3 py-0.5 text-xs font-medium text-blue-400">
@@ -2036,12 +2040,23 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {jvsMembership.memberNumber
                   ? `JVS #${String(jvsMembership.memberNumber).padStart(3, '0')}`
                   : 'JVS-Mitglied'}
-                {jvsMembership.season && ` · Saison ${jvsMembership.season}`}
               </span>
             </div>
           )}
 
-          {/* Mitgliedschaft-Hinweis für Nicht-Mitglieder */}
+          {/* JVS-Mitglied Badge — öffentliches Profil */}
+          {isPublicView && publicJvsBadge?.isMember && (
+            <div className="flex items-center justify-center gap-1.5 mb-1">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-3 py-0.5 text-xs font-medium text-blue-400">
+                <FaAward className="w-3 h-3" />
+                {publicJvsBadge.memberNumber
+                  ? `JVS #${String(publicJvsBadge.memberNumber).padStart(3, '0')}`
+                  : 'JVS-Mitglied'}
+              </span>
+            </div>
+          )}
+
+          {/* Mitgliedschaft-Hinweis für Nicht-Mitglieder (nur eigenes Profil) */}
           {!isPublicView && jvsMembership !== null && !jvsMembership.isMember && (
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <a

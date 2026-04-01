@@ -1,0 +1,1284 @@
+[
+  {
+    "id": "weis_rules_notation_basics",
+    "title": "Schreibweise",
+    "slug": "weis-regeln-weis-arten-schreibweise",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Die Schreibweise\n\nDas erzielte Resultat eines Spieles (Kartenpunkte) wird nach dessen Beendigung sofort notiert. Es darf so lange geschrieben werden, bis der Schreiber zum ersten Stich des neuen Spieles eine Karte gibt. Der Schreiber hat dafür zu sorgen, dass die erzielten Punkte jederzeit übersichtlich notiert werden:\n\n- Striche für 100 Punkte: = Oben von links nach rechts\n- Striche für 50 Punkte: = Mitte der Tafelseite\n- Striche für 20 Punkte: = Unten von links nach rechts\n\nMit jassguru.ch wird das Schreiben noch schneller und präziser erledigt. Die App rechnet automatisch für beide Teams, sodass Fehler bei der Punkteberechnung vermieden werden und mehr Zeit zum Jassen bleibt.",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-schreibweise",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Schreibweise"
+      },
+      "keywords": [
+        "notation",
+        "schreiben",
+        "punkte",
+        "tafel",
+        "striche",
+        "hundert",
+        "fünfzig",
+        "zwanzig"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.219Z"
+  },
+  {
+    "id": "weis_rules_notation_numbers",
+    "title": "Rechte Tafelseite",
+    "slug": "weis-regeln-weis-arten-rechte-tafelseite",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Die rechte Seite der Jass-Tafel ist ausschliesslich für eine einzige Zahl reserviert. Diese kann sowohl positiv als auch negativ sein, beispielsweise 8 oder -12.\n\nSind beide Schreiber damit fertig, ihre Punkte einzutragen, gilt: Änderungen an diesen Notierungen sind nur noch möglich, wenn eindeutige Beweise vorliegen. Dies verhindert nachträgliche Manipulationen und sorgt für faire Spielbedingungen.\n\nBei jassguru.ch sind Rechenfehler nicht möglich, da das Schreiben und Rechnen mit dem Kalkulator erfolgen. Die Resultate sind für jeden Umgang digital erfasst und können jederzeit überprüft und bei Bedarf korrigiert werden.",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-rechte-tafelseite",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Rechte Tafelseite"
+      },
+      "keywords": [
+        "zahlen",
+        "rechts",
+        "korrektur",
+        "beweise",
+        "notation",
+        "punkte",
+        "schreiben",
+        "tafel"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.226Z"
+  },
+  {
+    "id": "weis_rules_notation_correction",
+    "title": "Korrekturregeln",
+    "slug": "weis-regeln-weis-arten-korrekturregeln",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Wenn lediglich eine Person für das Eintragen der Resultate zuständig ist, gilt eine besondere Regelung: Alle Teilnehmer können im Verlauf des nächsten Spiels Korrekturwünsche äussern, falls sie Fehler vermuten. Diese Möglichkeit besteht während der kompletten Dauer der folgenden Runde.\n\nZusätzlich steht es den Gegenspielern frei, jederzeit eine klar strukturierte und übersichtliche Darstellung aller eingetragenen Striche sowie Zahlen zu fordern. Dies dient der Transparenz und vermeidet Missverständnisse.\n\nBei jassguru.ch kann ein fälschlich geschriebenes Resultat mit einem Swipe zurück einfach rückgängig gemacht und korrigiert werden.",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-korrekturregeln",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Korrekturregeln"
+      },
+      "keywords": [
+        "korrektur",
+        "unstimmigkeit",
+        "änderung",
+        "recht",
+        "übersichtlich",
+        "verlangen",
+        "tafel",
+        "striche"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.226Z"
+  },
+  {
+    "id": "weis_rules_ausmachen_basics",
+    "title": "Das Ausmachen",
+    "slug": "weis-regeln-weis-arten-das-ausmachen",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Das Ausmachen\n\nDie Ausmachregel lautet «Stöck - Wys - Stich». Wer «Stöck - Stich - Wys» wünscht, hat dies vor Spielbeginn zu vereinbaren.\n\nDie Stöcke gelten nur bei Trumpf!\n\nDie Regel «Stöck - Wys - Stich» entspricht dem Schwierigkeitsgrad der erhaltenen Karten:\n\n- Für die Stöcke braucht es nur zwei Karten des ganzen Spieles: König / Ober beziehungsweise Dame\n- Für einen Weis werden mindestens Dreiblatt genötigt\n- Für einen zählbaren Stich genügt bereits eine Einzelkarte",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-das-ausmachen",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Das Ausmachen"
+      },
+      "keywords": [
+        "stöck",
+        "wys",
+        "stich",
+        "ausmachen",
+        "reihenfolge",
+        "trumpf",
+        "bedanken"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.226Z"
+  },
+  {
+    "id": "weis_rules_ausmachen_order",
+    "title": "Ausmach-Reihenfolge",
+    "slug": "weis-regeln-weis-arten-ausmach-reihenfolge",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Diese Regel besagt, dass nach dem vollständigen Ablauf des ersten Stiches, wenn beide Parteien das Ziel erreichen, zuerst die Stöcke zählen, sofern sie allein oder mit eventuellem Weis oder ohne Weis mit einem Stich zum Ausmachen genügen und folglich vorgewiesen werden können. An zweiter Stelle wird der Weis gewertet, an dritter Stelle der Stich. Erst bei der Zugabe seiner Karte zum zweiten Stich erlischt die Berufung eines Spielenden auf die Ausmachregel. Kommt diese Ausmachregel zur Anwendung, ist die Reihenfolge des Bedankens belanglos.\n\nWenn alle Mitwirkenden zum ersten Stich des letzten Spiels eine Karte beigegeben haben und das eine Team mit Weis-, das andere Team mit Kartenpunkten das Ziel erreichen, wird nach der Ausmachregel entschieden.\n\nIst weder «Stöck - Wys - Stich» noch «Stöck - Stich - Wys» vor Spielbeginn vereinbart worden und ist im Weiteren die Ortsregel nicht bekannt, gilt immer «Stöck - Wys -Stich».",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-ausmach-reihenfolge",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Ausmach-Reihenfolge"
+      },
+      "keywords": [
+        "reihenfolge",
+        "wertung",
+        "zählen",
+        "ausmachen",
+        "stöcke",
+        "weis",
+        "stich",
+        "bedanken"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.226Z"
+  },
+  {
+    "id": "weis_rules_ausmachen_thanking",
+    "title": "Bedanken beendet Partie",
+    "slug": "weis-regeln-weis-arten-bedanken-beendet-partie",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Im Verlaufe des weiteren Spieles oder bei Spielschluss kann sich jede Partei zu jeder Zeit bedanken, egal ob sie am Zuge ist oder nicht. Wer sich zuerst bedankt und genügend Punkte besitzt, hat gewonnen.\n\nVerbindlichkeit\n\nWichtig: Ausdrücke wie «Wir sind fertig», «Wir haben genug», «Mir sind dusse» oder ähnliche Feststellungen des erzielten Sieges sind ebenso verbindlich wie «Wir bedanken uns». Das Bedanken eines Spielers ist auch für seine Partner verbindlich - egal wer die Tafel führt.",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-bedanken-beendet-partie",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Bedanken beendet Partie"
+      },
+      "keywords": [
+        "bedanken",
+        "fertig",
+        "genug",
+        "dusse",
+        "verbindlich",
+        "sieg",
+        "partner",
+        "tafel"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.226Z"
+  },
+  {
+    "id": "weis_rules_ausmachen_schneider",
+    "title": "Ausmachregel bei Schneider",
+    "slug": "weis-regeln-weis-arten-ausmachregel-bei-schneider",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Ausmachregel bei Schneider\n\nGelangt in einem Spiel im ersten Stich die eine Partei ans Gesamtziel, die andere Partei aus dem «Schneider», die einen mit Weis-, die anderen mit Kartenpunkten, entscheidet abenfalls die Ausmachregel «Stöck - Wys - Stich» oder je nach Vereinbarung «Stöck - Stich - Wys». Wenn zum Beispiel die Gesamtsieger mit den Stöcken ans Ziel kommen, können die Verlierer keine Weis- und Kartenpunkte mehr schreiben und würden somit im Schneider verbleiben. Oder gelangen die sich im Schneider befindenden Spieler mit einem Weis über die Schneidergrenze, können sich die Gesamtsieger nur dann mit ihren Stichpunkten bedanken, wenn die Ausmachregel «Stöck - Wys - Stich» lautet. Der Schneider ist in diesem Fall abgewendet.",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-ausmachregel-bei-schneider",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Ausmachregel bei Schneider"
+      },
+      "keywords": [
+        "schneider",
+        "ausmachen",
+        "gesamtziel",
+        "grenze",
+        "stöck",
+        "wys",
+        "stich",
+        "reihenfolge"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.8,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.226Z"
+  },
+  {
+    "id": "weis_rules_ausmachen_early_thanking",
+    "title": "Frühzeitiges Bedanken",
+    "slug": "weis-regeln-weis-arten-fruhzeitiges-bedanken",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Frühzeitiges Bedanken\n\nWer andeutet, dass er genug Punkte habe, dennoch aber das Ziel nicht erreicht hat, verliert die betreffende Partie. Kartenpunkte von vollständigen Stichen - jeder der Beteiligten hat seine Karte gegeben -, die noch auf dem Tisch liegen, dürfen mitgezählt werden.\n\nWer seine Karten während des Ablaufs eines Spieles zählt, um festzustellen, ob die erzielten Kartenpunkte zum Fertigmachen genügen, verliert die Partie, sofern das Ziel nicht erreicht ist.\n\nDamit wird vermieden, dass ausser dem Zählen noch «Bockkarten» gesucht werden. Bedankt sich eine Partei, wobei Punkte einer von einem Gegner irrtümlich gespielten Karte mitzählen, fällt das Bedanken ohne Folgen dahin, sofern nach Austausch der Karten die benötigten Punkte nicht mehr erzielt werden.",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-fruhzeitiges-bedanken",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Frühzeitiges Bedanken"
+      },
+      "keywords": [
+        "bedanken",
+        "frühzeitig",
+        "verlieren",
+        "zählen",
+        "bockkarten",
+        "punkte",
+        "stiche",
+        "austausch"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_stock",
+    "title": "Stöcke",
+    "slug": "weis-regeln-weis-arten-stocke",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Die Stöcke\n\n- König und Ober/Dame von Trumpf bilden die Stöcke und zählen 20 Punkte\n- Sie geniessen eine Vorzugsstellung\n- Gewiesen werden die Stöcke beim Ausspielen der zweiten Stöckkarte\n- Nach Decken der zweiten Stöckkarte können keine Stöcke mehr gewiesen werden\n- Der Partner darf nicht auf die Stöcke aufmerksam machen\n- Stöckpunkte müssen sofort oder spätestens bis zum nächsten Stich notiert werden\n- Der Stöck-Weis ist immer gültig, auch ohne Stich oder bei Match-Annahme\n- Beim Ausmachen dürfen Stöcke jederzeit vorgewiesen werden, wenn die 20 Punkte genügen\n- Für den Bergpreis dürfen Stöcke ebenfalls vorgewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-stocke",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Stöcke"
+      },
+      "keywords": [
+        "stock",
+        "stöcke",
+        "könig",
+        "ober",
+        "dame",
+        "trumpf",
+        "paar",
+        "zwanzig",
+        "20",
+        "punkte",
+        "weisen",
+        "ausmachen",
+        "bergpreis"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_dreiblatt",
+    "title": "Dreiblatt (3 Blatt)",
+    "slug": "weis-regeln-weis-arten-dreiblatt-3-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Dreiblatt (3 Blatt)\n\n- 3 sich folgende Karten der gleichen Farbe bilden ein Dreiblatt\n- Gibt 20 Weispunkte\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-dreiblatt-3-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Dreiblatt (3 Blatt)"
+      },
+      "keywords": [
+        "dreiblatt",
+        "drü",
+        "drei",
+        "3",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "zwanzig",
+        "20"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_vierblatt",
+    "title": "Vierblatt (4 Blatt)",
+    "slug": "weis-regeln-weis-arten-vierblatt-4-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Vierblatt (4 Blatt)\n\n- 4 Karten der gleichen Farbe in einer Reihe\n- Gibt 50 Weispunkte\n- Beispiel: Ass, König, Dame, Bube der gleichen Farbe\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-vierblatt-4-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Vierblatt (4 Blatt)"
+      },
+      "keywords": [
+        "vierblatt",
+        "vier",
+        "4",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "fünfzig",
+        "50"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_fuenfblatt",
+    "title": "Fünfblatt (5 Blatt)",
+    "slug": "weis-regeln-weis-arten-funfblatt-5-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Fünfblatt (5 Blatt)\n\n- 5 Karten der gleichen Farbe in einer Reihe\n- Gibt 100 Weispunkte\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Schlägt vier gleiche Karten bei gleichem Punktwert\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-funfblatt-5-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Fünfblatt (5 Blatt)"
+      },
+      "keywords": [
+        "fünfblatt",
+        "fünf",
+        "5",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "hundert",
+        "100"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_sechsblatt",
+    "title": "Sechsblatt (6 Blatt)",
+    "slug": "weis-regeln-weis-arten-sechsblatt-6-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Sechsblatt (6 Blatt)\n\n- 6 Karten der gleichen Farbe in einer Reihe\n- Gibt 150 Weispunkte\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-sechsblatt-6-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Sechsblatt (6 Blatt)"
+      },
+      "keywords": [
+        "sechsblatt",
+        "sechs",
+        "6",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "hundertfünfzig",
+        "150"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_siebenblatt",
+    "title": "Siebenblatt (7 Blatt)",
+    "slug": "weis-regeln-weis-arten-siebenblatt-7-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Siebenblatt (7 Blatt)\n\n- 7 Karten der gleichen Farbe in einer Reihe\n- Gibt 200 Weispunkte\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-siebenblatt-7-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Siebenblatt (7 Blatt)"
+      },
+      "keywords": [
+        "siebenblatt",
+        "sieben",
+        "7",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "zweihundert",
+        "200"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_achtblatt",
+    "title": "Achtblatt (8 Blatt)",
+    "slug": "weis-regeln-weis-arten-achtblatt-8-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Achtblatt (8 Blatt)\n\n- 8 Karten der gleichen Farbe in einer Reihe\n- Gibt 250 Weispunkte\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-achtblatt-8-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Achtblatt (8 Blatt)"
+      },
+      "keywords": [
+        "achtblatt",
+        "acht",
+        "8",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "zweihundertfünfzig",
+        "250"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_neunblatt",
+    "title": "Neunblatt (9 Blatt)",
+    "slug": "weis-regeln-weis-arten-neunblatt-9-blatt",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Neunblatt (9 Blatt)\n\n- 9 Karten der gleichen Farbe in einer Reihe\n- Gibt 300 Weispunkte\n- Gilt für alle Jassarten mit Weisen\n- Gilt sowohl bei Trumpffarben als auch bei Undenufe und Obenabe\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-neunblatt-9-blatt",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Neunblatt (9 Blatt)"
+      },
+      "keywords": [
+        "neunblatt",
+        "neun",
+        "9",
+        "blatt",
+        "karten",
+        "folge",
+        "serie",
+        "reihe",
+        "sequenz",
+        "dreihundert",
+        "300"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_vier_gleiche",
+    "title": "Vier gleiche Karten",
+    "slug": "weis-regeln-weis-arten-vier-gleiche-karten",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Vier gleiche Karten\n\n- Vier gleiche Karten (zum beispiel 4 Sechser oder 4 Könige) geben 100 Punkte\n- Vier Neuner geben 150 Weispunkte\n- Vier Under geben 200 Weispunkte\n- Gilt bei Trumpffarben, Undenufe und Obenabe\n- Können immer gewiesen werden, unabhängig von der Spielart\n- Beispiel: 4 Sechser können nicht nur beim Undenufe, sondern auch bei Trumpf und Obenabe gewiesen werden\n- Auch 4 Asse gelten bei einem Undenufe als Hunderterweis\n- Muss vor dem ersten Ausspiel gewiesen werden",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-vier-gleiche-karten",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Vier gleiche Karten"
+      },
+      "keywords": [
+        "vier",
+        "gleiche",
+        "karten",
+        "bilder",
+        "vierling",
+        "hundert",
+        "100",
+        "150",
+        "200",
+        "neuner",
+        "under",
+        "bauer",
+        "junge"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_kreuzweis",
+    "title": "Kreuzweis",
+    "slug": "weis-regeln-weis-arten-kreuzweis",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Kreuzweis\n\n- Seit 1996 für alle Jassarten gültig\n- Eine Karte kann für zwei Weismeldungen verwendet werden\n- Beispiel: Ein Vierblatt vom Schilten Ass und vier Könige ergeben zusammen 150 Punkte\n- Die Karten können sich überschneiden\n- Gilt bei allen Spielarten mit Weisen\n- Der höhere Weis muss vor dem ersten Ausspiel gewiesen werden, der niedrigere darf gemeldet werden, wenn der höhere gewonnen hat\n- Beide Weise müssen gültig sein",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-kreuzweis",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Kreuzweis"
+      },
+      "keywords": [
+        "kreuzweis",
+        "kombi",
+        "kombiniert",
+        "doppel",
+        "überschneidung",
+        "mehrfach",
+        "zweifach"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.8,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "weis_rules_general",
+    "title": "Allgemeine Weis",
+    "slug": "weis-regeln-weis-arten-allgemeine-weis",
+    "type": "regel",
+    "variant": null,
+    "official": true,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Allgemeine Weis-Regeln\n\n- Weisen muss vor dem ersten Ausspiel erfolgen\n- Der letzte Spieler darf weisen, bis der Stich gekehrt ist\n- Falsche Meldungen (zum Beispiel 20 statt 50) können nur korrigiert werden, solange die Karte nicht gedeckt ist\n- Bei gleich hohen Weisen darf der zweitweisende Spieler nur mit \"gut\" antworten, nicht mit \"Vorhand\"\n- Der höchste Weis wird zuerst angesagt\n- Weitere gleichhohe oder niedrigere Weise dürfen danach gemeldet werden\n- Zweite Weise müssen bis zum zweiten Stich deklariert sein\n- Überhörte Weise können bis zum zweiten Stich erfragt werden\n- Unnötige Weismeldungen sind nicht gestattet\n- Verratene Karten von ungültigen Weisen verlieren ihren Stechwert",
+    "url": "https://jasswiki.ch/weis-regeln-weis-arten-allgemeine-weis",
+    "metadata": {
+      "category": {
+        "main": "Weis-Regeln",
+        "sub": "Weis-Arten",
+        "topic": "Allgemeine Weis"
+      },
+      "keywords": [
+        "weis",
+        "regeln",
+        "grundregeln",
+        "vorschriften",
+        "melden",
+        "ansagen",
+        "zeigen",
+        "deklarieren"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_conventions",
+    "title": "Konventionen",
+    "slug": "schieber-schieber-taktiken-konventionen",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Konventionen\n\nKonventionen sind Regeln an die sich alle halten sollten, damit man sich \"blind\" versteht. Konventionen sind das A und O beim Jassen. Wer die Konventionen kennt, muss weniger überlegen und kann sich strikt daran halten. Die meisten Fehler passieren nämlich paradoxerweise aus Angst, einen Fehler zu machen. Der zweithäufigste Grund ist, dass der Spieler zu viel überlegt. Für beide Fälle helfen Konventionen, an die man sich strikt halten kann. Das macht das Jassleben viel einfacher!\n\nDer Schieber ist ein Teamspiel. Deshalb ist es besonders wichtig, dass man miteinander kommuniziert und sich versteht – ohne etwas zu sagen – indem man die Karten sprechen lässt.",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-konventionen",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Konventionen"
+      },
+      "keywords": [
+        "konventionen",
+        "regeln",
+        "teamspiel",
+        "kommunikation",
+        "verständnis",
+        "taktik",
+        "grundlagen",
+        "basis"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_trump",
+    "title": "Trumpfansagen",
+    "slug": "schieber-schieber-taktiken-trumpfansagen",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Trumpfansagen - Wichtige Konventionen\n\nTrumpfansagen Vorhand:\n- Mit Buur und Näll: Zuerst das Nell ausspielen\n- Grundsätzlich zweimal austrumpfen, ausser es gibt Indizien dass Gegner keine Trümpfe mehr hat\n\nNachhand-Spieler Konventionen:\n- Mit 1 Trumpf: Logisch, dann spielt er diesen\n- Mit 2 Trümpfen: Zuerst den höheren spielen! Ausnahmen bilden Buur/Näll\n- Mit 3+ Trümpfen: Zuerst den tiefsten Trumpf spielen\n\nBeispiel: Wenn der Nachhand-Spieler König und Siebner hat: König spielen! Damit weiss der Vorhand-Spieler, dass sein Partner nur einen oder zwei Trümpfe hat. Damit ist für ihn klar, dass er weiter austrumpfen muss!\n\nTrumpfansagen Rückhand:\nIn diesem Fall spielt der Partner zuerst aus. Es gilt dieselbe Konvention:\n- Hat er Buur oder Näll: Ausspielen! Eine Ausnahme kann bilden, wenn er den blutten Buur hat\n- Hat er 2 Trümpfe: Zuerst den hohen Trumpf ausspielen\n- Hat 3+ Trümpfe: Zuerst den tiefen Trumpf ausspielen\n\nPraxis-Beispiel:\nDer Rückhand-Spieler sagt Schilten Trumpf an. Sein Partner spielt zuerst ein Sechser aus. Der Trump-Spieler hält selber Buur, Näll zu viert. Alle Spieler geben im ersten Stich an. Der Trumpf-Spieler weiss nun: Entweder hat sein Partner nur 1 Trumpf... ODER: Er hat 3 Trümpfe und somit haben wir alle Trümpfe zusammen! Das heisst: Nicht mehr autrumpfen und auf Matsch spielen.\n\nWichtig: In diesem Fall immer vom \"Best Case\" ausgehen! Die meisten Spieler haben Angst Fehler zu machen und spielen zu defensiv.",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-trumpfansagen",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Trumpfansagen"
+      },
+      "keywords": [
+        "trumpf",
+        "bauer",
+        "nell",
+        "ansage",
+        "vorhand",
+        "nachhand",
+        "partner",
+        "kommunikation"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_anziehen",
+    "title": "Anziehen",
+    "slug": "schieber-schieber-taktiken-anziehen",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Anziehen und Verwerfen sind die wichtigsten Mittel, mit seinen Karten zu kommunizieren. Anziehen gilt vor allem für jenes Team das am Drücker ist, also den Trumpf angesagt hat.\n\nWichtigste Konventionen beim Anziehen:\n- Die Farbe von der ersten Karte, die ein Spieler anzieht, ist die Farbe bei der er stark ist. Das gilt ohne Ausnahme\n- WICHTIG: Man zieht NICHT mit der höchsten Karte an! Es sei denn, man hat Ass und König von der gleichen Farbe - wenn man dann das Ass spielt wird signalsiert, dass man auch den König in der Hand hält.\n- Bei mehreren hohen Karten (zum Beispiel König, Under, Siebner) mit dem Under anziehen\n- Der Under ist die ideale Karte zum Anziehen:- \n- Hoch genug um wichtige Karten zu locken\n- Tief genug um später noch höhere Karten zu haben\nAnziehen mit Under verhindert billige Stiche (zum Beispiel Banner)\n- Ist die angezogene Farbe durch, wiederholt sich das Spiel und man zieht seine zweitstärkste Farbe an",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-anziehen",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Anziehen"
+      },
+      "keywords": [
+        "anziehen",
+        "farbe",
+        "under",
+        "stark",
+        "schwach",
+        "erstausspiel",
+        "kommunikation",
+        "partner",
+        "kartenziehen",
+        "farbanspielen",
+        "farbkommunikation",
+        "nicht höchste",
+        "mittlere karte"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_verwerfen",
+    "title": "Verwerfen",
+    "slug": "schieber-schieber-taktiken-verwerfen",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Neben Anziehen ist Verwerfen das wichtigste Element beim Schieber, um zu kommunizieren.\n\nOffensives Team (Trumpf-Ansager):\n- Die Farbe die man als erstes verwirft/verrührt, ist die schwächste Farbe des Spielers\n- Gilt ohne Ausnahme und ohne Wenn und Aber!\n- Ist einmal eine Farbe verworfen, interpretiert das der Partner als \"tote Farbe\"\n- Partner wird diese Farbe nicht mehr anziehen (ausser er ist selber gut bestückt und Partner hält noch Trumpf)\n\nDefensives Team:\n- Grundsätzlich auch schwächste Farbe verwerfen\n- Teams in der Defensive kommunizieren so ihre Stärken/Schwächen\n- Gegen Ende einer Runde essenziell für Matsch-Verteidigung\n- Nichts dümmeres als wenn ein Team dieselbe Farbe hält\n- Beispiel: Wenn Partner alles ausser Rosen verworfen hat, eigenen Rosen-Bock aufgeben und zweite Farbe verteidigen\n\nVerwerfen als List:\n- In Taktikrunden kann Verwerfen als Täuschung eingesetzt werden\n- Nur wenn Partner nicht in die Irre geführt wird\n- Beispiel: Strasse vom Schellen Ass verwerfen um Gegner zu täuschen",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-verwerfen",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Verwerfen"
+      },
+      "keywords": [
+        "verwerfen",
+        "verrühren",
+        "verruehren",
+        "abruehren",
+        "kommunikation",
+        "taktik",
+        "farbe",
+        "schwach",
+        "stark",
+        "teamspiel",
+        "defensive"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_querverwerfen",
+    "title": "Querverwerfen",
+    "slug": "schieber-schieber-taktiken-querverwerfen",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Querverwerfen - Fortgeschrittene Taktik\n\nEine spezielle Form des Verwerfens für Fortgeschrittene:\n- Beim Team das Trumpf ansagt: \"Quer\" oder \"Kreuz\" verwerfen möglich\n- Rose/Kreuz verwerfen signalisiert Eichel/Schaufel-Stärke und umgekehrt\n- Besonders beim Turnierjassen wichtig, wo jeder Punkt zählt\n- Bei Privatjassen mit Matsch-Bonus weniger sinnvoll\n- Zwingt Spieler die Konvention durchzuziehen\n- Gefahr: Karten die für späteren Matsch wichtig wären müssen verworfen werden\n- Nur wenn alle Spieler die Konvention kennen\n- Für geübte Jasser wird auch ohne Querverwerfen oft klar, welche Farbe gesucht wird",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-querverwerfen",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Querverwerfen"
+      },
+      "keywords": [
+        "querverwerfen",
+        "verrühren",
+        "fortgeschritten",
+        "turnier",
+        "taktik",
+        "rose",
+        "kreuz",
+        "eichel",
+        "schaufel",
+        "konvention"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.8,
+      "difficulty": 2
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_basics",
+    "title": "Grundlegende Taktiken",
+    "slug": "schieber-schieber-taktiken-grundlegende-taktiken",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Grundlegende Taktiken\n\nDie wichtigsten taktischen Grundregeln beim Schieber:\n\n- Kommunikation mit dem Partner:\n- Erste Karte zeigt oft Stärke oder Schwäche\n- Abwerfen gibt wichtige Hinweise\n- Stechen oder nicht stechen als Signal\n\n- Timing ist alles:\n- Wann Trumpf einsetzen\n- Wann hohe Karten spielen\n- Wann Punkte sammeln\n\n- Kartengedächtnis:\n- Gespielte Karten merken\n- Trumpfkarten zählen\n- Punktekarten tracken",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-grundlegende-taktiken",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Grundlegende Taktiken"
+      },
+      "keywords": [
+        "taktik",
+        "strategie",
+        "grundregel",
+        "kommunikation",
+        "timing",
+        "gedächtnis",
+        "partner",
+        "signal",
+        "karten",
+        "merken",
+        "spielweise",
+        "basis"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_partner",
+    "title": "Partnertaktiken",
+    "slug": "schieber-schieber-taktiken-partnertaktiken",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Partnertaktiken\n\nDie wichtigsten Regeln der Partnerkommunikation:\n\n- Erste Karte:\n- Zeigt die stärkste Farbe\n- Gibt Hinweise auf Trumpfstärke\n- Signalisiert Spielstrategie\n\n- Abwerfen:\n- Erste abgeworfene Farbe ist schwächste\n- Zeigt dem Partner \"tote\" Farben\n- Hilft bei der Matschverteidigung\n\n- Stechen:\n- Hoher Trumpf = wenige Trümpfe\n- Tiefer Trumpf = viele Trümpfe\n- Nicht stechen = keine Trümpfe mehr\n\n- Timing:\n- Schnelles Spiel = starkes Blatt\n- Zögern = Unsicherheit\n- Konstantes Tempo = neutral",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-partnertaktiken",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Partnertaktiken"
+      },
+      "keywords": [
+        "timing",
+        "tempo",
+        "geschwindigkeit",
+        "spielstärke",
+        "kommunikation",
+        "partner",
+        "taktik",
+        "signal",
+        "teamspiel",
+        "strategie",
+        "spielweise",
+        "verständigung"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.95,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_scoring",
+    "title": "Punktetaktiken",
+    "slug": "schieber-schieber-taktiken-punktetaktiken",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Punktetaktiken\n\nOptimale Punktesammlung:\n\nGrundregeln:\n- Hohe Karten früh spielen\n- Könige vor Zehnern\n- Ass-König Kombinationen nutzen\n\nTrumpfpunkte:\n- Bauer (20) und Nell (14) sichern\n- Trumpf-Ass (11) strategisch einsetzen\n- Trumpf-König (4) für Stiche sparen\n\nSpezielle Punktekarten:\n- Unter (3) für Kommunikation\n- Banner (10) für Stiche\n- Sechser/Siebner für Matsch\n\nTiming der Punkte:\n- Früh: Bei starkem Blatt\n- Spät: Bei Kontrollblatt\n- Gezielt: Bei Matchentscheidung",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-punktetaktiken",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Punktetaktiken"
+      },
+      "keywords": [
+        "punkte",
+        "sammeln",
+        "strategie",
+        "karten",
+        "trumpf",
+        "timing",
+        "stich",
+        "wert",
+        "bauer",
+        "nell",
+        "ass",
+        "könig",
+        "unter",
+        "banner",
+        "matsch",
+        "kontrolle"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 1,
+      "difficulty": 1
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_advanced",
+    "title": "Fortgeschrittene Taktiken",
+    "slug": "schieber-schieber-taktiken-fortgeschrittene-taktiken",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Fortgeschrittene Taktiken\n\nFür erfahrene Spieler:\n\nPsychologische Aspekte:\n- Gegner verwirren durch unerwartete Züge\n- Tempo variieren zur Täuschung\n- Selbstsicher wirken trotz schwachem Blatt\n\nKartengedächtnis Plus:\n- Gespielte Karten nach Farben sortiert merken\n- Punktetotal der Gegner schätzen\n- Wahrscheinlichkeiten berechnen\n\nMatchstrategie:\n- Risiko nach Spielstand anpassen\n- Gegnerische Schwächen ausnutzen\n- Taktische Ansagen (zum Beispiel Undenufe statt Trumpf)\n\nSpezielle Techniken:\n- Querverwerfen gezielt einsetzen\n- Doppelter Kreuzschnitt\n- Verzögertes Trumpfen\n- Matsch vorbereiten während Normalspiel",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-fortgeschrittene-taktiken",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Fortgeschrittene Taktiken"
+      },
+      "keywords": [
+        "querverwerfen",
+        "kreuzschnitt",
+        "trumpfen",
+        "matsch",
+        "technik",
+        "fortgeschritten",
+        "taktik",
+        "strategie",
+        "spezial",
+        "experte",
+        "profi",
+        "meister"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 2
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  },
+  {
+    "id": "schieber_taktiken_special",
+    "title": "Spezielle Taktiken",
+    "slug": "schieber-schieber-taktiken-spezielle-taktiken",
+    "type": "strategie",
+    "variant": "Schieber",
+    "official": false,
+    "language": "de-CH",
+    "version": "1.0.0",
+    "text": "Spezielle Taktiken\n\nFür erfahrene Spieler:\n\nPsychologische Aspekte:\n- Gegner verwirren durch unerwartete Züge\n- Tempo variieren zur Täuschung\n- Selbstsicher wirken trotz schwachem Blatt\n\nKartengedächtnis Plus:\n- Gespielte Karten in Stichgruppen merken, also immer vier Karten zusammen\n- Punktetotal der Gegner kennen\n- Wahrscheinlichkeiten berechnen\n\nMatchstrategie:\n- Risiko nach Spielstand anpassen\n- Gegnerische Schwächen ausnutzen\n- Taktische Ansagen (zum Beispiel Undenufe statt Trumpf)\n\nSpezielle Techniken:\n- Querverwerfen gezielt einsetzen\n- Doppelter Kreuzschnitt\n- Verzögertes Trumpfen\n- Matsch vorbereiten während Normalspiel",
+    "url": "https://jasswiki.ch/schieber-schieber-taktiken-spezielle-taktiken",
+    "metadata": {
+      "category": {
+        "main": "Schieber",
+        "sub": "Schieber-Taktiken",
+        "topic": "Spezielle Taktiken"
+      },
+      "keywords": [
+        "querverwerfen",
+        "kreuzschnitt",
+        "trumpfen",
+        "matsch",
+        "technik",
+        "fortgeschritten",
+        "taktik",
+        "strategie",
+        "spezial",
+        "experte",
+        "profi",
+        "meister"
+      ],
+      "situations": [
+        "LEARNING"
+      ],
+      "importance": 0.9,
+      "difficulty": 2
+    },
+    "rule_data": {},
+    "exceptions": [],
+    "synonyms": [],
+    "see_also": [],
+    "citations": [],
+    "notes": null,
+    "updated_by": "agent2",
+    "updated_at": "2025-10-30T02:15:14.227Z"
+  }
+]

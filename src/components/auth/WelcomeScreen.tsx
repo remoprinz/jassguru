@@ -257,41 +257,27 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* 📱 MOBILE VERSION */}
-      <div className="lg:hidden flex flex-col items-center justify-center px-4 py-8" style={{ minHeight: '100lvh' }}>
-        <motion.div
-          initial={{opacity: 0, scale: 0.9}}
-          animate={{opacity: 1, scale: 1}}
-          transition={{duration: 0.3}}
-          className="w-full max-w-md bg-gray-800 rounded-xl p-6 shadow-2xl space-y-6 my-2"
-        >
-          <div className="flex flex-col space-y-3">
-            <div className="flex justify-center">
-              <div className="relative w-24 h-24 mb-2">
-                <Image
-                  src="/welcome-guru.png"
-                  alt="Jass Kreidetafel"
-                  fill={true}
-                  className="object-contain"
-                  priority
-                />
+      {/* 📱 MOBILE — PWA: Auf Kreidetafel, voller Content, kein LegalFooter */}
+      {displayMode === "pwa" ? (
+        <div className="lg:hidden flex flex-col items-center justify-center px-4 py-8" style={{ minHeight: '100dvh' }}>
+          <motion.div
+            initial={{opacity: 0, scale: 0.9}}
+            animate={{opacity: 1, scale: 1}}
+            transition={{duration: 0.3}}
+            className="w-full max-w-md p-6 space-y-6 my-2"
+          >
+            <div className="flex flex-col space-y-3">
+              <div className="flex justify-center">
+                <div className="relative w-24 h-24 mb-2">
+                  <Image src="/welcome-guru.png" alt="Jass Guru" fill={true} className="object-contain" priority />
+                </div>
               </div>
-            </div>
 
-            <h1 className="text-3xl font-bold text-white text-center">
-              {displayMode === "pwa" ? "Von Jassern für Jasser" : "Jassen ist der einzige Sport ohne Rangliste"}
-            </h1>
-            
-            <p className="text-base text-gray-300 text-center -mt-2 leading-relaxed">
-              {displayMode === "pwa" ? null : (
-                <>
-                  Jassguru ändert das. Wir erfassen die Spiele von deiner Jassgruppe digital und liefern Profi-Statistiken — damit endlich klar wird, wer nicht nur schnorren, sondern auch jassen kann.
-                </>
-              )}
-            </p>
+              <h1 className="text-3xl font-bold text-white text-center">
+                Von Jassern für Jasser
+              </h1>
 
-            <div className="text-gray-300 text-left w-full pl-1">
-              {displayMode === "pwa" ? (
+              <div className="text-gray-300 text-left w-full pl-1">
                 <div className="text-left">
                   <div className="mb-3">
                     Bereit für den nächsten Jass mit deinen Freunden? Jetzt anmelden und losjassen.
@@ -303,174 +289,137 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
                     <strong className="text-white">Neu hier?</strong> Als Gast spielen und die Jasstafel kennenlernen.
                   </div>
                 </div>
-              ) : (
-                <div className="text-left">
-                  <div className="mb-4">
-                    <strong className="text-white">Sieh selbst, was dich erwartet:</strong>
-                  </div>
-                  
-                  <div className="space-y-0.5">
-                    <div>
-                      <a 
-                        href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
-                      >
-                        <span>👉</span>
-                        <span>Die ewige Gruppen-Rangliste</span>
-                      </a>
-                    </div>
-                    <div>
-                      <a 
-                        href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
-                      >
-                        <span>🙍‍♂️</span>
-                        <span>Profil & Bestleistungen</span>
-                      </a>
-                    </div>
-                    <div>
-                      <a 
-                        href="https://jassguru.ch/view/tournament/6RdW4o4PRv0UzsZWysex/" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
-                      >
-                        <span>🏆</span>
-                        <span>Turniere & Verläufe</span>
-                      </a>
-                    </div>
-                    <div>
-                      <Link href="/features" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0">
-                        <span>👁️</span>
-                        <span>Die interaktive Feature-Tour</span>
-                      </Link>
-                    </div>
-                    <div>
-                      <a 
-                        href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru" 
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"
-                      >
-                        <span>💬</span>
-                        <span>Frag den Jass-Guru (ChatGPT)</span>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-4">
-            {displayMode === "invite" || displayMode === "pwa" ? (
-              <Button
-                onClick={handleLogin}
-                className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg rounded-xl shadow-lg"
-              >
+            <div className="space-y-4">
+              <Button onClick={handleLogin} className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg rounded-xl shadow-lg">
                 Anmelden
               </Button>
-            ) : (
-              <Button
-                onClick={handleRegister}
-                className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg rounded-xl shadow-lg"
-              >
-                Registrieren
+              <Button onClick={handleGuestPlay} disabled={isGuestLoading} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-14 text-lg rounded-xl shadow-lg">
+                {isGuestLoading ? (<><Loader2 className="mr-2 h-5 w-5 animate-spin" />Jasstafel laden...</>) : "Als Gast spielen"}
               </Button>
-            )}
-
-            {displayMode === "invite" ? (
-              <Button
-                onClick={handleRegister}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg rounded-xl shadow-lg"
-              >
-                Registrieren
-              </Button>
-            ) : (
-              <Button
-                onClick={!isPWA() ? () => router.push('/onboarding_tutorial') : handleGuestPlay}
-                disabled={isGuestLoading}
-                className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-14 text-lg rounded-xl shadow-lg"
-              >
-                {isGuestLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Jasstafel laden...
-                  </>
-                ) : (
-                  !isPWA() ? "App herunterladen" : "Als Gast spielen"
-                )}
-              </Button>
-            )}
-          </div>
-
-          <div className="pt-2 text-center text-gray-500 text-sm">
-            {displayMode === "invite" || displayMode === "pwa" ? (
-              <p>Noch kein Konto?{" "}
-                                <a 
-                  onClick={handleRegister}
-                  href="#"
-                  className="text-blue-400 hover:underline cursor-pointer">
-                  Jetzt registrieren
-                </a>
-              </p>
-            ) : (
-              <p>Bereits ein Konto?{" "}
-                                <a 
-                  onClick={handleLogin}
-                  href="#"
-                  className="text-blue-400 hover:underline cursor-pointer">
-                  Jetzt anmelden
-                </a>
-              </p>
-            )}
-          </div>
-          
-          {/* Service-Bereich: JassWiki & Support */}
-          <div className="pt-6 mt-6 border-t border-gray-700/50">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Link 1: JassWiki */}
-              <a
-                href="https://jasswiki.ch/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all"
-              >
-                <BookOpen className="w-6 h-6 text-green-500 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-semibold text-gray-200 group-hover:text-green-400 transition-colors">
-                  Jass-Wiki
-                </span>
-                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">
-                  Alles rund ums Jassen:<br />Regeln, Varianten & Taktiken
-                </span>
-              </a>
-
-              {/* Link 2: Hilfe & Support */}
-              <Link
-                href="/support"
-                className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all"
-              >
-                <HelpCircle className="w-6 h-6 text-blue-500 mb-1.5 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-semibold text-gray-200 group-hover:text-blue-400 transition-colors">
-                  Hilfe & Support
-                </span>
-                <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">
-                  Alles zur Jassguru App:<br />FAQ, Anleitungen & Support
-                </span>
-              </Link>
             </div>
-          </div>
-        </motion.div>
 
-        {/* LEGAL FOOTER */}
-        <div className="mb-6">
-          <LegalFooter />
+            <div className="pt-2 text-center text-gray-500 text-sm">
+              <p>Noch kein Konto?{" "}<a onClick={handleRegister} href="#" className="text-blue-400 hover:underline cursor-pointer">Jetzt registrieren</a></p>
+            </div>
+
+            {/* Service-Bereich */}
+            <div className="pt-6 mt-6 border-t border-gray-700/50">
+              <div className="grid grid-cols-2 gap-3">
+                <a href="https://jasswiki.ch/" target="_blank" rel="noopener noreferrer" className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all">
+                  <BookOpen className="w-6 h-6 text-green-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold text-gray-200 group-hover:text-green-400 transition-colors">Jass-Wiki</span>
+                  <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">Alles rund ums Jassen:<br />Regeln, Varianten & Taktiken</span>
+                </a>
+                <Link href="/support" className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all">
+                  <HelpCircle className="w-6 h-6 text-blue-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold text-gray-200 group-hover:text-blue-400 transition-colors">Hilfe & Support</span>
+                  <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">Alles zur Jassguru App:<br />FAQ, Anleitungen & Support</span>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
         </div>
-      </div>
+      ) : (
+        /* 📱 MOBILE — INVITE + DEFAULT (mit Card) */
+        <div className="lg:hidden flex flex-col items-center justify-center px-4 py-8" style={{ minHeight: '100lvh' }}>
+          <motion.div
+            initial={{opacity: 0, scale: 0.9}}
+            animate={{opacity: 1, scale: 1}}
+            transition={{duration: 0.3}}
+            className="w-full max-w-md bg-gray-800 rounded-xl p-6 shadow-2xl space-y-6 my-2"
+          >
+            <div className="flex flex-col space-y-3">
+              <div className="flex justify-center">
+                <div className="relative w-24 h-24 mb-2">
+                  <Image src="/welcome-guru.png" alt="Jass Kreidetafel" fill={true} className="object-contain" priority />
+                </div>
+              </div>
+
+              <h1 className="text-3xl font-bold text-white text-center">
+                {displayMode === "invite" ? "Jassen ist der einzige Sport ohne Rangliste" : "Jassen ist der einzige Sport ohne Rangliste"}
+              </h1>
+
+              <p className="text-base text-gray-300 text-center -mt-2 leading-relaxed">
+                Jassguru ändert das. Wir erfassen die Spiele von deiner Jassgruppe digital und liefern Profi-Statistiken — damit endlich klar wird, wer nicht nur schnorren, sondern auch jassen kann.
+              </p>
+
+              <div className="text-gray-300 text-left w-full pl-1">
+                {displayMode === "invite" ? (
+                  <div className="text-left">
+                    <div className="mb-3">
+                      Bereit für den nächsten Jass mit deinen Freunden? Jetzt anmelden und losjassen.
+                    </div>
+                    <div className="mb-4">
+                      <strong className="text-white">Tipp:</strong> Alle Mitspieler können sich simultan einloggen.
+                    </div>
+                    <div>
+                      <strong className="text-white">Neu hier?</strong> Als Gast spielen und die Jasstafel kennenlernen.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-left">
+                    <div className="mb-4">
+                      <strong className="text-white">Sieh selbst, was dich erwartet:</strong>
+                    </div>
+                    <div className="space-y-0.5">
+                      <div><a href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"><span>👉</span><span>Die ewige Gruppen-Rangliste</span></a></div>
+                      <div><a href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"><span>🙍‍♂️</span><span>Profil & Bestleistungen</span></a></div>
+                      <div><a href="https://jassguru.ch/view/tournament/6RdW4o4PRv0UzsZWysex/" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"><span>🏆</span><span>Turniere & Verläufe</span></a></div>
+                      <div><Link href="/features" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"><span>👁️</span><span>Die interaktive Feature-Tour</span></Link></div>
+                      <div><a href="https://chatgpt.com/g/g-69219897884881918763e35fccae748e-jassguru" target="_blank" rel="noopener noreferrer" className="flex items-center space-x-1.5 text-sm text-blue-400 hover:text-blue-300 hover:underline transition-colors py-0"><span>💬</span><span>Frag den Jass-Guru (ChatGPT)</span></a></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {displayMode === "invite" ? (
+                <>
+                  <Button onClick={handleLogin} className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg rounded-xl shadow-lg">Anmelden</Button>
+                  <Button onClick={handleRegister} className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg rounded-xl shadow-lg">Registrieren</Button>
+                </>
+              ) : (
+                <>
+                  <Button onClick={handleRegister} className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg rounded-xl shadow-lg">Registrieren</Button>
+                  <Button onClick={() => router.push('/onboarding_tutorial')} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white h-14 text-lg rounded-xl shadow-lg">App herunterladen</Button>
+                </>
+              )}
+            </div>
+
+            <div className="pt-2 text-center text-gray-500 text-sm">
+              {displayMode === "invite" ? (
+                <p>Noch kein Konto?{" "}<a onClick={handleRegister} href="#" className="text-blue-400 hover:underline cursor-pointer">Jetzt registrieren</a></p>
+              ) : (
+                <p>Bereits ein Konto?{" "}<a onClick={handleLogin} href="#" className="text-blue-400 hover:underline cursor-pointer">Jetzt anmelden</a></p>
+              )}
+            </div>
+
+            {/* Service-Bereich */}
+            <div className="pt-6 mt-6 border-t border-gray-700/50">
+              <div className="grid grid-cols-2 gap-3">
+                <a href="https://jasswiki.ch/" target="_blank" rel="noopener noreferrer" className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all">
+                  <BookOpen className="w-6 h-6 text-green-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold text-gray-200 group-hover:text-green-400 transition-colors">Jass-Wiki</span>
+                  <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">Alles rund ums Jassen:<br />Regeln, Varianten & Taktiken</span>
+                </a>
+                <Link href="/support" className="group flex flex-col items-center text-center p-3 rounded-xl hover:bg-gray-700/50 transition-all">
+                  <HelpCircle className="w-6 h-6 text-blue-500 mb-1.5 group-hover:scale-110 transition-transform" />
+                  <span className="text-sm font-semibold text-gray-200 group-hover:text-blue-400 transition-colors">Hilfe & Support</span>
+                  <span className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors mt-0.5">Alles zur Jassguru App:<br />FAQ, Anleitungen & Support</span>
+                </Link>
+              </div>
+            </div>
+          </motion.div>
+
+          <div className="mb-6">
+            <LegalFooter />
+          </div>
+        </div>
+      )}
 
       {/* 💻 DESKTOP: Zentrierter Login für PWA/Invite */}
       <div className="hidden lg:flex lg:items-center lg:justify-center" style={{ minHeight: '100lvh' }}>

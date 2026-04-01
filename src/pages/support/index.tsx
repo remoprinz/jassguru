@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -43,6 +43,8 @@ export default function SupportPage() {
     router.push(`/support/${article.id}`);
   };
 
+  const resultsRef = useRef<HTMLDivElement>(null);
+
   const handleCategorySelect = (categoryId: string | null) => {
     setQuery('');
     setSelectedCategory(categoryId);
@@ -50,6 +52,15 @@ export default function SupportPage() {
       trackSupportCategoryFilter(categoryId);
     }
   };
+
+  // Auto-scroll zu Ergebnissen bei Kategorie-Auswahl
+  useEffect(() => {
+    if (selectedCategory && resultsRef.current) {
+      requestAnimationFrame(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }, [selectedCategory]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -100,7 +111,7 @@ export default function SupportPage() {
             onSelectCategory={handleCategorySelect}
           />
 
-          <div className="mb-4 flex items-center justify-between">
+          <div ref={resultsRef} className="mb-4 flex items-center justify-between scroll-mt-20">
             <h2 className="text-lg font-semibold text-white">
               {filteredArticles.length} {filteredArticles.length === 1 ? 'Ergebnis' : 'Ergebnisse'}
             </h2>

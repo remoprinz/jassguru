@@ -769,10 +769,10 @@ const Calculator: React.FC<CalculatorProps> = ({
               type="text"
               value={value}
               readOnly
-              className="w-full bg-black/30 text-white text-6xl p-4 rounded-xl select-none text-center font-bold font-sans"
+              className="w-full bg-gray-700/45 border border-gray-600/25 shadow-inner text-white text-6xl p-4 rounded-xl select-none text-center font-bold font-sans"
             />
             <div className="flex justify-between items-stretch w-full gap-2 h-12">
-              <div className="w-1/3 bg-black/30 text-white py-1 pl-2.5 pr-2.5 rounded-xl select-none flex items-center justify-end relative min-w-0">
+              <div className="w-1/3 bg-gray-700/45 border border-gray-600/25 shadow-inner text-white py-1 pl-2.5 pr-2.5 rounded-xl select-none flex items-center justify-end relative min-w-0">
                 <div className="text-xs uppercase tracking-wider absolute top-0 left-2.5 text-stone-400">
                   Gegner:
                 </div>
@@ -781,7 +781,7 @@ const Calculator: React.FC<CalculatorProps> = ({
                   {opponentValue}
                 </div>
               </div>
-              {/* Matsch: bg-gray-700 (Input-Zone) zwischen bg-black/30 (Output-Zone) → farblich klar klickbar */}
+              {/* Matsch: gleiche Graustufe wie Ziffernblock; Displays leicht aufgehellt (gray-700/45) → weniger Kontrast */}
               <button
                 onMouseDown={() => {
                   if (!touchStartedRef.current) startMatschCharge();
@@ -815,7 +815,7 @@ const Calculator: React.FC<CalculatorProps> = ({
               >
                 Matsch
               </button>
-              <div className="w-1/3 bg-black/30 text-white py-1 pl-2.5 pr-2.5 rounded-xl select-none flex items-center justify-end relative min-w-0">
+              <div className="w-1/3 bg-gray-700/45 border border-gray-600/25 shadow-inner text-white py-1 pl-2.5 pr-2.5 rounded-xl select-none flex items-center justify-end relative min-w-0">
                 <div className="text-xs uppercase tracking-wider absolute top-0 left-2.5 text-stone-400">
                   Total:
                 </div>

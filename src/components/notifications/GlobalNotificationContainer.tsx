@@ -13,6 +13,7 @@ import {
   FaExclamationTriangle,
   FaCheckCircle,
   FaInfoCircle,
+  FaApple,
 } from "react-icons/fa";
 
 // AUTOMATISCHES AUSBLENDEN KOMPLETT ENTFERNT - Benutzer muss immer explizit "Verstanden" klicken!
@@ -143,8 +144,28 @@ const GlobalNotificationContainer: React.FC = () => {
             className="bg-gray-800 p-6 rounded-lg shadow-lg max-w-xs w-full relative text-white z-10"
           >
             <div className="flex flex-col items-center justify-center mb-4">
-              {renderIcon(notification)}
-              <p className="text-center mb-6 mt-4">{notification.message}</p>
+              {notification.isIOSNotification ? (
+                <>
+                  <FaApple className="w-10 h-10 text-white/80 mb-3" />
+                  <h3
+                    className="text-white text-center mb-3"
+                    style={{
+                      fontFamily: "'Capita', Georgia, serif",
+                      fontWeight: 700,
+                      fontSize: '20px',
+                      lineHeight: 1.3,
+                    }}
+                  >
+                    Bildschirmsperre deaktivieren
+                  </h3>
+                  <p className="text-center text-white/70 text-sm whitespace-pre-line mb-2">{notification.message}</p>
+                </>
+              ) : (
+                <>
+                  {renderIcon(notification)}
+                  <p className="text-center mb-6 mt-4">{notification.message}</p>
+                </>
+              )}
             </div>
 
             {/* Checkbox (falls vorhanden) */}

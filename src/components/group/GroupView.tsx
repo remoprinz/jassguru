@@ -145,6 +145,9 @@ interface GroupViewProps {
   handleCloseInviteModal: () => void;
   isGeneratingInvite: boolean;
   handleGenerateNewInvite: () => void;
+
+  // Öffentliche JVS-Badges (für public group view)
+  publicJvsBadges?: Record<string, { isMember: boolean; memberNumber?: number | null; season?: number | null }>;
 }
 
 export const GroupView: React.FC<GroupViewProps> = ({
@@ -213,6 +216,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
   handleCloseInviteModal,
   isGeneratingInvite,
   handleGenerateNewInvite,
+  publicJvsBadges,
 }) => {
   // 🎨 RESPONSIVE LAYOUT HOOK - Desktop/Tablet/Mobile Optimierung
   const layout = useResponsiveLayout();
@@ -230,7 +234,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
           image: "/welcome-guru.png",
           message: (
             <span>
-              Willkommen bei jassguru.ch! 🎉<br />
+              Willkommen bei jassguru.ch!<br />
               <br />
               Schön, dass du dabei bist! Unten rechts in der Navigation findest du alles, was du wissen musst.
             </span>
@@ -1769,26 +1773,81 @@ export const GroupView: React.FC<GroupViewProps> = ({
             {currentGroup?.name ?? (groupStatus === 'loading' ? <Skeleton className={`${layout.skeletonTitleHeight} w-48 mx-auto`} /> : 'Keine Gruppe ausgewählt')}
           </h1>
 
-          {/* JVS-verifiziert Badge — wenn ein Admin der Gruppe JVS-Mitglied ist */}
-          {jvsMembership?.isMember && isAdmin && currentGroup && (
+          {/* JVS Badge — eigene Ansicht: aktueller User ist Admin + JVS-Mitglied */}
+          {!isPublicView && jvsMembership?.isMember && isAdmin && currentGroup && (
             <div className="flex items-center justify-center gap-1.5 mb-1">
               <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-3 py-0.5 text-xs font-medium text-blue-400">
                 <FaAward className="w-3 h-3" />
-                JVS-verifiziert
+                JVS{jvsMembership.season ? ` · Saison ${jvsMembership.season}` : ''}
               </span>
             </div>
           )}
 
-          <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-3`}>
+          {/* JVS Badge — öffentliche Ansicht: mindestens ein Mitglied ist JVS-Mitglied */}
+          {isPublicView && publicJvsBadges && (() => {
+            const firstBadge = Object.values(publicJvsBadges).find(b => b.isMember);
+            if (!firstBadge) return null;
+            return (
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-600/20 border border-blue-500/30 px-3 py-0.5 text-xs font-medium text-blue-400">
+                  <FaAward className="w-3 h-3" />
+                  JVS{firstBadge.season ? ` · Saison ${firstBadge.season}` : ''}
+                </span>
+              </div>
+            );
+          })()}
+
+          {/* Kompakte Gruppenstatistik: unter Badge/Titel, vor Beschreibung — Reihenfolge Partien · Spiele · Turniere */}
+          {currentGroup && groupStats && (() => {
+            const segments: { key: string; text: string }[] = [];
+            if (groupStats.sessionCount > 0) {
+              segments.push({
+                key: 'parties',
+                text: `${groupStats.sessionCount} ${groupStats.sessionCount === 1 ? 'Partie' : 'Partien'}`,
+              });
+            }
+            if (groupStats.gameCount > 0) {
+              segments.push({
+                key: 'games',
+                text: `${groupStats.gameCount} ${groupStats.gameCount === 1 ? 'Spiel' : 'Spiele'}`,
+              });
+            }
+            if (groupStats.tournamentCount > 0) {
+              segments.push({
+                key: 'tournaments',
+                text: `${groupStats.tournamentCount} ${groupStats.tournamentCount === 1 ? 'Turnier' : 'Turniere'}`,
+              });
+            }
+            if (segments.length === 0) return null;
+            return (
+              <div
+                className={`flex flex-wrap items-center justify-center gap-x-2 gap-y-1 mt-1 mb-2 ${layout.smallTextSize} text-gray-400`}
+              >
+                {segments.map((seg, i) => (
+                  <React.Fragment key={seg.key}>
+                    {i > 0 ? (
+                      <span className="text-gray-600 select-none" aria-hidden>
+                        ·
+                      </span>
+                    ) : null}
+                    <span>{seg.text}</span>
+                  </React.Fragment>
+                ))}
+              </div>
+            );
+          })()}
+
+          <div className={`${layout.subtitleSize} text-gray-300 mx-auto max-w-xl break-words mt-1`}>
             {currentGroup ? (
-              <FormattedDescription 
-                description={currentGroup.description} 
-                className="mx-auto" 
+              <FormattedDescription
+                description={currentGroup.description}
+                className="mx-auto"
               />
             ) : groupStatus === 'loading' ? (
               <Skeleton className={`${layout.skeletonTextHeight} w-64 mx-auto`} />
             ) : null}
           </div>
+
           
           {/* ✅ SETUP-HINWEIS: Nur für Admins wenn < 4 Mitglieder */}
           {isAdmin && !membersLoading && members.length < 4 && (

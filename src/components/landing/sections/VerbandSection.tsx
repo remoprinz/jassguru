@@ -52,9 +52,9 @@ const VerbandSection: React.FC = () => {
             entwickelt für Jassgruppen in der ganzen Schweiz.
           </p>
 
-          {/* Lebendige Traditionen Badge */}
+          {/* JVS Logo */}
           <motion.a
-            href="https://www.lebendige-traditionen.ch/tradition/de/home/traditionen/jassen.html"
+            href="https://jassverband.ch"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-block hover:opacity-80 transition-opacity"
@@ -64,11 +64,11 @@ const VerbandSection: React.FC = () => {
             transition={{ duration: 0.5, delay: 0.15 }}
           >
             <Image
-              src="/logo_lebendige_traditionen_weiss.png"
-              alt="Jass ist als Lebendige Tradition der Schweiz anerkannt"
-              width={320}
-              height={160}
-              className="w-auto h-auto max-w-[180px] mx-auto opacity-70"
+              src="/images/logos/jvs-logo-farbig-weiss-kurz.svg"
+              alt="Jassverband Schweiz"
+              width={190}
+              height={82}
+              className="w-auto h-auto max-w-[120px] sm:max-w-[140px] mx-auto opacity-90"
             />
           </motion.a>
         </motion.div>

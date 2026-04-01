@@ -560,7 +560,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
           variants={screenVariants}
           transition={{ duration: 0.2, ease: "easeInOut" }}
         >
-          <div className="relative bg-gray-800 bg-opacity-95 rounded-xl p-6 w-full max-w-xs space-y-6 shadow-lg text-center max-h-[95vh] overflow-y-auto">
+          <div className="relative p-6 w-full max-w-xs space-y-6 text-center max-h-[95vh] overflow-y-auto">
             <Button variant="ghost" size="icon" onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10" aria-label="Schliessen">
               <X size={24}/>
             </Button>
@@ -658,7 +658,7 @@ const TournamentStartScreen: React.FC<TournamentStartScreenProps> = ({
               className={`w-full text-white text-lg font-bold py-3 px-8 rounded-xl shadow-lg transition-colors border-b-4 min-h-[56px] flex items-center justify-center ${
                 areAllSlotsFilled() && !isLoading && hasSelectedStartingPlayer
                   ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer" 
-                  : "bg-gray-500 border-gray-700 cursor-not-allowed opacity-70"
+                  : "bg-green-800 border-green-950 cursor-not-allowed opacity-70"
               }`}
               disabled={!areAllSlotsFilled() || isLoading || !hasSelectedStartingPlayer}
               title={

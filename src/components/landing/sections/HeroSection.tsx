@@ -183,7 +183,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
 
       {/* ── Figur → H1 → Sub → CTA (eine Spalte, kein Überlappen) ─ */}
       <div
-        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-4 sm:gap-5 md:gap-6 lg:gap-5 px-4 pointer-events-none [&_.hero-cta-stack]:pointer-events-auto"
+        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-4 sm:gap-5 md:gap-6 lg:gap-5 px-8 sm:px-6 lg:px-4 pointer-events-none"
         style={{ top: 'var(--hero-stack-top)' }}
       >
         <motion.div
@@ -250,36 +250,39 @@ const HeroSection: React.FC<HeroSectionProps> = ({ onInstall, onLogin }) => {
           </p>
         </motion.div>
 
-        <motion.div
-          className="hero-cta-stack flex w-full flex-col items-center gap-5"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.35 }}
-        >
-          <button
-            onClick={onInstall}
-            className="landing-cta-btn px-8 py-4 text-white font-bold rounded-full whitespace-nowrap"
-            style={{
-              fontSize: '17px',
-              ['--landing-cta-bg' as string]: '#16a34a',
-              ['--landing-cta-bg-hover' as string]: '#15803d',
-              ['--landing-cta-shadow' as string]: '0 2px 8px rgba(22, 163, 74, 0.3)',
-              ['--landing-cta-shadow-hover' as string]: '0 6px 18px rgba(22, 163, 74, 0.42)',
-            }}
-          >
-            App installieren
-            <svg className="w-5 h-5 ml-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-            </svg>
-          </button>
-          <button
-            onClick={onLogin}
-            className="text-white/60 hover:text-white text-sm transition-colors underline underline-offset-2"
-          >
-            Bereits ein Konto? Anmelden
-          </button>
-        </motion.div>
       </div>
+
+      {/* ── CTA — unabhängig positioniert, immer unter den Karten ── */}
+      <motion.div
+        className="absolute z-20 left-0 right-0 flex flex-col items-center gap-3 px-4"
+        style={{ bottom: 'var(--hero-cta-bottom)' }}
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.35 }}
+      >
+        <button
+          onClick={onInstall}
+          className="landing-cta-btn px-8 py-4 text-white font-bold rounded-full whitespace-nowrap"
+          style={{
+            fontSize: '17px',
+            ['--landing-cta-bg' as string]: '#16a34a',
+            ['--landing-cta-bg-hover' as string]: '#15803d',
+            ['--landing-cta-shadow' as string]: '0 2px 8px rgba(22, 163, 74, 0.3)',
+            ['--landing-cta-shadow-hover' as string]: '0 6px 18px rgba(22, 163, 74, 0.42)',
+          }}
+        >
+          App installieren
+          <svg className="w-5 h-5 ml-2 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+          </svg>
+        </button>
+        <button
+          onClick={onLogin}
+          className="text-white/60 hover:text-white text-sm transition-colors underline underline-offset-2"
+        >
+          Bereits ein Konto? Anmelden
+        </button>
+      </motion.div>
 
       {/* ── SCROLL INDICATOR ───────────────────────────────────── */}
       <motion.div

@@ -37,3 +37,31 @@ export async function checkJvsMembership(): Promise<JvsMembershipResult> {
     return { isMember: false };
   }
 }
+
+/**
+ * Öffentliche Badge-Infos für beliebige playerIds.
+ * Kein Auth nötig — gibt nur öffentlich sichtbare Daten zurück.
+ */
+export interface PublicJvsBadge {
+  isMember: boolean;
+  memberNumber?: number | null;
+  season?: number | null;
+}
+
+export async function getPublicJvsBadges(
+  playerIds: string[]
+): Promise<Record<string, PublicJvsBadge>> {
+  if (!playerIds || playerIds.length === 0) return {};
+  try {
+    const functions = getFunctions(firebaseApp, 'europe-west1');
+    const fn = httpsCallable<{ playerIds: string[] }, { badges: Record<string, PublicJvsBadge> }>(
+      functions,
+      'getPublicJvsBadges'
+    );
+    const result = await fn({ playerIds });
+    return result.data.badges;
+  } catch (error) {
+    console.error('[JVS] Public badge check failed:', error);
+    return {};
+  }
+}

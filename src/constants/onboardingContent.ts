@@ -77,13 +77,13 @@ export interface OnboardingContent {
 export const BROWSER_ONBOARDING = {
   iOS: {
     WELCOME_SCREEN: {
-      title: "Jetzt App installieren",
+      title: "App installieren",
       message: "Installiere jetzt die digitale Jasstafel, die sich alles merkt und alles kann. Nie mehr Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterte Zettel.",
       secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
       image: "/welcome-guru.png",
     },
     INSTALL_WELCOME: {
-      title: "Jassguru in 3 Schritten",
+      title: "In 3 Schritten startklar",
       message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
       image: "/welcome-guru.png",
       desktopTitle: "Mobile App installieren",
@@ -118,13 +118,13 @@ export const BROWSER_ONBOARDING = {
   },
   Android: {
     WELCOME_SCREEN: {
-      title: "Jetzt App installieren",
+      title: "App installieren",
       message: "Installiere jetzt die digitale Jasstafel, die sich alles merkt und alles kann. Nie mehr Diskussionen ums Zählen, keine Zeitverschwendung für Rechnereien, keine zerknitterte Zettel.",
       secondaryMessage: "Ihr macht die Stiche – ich schreib die Striche.",
       image: "/welcome-guru.png",
     },
     INSTALL_WELCOME: {
-      title: "Jassguru in 3 Schritten",
+      title: "In 3 Schritten startklar",
       message: "Die moderne Jassguru-App funktioniert ganz ohne App Store. In drei einfachen Schritten bist du startklar:",
       icon: IoIosDownload,
       image: "/welcome-guru.png",

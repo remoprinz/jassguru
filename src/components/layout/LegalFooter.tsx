@@ -11,7 +11,7 @@ export const LegalFooter = () => {
             alt="JassGuru"
             width={300}
             height={52}
-            className="h-8 w-auto opacity-60 hover:opacity-100 transition-opacity"
+            className="h-[1.6rem] w-auto sm:h-8 opacity-60 hover:opacity-100 transition-opacity"
           />
         </Link>
       </div>
@@ -57,7 +57,7 @@ export const LegalFooter = () => {
           href="https://www.lebendige-traditionen.ch/tradition/de/home/traditionen/jassen.html"
           target="_blank"
           rel="noopener noreferrer"
-          className="hover:opacity-80 transition-opacity w-full max-w-[160px] sm:max-w-[200px]"
+          className="hover:opacity-80 transition-opacity w-full max-w-[128px] sm:max-w-[200px]"
           aria-label="Lebendige Traditionen - Bundesamt für Kultur"
         >
           <Image

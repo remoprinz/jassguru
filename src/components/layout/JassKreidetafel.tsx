@@ -695,8 +695,10 @@ Generiert von:
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Verdunkelungs-Overlay: Textur bleibt scharf, Dunkelheit via CSS */}
-      <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+      {/* Verdunkelungs-Overlay: Textur bleibt scharf, Dunkelheit via CSS — NICHT im StartScreen */}
+      {!showStartScreenCondition && (
+        <div className="absolute inset-0 bg-black/50 pointer-events-none" />
+      )}
 
       {/* Loader-Overlays: INNERHALB des transform-Containers, damit z-index korrekt greift.
           NUR spezifische Flags verwenden — isLoadingGlobal ist zu generisch und crasht bei "Jass starten". */}
@@ -717,15 +719,8 @@ Generiert von:
       {isBrowserOnboardingRequired && (() => {
         return (
           <OnboardingFlow
-            show={isBrowserOnboardingRequired} // NEU: Keine zusätzliche isDev-Prüfung mehr
-            step={currentStep as BrowserOnboardingStep}
-            content={content}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
+            show={isBrowserOnboardingRequired}
             onDismiss={handleDismiss}
-            canBeDismissed={canBeDismissedState ?? false}
-            isPWA={isPWAInstalled}
-            isBrowserOnboarding={isBrowserOnboardingRequired}
           />
         );
       })()}

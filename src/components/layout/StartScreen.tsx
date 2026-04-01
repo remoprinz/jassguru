@@ -11,6 +11,7 @@ import {useAuthStore} from "../../store/authStore";
 import {PlayerSelectPopover} from "../player/PlayerSelectPopover";
 import {AddGuestModal} from "../player/AddGuestModal";
 import { X } from "lucide-react";
+import { IoMdArrowRoundBack } from "react-icons/io";
 import { useRouter } from "next/router";
 import { createActiveGame, createSessionDocument, updateSessionActiveGameId, updateSessionParticipantPlayerIds } from "@/services/gameService";
 import { nanoid } from "nanoid";
@@ -533,13 +534,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
         }
         return classes;
 
-    } else { // Bestehende Logik für Gastmodus
+    } else { // Gastmodus — identisch zum Online-Modus gestylt
         const isStarting = allFilled && startingPlayer === playerNumber;
-        const baseBg = "bg-gray-600";
-        const hoverBg = "hover:bg-gray-700";
+        const isTeamBottom = teamConfig.bottom.includes(playerNumber);
+        const baseBg = isTeamBottom ? "bg-gray-500" : "bg-gray-700";
+        const hoverBg = isTeamBottom ? "hover:bg-gray-600" : "hover:bg-gray-800";
+        const teamBorderColor = isTeamBottom ? "border-l-yellow-400" : "border-l-blue-400";
         const focusRing = "focus:ring-green-500 focus:border-green-500";
 
-    let classes = `w-full p-3 outline-none ${baseBg} border transition-all duration-150 rounded-xl text-white`;
+    let classes = `w-full p-3 pl-4 outline-none border-l-4 ${baseBg} ${teamBorderColor} border transition-all duration-150 rounded-xl text-white`;
        classes += " placeholder-gray-300";
 
     if (isStarting) {
@@ -552,56 +555,80 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
        if (!isStarting) {
           classes += ` ${hoverBg} cursor-pointer`;
        }
-       if (isInput) classes += ` ${focusRing}`; 
+       if (isInput) classes += ` ${focusRing}`;
     } else if (isInput) {
-       classes += ` ${focusRing}`; 
+       classes += ` ${focusRing}`;
     }
     return classes;
     }
   };
 
-  // iOS-Fix: Setze Hintergrund auf body um schwarzen Balken bei Tastatur zu vermeiden
+  const isAuth = status === 'authenticated';
+
+  // Body auf solid dunkel setzen (verhindert Streifen bei iOS Keyboard im Gastmodus)
   useEffect(() => {
+    if (isAuth) return;
     const originalBg = document.body.style.background;
     const originalBgColor = document.body.style.backgroundColor;
-    
     document.body.style.backgroundColor = '#1a1a1a';
-    document.body.style.background = '#1a1a1a url(/images/backgrounds/chalkboard-mobile.webp) center top / cover no-repeat fixed';
-    
+    document.body.style.background = '#1a1a1a';
     return () => {
       document.body.style.background = originalBg;
       document.body.style.backgroundColor = originalBgColor;
     };
-  }, []);
+  }, [isAuth]);
 
   return (
     <>
-      {/* Content-Layer */}
+      {/* Content-Layer — BEIDE Modi: gleiches BG-Image für identische Farben */}
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-gray-900"
+        className={`flex flex-col px-4 ${
+          isAuth
+            ? 'fixed inset-0 z-50'
+            : 'min-h-[100dvh]'
+        }`}
+        style={{
+          backgroundColor: '#1a1a1a',
+          backgroundImage: 'url(/images/backgrounds/chalkboard-mobile.webp)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
+        }}
       >
-        <div className="w-full max-w-xs py-6 md:py-8">
-        <div className="relative w-full rounded-xl bg-gray-800 bg-opacity-95 p-6 text-center shadow-lg space-y-6">
-          <button
-            onClick={handleCancel}
-            className="absolute top-3 right-3 text-gray-400 hover:text-white transition-colors z-10"
-            aria-label="Schliessen"
-          >
-            <X size={24} />
-          </button>
+        {/* Zurück-Button oben links */}
+        <button
+          onClick={handleCancel}
+          className="fixed top-16 left-5 z-[51] text-white/60 hover:text-white transition-colors"
+          aria-label="Zurück"
+        >
+          <IoMdArrowRoundBack size={26} />
+        </button>
 
-          <h2 
-            className={`text-2xl font-bold text-center mb-4 transition-all duration-200 ${
+        {/* Spacer oben — kleiner als unten für Tendenz nach oben */}
+        <div style={{ flex: '3 1 0%' }} />
+
+        <div className="w-full max-w-xs mx-auto">
+        <div className="w-full px-2 text-center space-y-5">
+
+          <h2
+            className={`text-center mb-1 transition-all duration-200 ${
               (status === 'authenticated' && areAllSlotsFilled(gamePlayers)) || (status !== 'authenticated' && areAllNamesEntered(names))
                 ? "text-yellow-400"
                 : "text-white"
             } ${
-              // Blinkeffekt für Startspieler-Auswahl
-              ((status === 'authenticated' && areAllSlotsFilled(gamePlayers) && !hasSelectedStartingPlayer) || 
+              ((status === 'authenticated' && areAllSlotsFilled(gamePlayers) && !hasSelectedStartingPlayer) ||
                (status !== 'authenticated' && areAllNamesEntered(names) && !startingPlayer))
                 ? "animate-pulse [animation-duration:2s] drop-shadow-[0_0_8px_rgba(234,179,8,0.4)]"
                 : ""
             } ${process.env.NODE_ENV === 'development' ? 'cursor-pointer' : ''}`}
+            style={{
+              fontFamily: "'Capita', Georgia, serif",
+              fontWeight: 700,
+              fontSize: 'clamp(24px, 5vw, 32px)',
+              lineHeight: 1.25,
+              letterSpacing: '-0.5px',
+              textShadow: '0 2px 12px rgba(0,0,0,0.4)',
+            }}
             onDoubleClick={handleTitleDoubleClick}
             title={process.env.NODE_ENV === 'development' ? 'Doppelklick für Wake Lock Test' : undefined}
           >
@@ -612,7 +639,15 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
             {debugMode && process.env.NODE_ENV === 'development' && <span className="text-xs ml-2">🧪</span>}
           </h2>
 
-          <h3 className="text-lg font-semibold text-white mb-4">
+          <h3
+            className="text-white mb-4"
+            style={{
+              fontFamily: "'Inter', system-ui, sans-serif",
+              fontWeight: 600,
+              fontSize: '16px',
+              textShadow: '0 1px 6px rgba(0,0,0,0.3)',
+            }}
+          >
             Sitzreihenfolge:
           </h3>
 
@@ -802,7 +837,7 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                 ? "bg-green-700 border-green-900 cursor-wait opacity-80"
                 : (status === 'authenticated' ? areAllSlotsFilled(gamePlayers) && hasSelectedStartingPlayer : areAllNamesEntered(names) && startingPlayer)
                   ? "bg-green-600 hover:bg-green-700 border-green-900 cursor-pointer"
-                  : "bg-gray-500 border-gray-700 cursor-pointer opacity-70"
+                  : "bg-green-700/60 border-green-900 cursor-pointer"
             }`}
           >
             {isStartButtonLoading ? (
@@ -817,6 +852,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
           </motion.button>
         </div>
         </div>
+
+        {/* Spacer unten — grösser als oben */}
+        <div style={{ flex: '5 1 0%' }} />
 
         {status === 'authenticated' && (
           <AddGuestModal

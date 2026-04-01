@@ -899,6 +899,8 @@ const StartPage = () => {
           message: "Dieses Spiel wurde bereits beendet oder abgebrochen.",
         });
         clearResumableGameId();
+        // Lokalen gameStore aufräumen, damit der Fallback-Button nicht erneut erscheint
+        useGameStore.setState({ isGameStarted: false, isGameCompleted: true, activeGameId: undefined });
         setIsResuming(false);
         return;
       }
@@ -1180,13 +1182,18 @@ const StartPage = () => {
         message: error instanceof Error ? error.message : "Fehler beim Laden des Spiels.",
       });
       clearResumableGameId();
+      // Lokalen gameStore aufräumen, damit der Fallback-Button nicht in einer Endlosschleife landet
+      useGameStore.setState({ isGameStarted: false, isGameCompleted: true, activeGameId: undefined });
       setIsResuming(false);
     }
   };
 
   const handleGameAction = useCallback(() => {
-    if (resumableGameId) {
-      handleResumeGame(resumableGameId);
+    // Primär: resumableGameId aus async Firestore-Detection
+    // Fallback: gameStore.activeGameId wenn Spiel noch läuft (Race-Condition-Schutz)
+    const effectiveGameId = resumableGameId || (isGameInProgress ? gameStore.activeGameId : null);
+    if (effectiveGameId) {
+      handleResumeGame(effectiveGameId);
     } else {
       if (!currentGroup && userGroups.length > 0) {
         showNotification({ message: "Bitte zuerst eine Gruppe auswählen.", type: "warning" });
@@ -1221,7 +1228,7 @@ const StartPage = () => {
       // Der Offline/Gast-Flow wird dadurch nicht beeinflusst.
       router.push("/game/new");
     }
-  }, [resumableGameId, router, handleResumeGame, currentGroup, userGroups, showNotification, members, status]);
+  }, [resumableGameId, isGameInProgress, gameStore.activeGameId, router, handleResumeGame, currentGroup, userGroups, showNotification, members, status]);
 
   useEffect(() => {
     if (isResuming) {
@@ -1248,7 +1255,9 @@ const StartPage = () => {
 
     if (isTournamentPasseActive || isUserInActiveTournament) {
       resetPageCta();
-    } else if (resumableGameId) {
+    } else if (resumableGameId || (isGameInProgress && gameStore.activeGameId)) {
+      // Aktives Spiel erkannt — entweder via Firestore-Listener (resumableGameId)
+      // oder via persistiertem gameStore (Fallback bei Race-Condition)
       setPageCta({
         isVisible: true,
         text: "Laufendem Jass beitreten",
@@ -1258,16 +1267,13 @@ const StartPage = () => {
         variant: "info",
       });
     } else if (currentGroup) {
-      const ctaText = isGameInProgress ? "Jass fortsetzen" : "Neuen Jass starten";
-      const ctaVariant = isGameInProgress ? "info" : "default";
-
       setPageCta({
         isVisible: true,
-        text: ctaText,
+        text: "Neuen Jass starten",
         onClick: handleGameAction,
         loading: false,
         disabled: false,
-        variant: ctaVariant,
+        variant: "default",
       });
     } else if (userGroups.length === 0 && !currentGroup && status !== 'loading') {
       setPageCta({
@@ -1285,7 +1291,7 @@ const StartPage = () => {
     return () => {
       resetPageCta();
     };
-  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router, resumableGameId, status, handleGameAction, isResuming, jassStore.currentSession, gameStore.isGameStarted, gameStore.isGameCompleted, userActiveTournamentId, userTournamentInstances]);
+  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router, resumableGameId, status, handleGameAction, isResuming, jassStore.currentSession, gameStore.isGameStarted, gameStore.isGameCompleted, gameStore.activeGameId, userActiveTournamentId, userTournamentInstances]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;

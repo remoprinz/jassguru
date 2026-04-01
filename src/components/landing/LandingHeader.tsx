@@ -21,7 +21,10 @@ function Logo({ variant = 'color', shrunk = false }: { variant?: 'color' | 'whit
       width={300}
       height={52}
       className={`transition-all duration-500 w-auto ${
-        shrunk ? 'h-7 md:h-8' : 'h-8 md:h-9'
+        /* Mobile: 15 % kleiner (×0.85); ab md wie zuvor */
+        shrunk
+          ? 'h-[calc(1.75rem*0.85)] md:h-8'
+          : 'h-[calc(2rem*0.85)] md:h-9'
       }`}
     />
   );
@@ -317,23 +320,20 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
                       </button>
                     </div>
 
-                    <div className="px-6 pt-3 border-t border-gray-200 mt-2">
+                    <div className="px-6 pt-2 pb-2">
                       <button
                         onClick={() => {
                           setMobileMenuOpen(false);
                           onLogin();
                         }}
-                        className="block w-full text-center rounded-full transition-all"
+                        className="block w-full text-center py-2 transition-colors text-gray-500 hover:text-black"
                         style={{
-                          fontFamily: "'Capita', Georgia, serif",
-                          fontWeight: 700,
-                          fontSize: '18px',
-                          backgroundColor: '#ca8a04',
-                          color: '#ffffff',
-                          padding: '14px 24px',
+                          fontFamily: "'Inter', system-ui, sans-serif",
+                          fontWeight: 400,
+                          fontSize: '14px',
                         }}
                       >
-                        Anmelden
+                        Bereits ein Konto? Anmelden
                       </button>
                     </div>
                   </div>
@@ -428,20 +428,20 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({ onLogin, onRegister }) =>
                   </button>
                 </div>
 
-                <div className="px-6 pt-3 border-t border-gray-200 mt-2">
+                <div className="px-6 pt-2 pb-2">
                   <button
                     onClick={() => {
                       setMobileMenuOpen(false);
                       onLogin();
                     }}
-                    className="block w-full text-left py-3 transition-colors text-gray-600 hover:text-black"
+                    className="block w-full text-center py-2 transition-colors text-gray-500 hover:text-black"
                     style={{
-                      fontFamily: "'Capita', Georgia, serif",
-                      fontWeight: 700,
-                      fontSize: '16px',
+                      fontFamily: "'Inter', system-ui, sans-serif",
+                      fontWeight: 400,
+                      fontSize: '14px',
                     }}
                   >
-                    Anmelden
+                    Bereits ein Konto? Anmelden
                   </button>
                 </div>
               </div>

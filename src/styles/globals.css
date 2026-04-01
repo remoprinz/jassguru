@@ -323,6 +323,7 @@ body.landing-page * {
   --hero-subtitle-max-width: 571px;
   --hero-subtitle-width: 80%;
   --hero-subtitle-size: clamp(15px, 1.944vw, 28px);
+  --hero-cta-bottom: 18%;
 }
 
 @media (max-width: 1024px) {
@@ -341,6 +342,7 @@ body.landing-page * {
     --hero-subtitle-max-width: 380px;
     --hero-subtitle-width: 50%;
     --hero-subtitle-size: clamp(16px, 2vw, 22px);
+    --hero-cta-bottom: 12%;
   }
 }
 
@@ -352,13 +354,14 @@ body.landing-page * {
     --hero-felt-top: 12%;
     --hero-felt-radius: 16px;
     --hero-felt-border: 6px;
-    --hero-stack-top: 12%;
+    --hero-stack-top: 18%;
     --hero-logo-max-width: 80px;
-    --hero-title-size: 44px;
+    --hero-title-size: 32px;
     --hero-title-line-height: 1.16;
     --hero-subtitle-max-width: 260px;
     --hero-subtitle-width: 70%;
     --hero-subtitle-size: 20px;
+    --hero-cta-bottom: 8%;
   }
 }
 

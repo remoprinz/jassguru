@@ -1,0 +1,3357 @@
+{
+  "version": "1.0.0",
+  "created_at": "2025-10-30T10:47:35Z",
+  "created_by": "agent4",
+  "entries": [
+    {
+      "id": "expressions_ablupf",
+      "title": "Ablupf",
+      "slug": "begriffe/grundbegriffe/ablupf",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Ablupf ist ein zentraler Vorgang beim Jass. Dabei nimmt der Spieler links vom Geber die Karten vom Stapel. Das Kartenabheben entscheidet oft über den Spielverlauf und gilt als einer der entscheidenden Momente. Wer hier ruhig bleibt und überlegt vorgeht, schafft bessere Voraussetzungen für das nachfolgende Spiel.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/ablupf",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Ablupf"
+        },
+        "keywords": [
+          "ablupf",
+          "abheben"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "ablupf",
+        "abheben"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_ausmachregel",
+      "title": "Ausmachregel",
+      "slug": "begriffe/grundbegriffe/ausmachregel",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Ausmachregel kommt zum Tragen, wenn zwei Teams gleichzeitig im selben Stich das Spielziel erreichen. Diese Regelung klärt die Situation bei Schluss oder Bergpreis und sorgt für einen fairen Spielverlauf. Sie ist wichtig für die korrekte Abrechnung und verhindert Unklarheiten beim Punktestand.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/ausmachregel",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Ausmachregel"
+        },
+        "keywords": [
+          "ausmachregel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "ausmachregel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_blatt",
+      "title": "Blatt",
+      "slug": "begriffe/grundbegriffe/blatt",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Als Blatt werden die Spielkarten bezeichnet, die mit französischen oder deutschschweizerischen Motiven gestaltet sind. Der Begriff findet sich ebenfalls in Verbindung mit Weisen wieder, etwa beim Dreiblatt, einer speziellen Kartenkombination. Das Blatt umfasst alle Karten, die ein Spieler in der Hand hält.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/blatt",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Blatt"
+        },
+        "keywords": [
+          "blatt",
+          "spielkarten",
+          "dreiblatt"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "blatt",
+        "spielkarten",
+        "dreiblatt"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_blinder",
+      "title": "Blinder",
+      "slug": "begriffe/grundbegriffe/blinder",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Ein Blinder ist ein Austauschblatt, das in verschiedenen Spielvarianten verwendet wird. Bei der Jassart Schnüffler erhalten diese Karten eine besondere Bedeutung: Sie müssen nicht getauscht werden, sondern müssen von den Spielern erraten werden, was das Spiel zusätzlich spannend macht.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/blinder",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Blinder"
+        },
+        "keywords": [
+          "blinder",
+          "austauschblatt",
+          "schnüffler"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "blinder",
+        "austauschblatt",
+        "schnüffler"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_handkarten",
+      "title": "Handkarten",
+      "slug": "begriffe/grundbegriffe/handkarten",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Handkarten sind das Blatt oder die Karten, die ein Spieler gefächert in der Hand hält. Diese Karten bilden das persönliche Spielmaterial jedes Teilnehmers und bestimmen die taktischen Möglichkeiten während der Partie.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/handkarten",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Handkarten"
+        },
+        "keywords": [
+          "handkarten"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "handkarten"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_partie",
+      "title": "Partie",
+      "slug": "begriffe/grundbegriffe/partie",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Eine Partie setzt sich aus mehreren zusammengehörenden Spielen zusammen. Erst am Ende dieser Spielserie wird festgestellt, welche Seite gewonnen oder verloren hat. Die Partie ist somit die übergeordnete Spieleinheit, die über den finalen Ausgang entscheidet.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/partie",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Partie"
+        },
+        "keywords": [
+          "partie"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "partie"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_passe",
+      "title": "Passe",
+      "slug": "begriffe/grundbegriffe/passe",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Eine Passe bezeichnet einen Durchgang aus mehreren Spielen innerhalb eines Turniers. Dabei bleibt die Zusammensetzung der Spieler unverändert, was eine kontinuierliche Bewertung über mehrere Runden hinweg ermöglicht.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/passe",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Passe"
+        },
+        "keywords": [
+          "passe"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "passe"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_streichpasse",
+      "title": "Streichpasse",
+      "slug": "begriffe/grundbegriffe/streichpasse",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Als Streichpasse wird jene Passe bezeichnet, die bei einem Turnier gestrichen wird. Dabei handelt es sich in der Regel um die schlechteste Leistung eines Teilnehmers, die nicht in die Wertung eingeht und so die faire Bewertung sicherstellt.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/streichpasse",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Streichpasse"
+        },
+        "keywords": [
+          "streichpasse"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "streichpasse"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_team",
+      "title": "Team",
+      "slug": "begriffe/grundbegriffe/team",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Ein Team besteht aus zwei oder drei Spielern, die gemeinsam gegen eine gegnerische Mannschaft antreten. Die Zusammenarbeit im Team ist entscheidend für den Spielerfolg und erfordert gutes Zusammenspiel und Taktik.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/team",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Team"
+        },
+        "keywords": [
+          "team"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "team"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_vorhand",
+      "title": "Vorhand",
+      "slug": "begriffe/grundbegriffe/vorhand",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Vorhand ist der Spieler, der rechts vom Geber sitzt und als Erster eine Karte ausspielt. Diese Position bietet strategische Vorteile, da der Spieler den ersten Zug hat und damit den Rhythmus des Spiels mitbestimmen kann.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/vorhand",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Vorhand"
+        },
+        "keywords": [
+          "vorhand"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "vorhand"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_stich",
+      "title": "Stich",
+      "slug": "begriffe/grundbegriffe/stich",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Ein Stich entsteht, wenn jeder Spieler genau eine Karte in einem Umgang ausgespielt hat. Der Stich ist die grundlegende Einheit des Spiels und bildet die Basis für die Punktezählung. Wer die höchste Karte legt, gewinnt den Stich.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/stich",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Stich"
+        },
+        "keywords": [
+          "stich"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "stich"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_stock",
+      "title": "Stöck",
+      "slug": "begriffe/grundbegriffe/stöck",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Als Stöck werden jene Karten bezeichnet, die beim Austeilen nicht an die Spieler verteilt werden. Diese restlichen Karten spielen bei verschiedenen Spielvarianten eine wichtige Rolle und können im weiteren Spielverlauf aufgenommen werden.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/stöck",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Stöck"
+        },
+        "keywords": [
+          "stock"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "stock"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_stapel",
+      "title": "Stapel",
+      "slug": "begriffe/grundbegriffe/stapel",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Stapel umfasst Karten, die während des Spiels möglicherweise aufgenommen werden können. Dabei ist zu beachten, dass sich der Stapel vom Stöck unterscheidet, auch wenn beide Begriffe manchmal ähnlich verwendet werden.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/stapel",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Stapel"
+        },
+        "keywords": [
+          "stapel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "stapel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_rest",
+      "title": "Rest",
+      "slug": "begriffe/grundbegriffe/rest",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Mit Rest wird die Bemerkung bezeichnet, wenn ein Spieler ankündigt, die restlichen Stiche machen zu können. Diese Ansage ist jedoch in den meisten Spielvarianten nicht erlaubt und sollte daher vor dem Spiel geklärt werden.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/rest",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Rest"
+        },
+        "keywords": [
+          "rest"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "rest"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_basic_terms",
+      "title": "Grundlagen",
+      "slug": "begriffe/grundbegriffe/grundlagen",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Grundlegende Jass-Ausdrücke bilden das Fundament für das Verständnis des Spiels. Diese Terminologie umfasst die wichtigsten Begriffe, die jeder Spieler kennen sollte, um erfolgreich Jassten zu können. Dazu gehören Bezeichnungen für Karten, Spielaktionen und Spielsituationen, die in allen Jassvarianten verwendet werden.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/grundlagen",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Grundlagen"
+        },
+        "keywords": [
+          "grundbegriffe",
+          "basis",
+          "terminologie"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "grundbegriffe",
+        "basis",
+        "terminologie"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_anziehen",
+      "title": "Anziehen",
+      "slug": "begriffe/spielaktionen/anziehen",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Beim Anziehen signalisiert ein Spieler seinem Partner durch das Ausspielen einer bestimmten Karte, welche Farbe bei ihm besonders stark ist. Diese Spielaktion zeigt dem Partner an, dass man in dieser Farbe gute Karten besitzt und ermöglicht so eine bessere Koordination innerhalb des Teams.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/anziehen",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Anziehen"
+        },
+        "keywords": [
+          "anziehen",
+          "signalisieren",
+          "starke farbe"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "anziehen",
+        "signalisieren",
+        "starke farbe"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_bedanken",
+      "title": "Bedanken",
+      "slug": "begriffe/spielaktionen/bedanken",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Das Bedanken ist eine verbindliche Aussage, mit der ein Spieler das aktuelle Spiel beendet. Dieser wichtige Moment ist entscheidend für die Punkteabrechnung, da hier die finalen Punkte ermittelt und dem entsprechenden Team gutgeschrieben werden.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/bedanken",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Bedanken"
+        },
+        "keywords": [
+          "bedanken",
+          "spiel beenden"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "bedanken",
+        "spiel beenden"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_bessern",
+      "title": "Bessern",
+      "slug": "begriffe/spielaktionen/bessern",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Das Bessern bezeichnet den Austausch von vermeintlich schlechten Karten gegen möglicherweise bessere. Diese taktische Spielaktion ist ein wichtiges Element in bestimmten Spielvarianten und erfordert eine gute Einschätzung der eigenen Chancen.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/bessern",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Bessern"
+        },
+        "keywords": [
+          "bessern"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "bessern"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_erben",
+      "title": "Erben",
+      "slug": "begriffe/spielaktionen/erben",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Wenn ein Spielgeber nicht mitspielt, erhält er die vereinbarten Schreibpunkte, was als Erben bezeichnet wird. Diese Regelung sorgt für eine faire Beteiligung auch bei Spielern, die gerade nicht aktiv am Spiel teilnehmen.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/erben",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Erben"
+        },
+        "keywords": [
+          "erben"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.8,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "erben"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_farbenhalten",
+      "title": "Farben/Leih halten",
+      "slug": "begriffe/spielaktionen/farben-leih-halten",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Farben oder Leih halten bedeutet, dass man eine Karte der ausgespielten Farbe spielen muss, sofern man eine solche Karte besitzt. Diese Regel zählt zu den grundlegenden Spielregeln beim Jass und muss von jedem Spieler strikt befolgt werden.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/farben-leih-halten",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Farben/Leih halten"
+        },
+        "keywords": [
+          "farben halten",
+          "leih halten"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "Farben",
+        "Leih halten",
+        "farben halten"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_kehr",
+      "title": "Kehr",
+      "slug": "begriffe/spielaktionen/kehr",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Kehr ist eine Spielübernahme bei der Jassart Aucho. Dabei werden die Karten einzeln vom Lukas aufgedeckt und umgedreht, bis die Entscheidung über die Trumpffarbe getroffen wird. Diese besondere Spielweise bringt zusätzliche Spannung ins Spiel.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/kehr",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Kehr"
+        },
+        "keywords": [
+          "kehr"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.8,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "kehr"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_passen",
+      "title": "Passen/Fort",
+      "slug": "begriffe/spielaktionen/passen-fort",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Passen oder Fort ist die Bemerkung, die ein Spieler äußert, wenn er kein Angebot mehr machen kann oder möchte. Diese Spielaktion kommt besonders bei der Jassart Bieter, auch Steiger genannt, häufig zum Einsatz und beendet die Bietphase für den jeweiligen Spieler.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/passen-fort",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Passen/Fort"
+        },
+        "keywords": [
+          "passen",
+          "fort"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "Passen",
+        "Fort"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_rauben",
+      "title": "Rauben",
+      "slug": "begriffe/spielaktionen/rauben",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Das Rauben bezeichnet eine Trumpfkarte, die mit einer bestimmten anderen Karte getauscht werden kann. Die genaue Regelung dieser Spielaktion variiert je nach gespielter Jassart und sollte daher vor dem Spiel genau geklärt werden, um Missverständnisse zu vermeiden.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/rauben",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Rauben"
+        },
+        "keywords": [
+          "rauben"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "rauben"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schlecken",
+      "title": "Schlecken",
+      "slug": "begriffe/spielaktionen/schlecken",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Beim Schlecken kann ein Spieler nach dem Ablupf bei der Jassart Zwick-Jass die unterste Karte des Stocks nehmen. Diese besondere Spielaktion eröffnet zusätzliche taktische Möglichkeiten und macht diese Variante besonders interessant.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/schlecken",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Schlecken"
+        },
+        "keywords": [
+          "schlecken"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.8,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schlecken"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schieben",
+      "title": "Schieben",
+      "slug": "begriffe/spielaktionen/schieben",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Das Schieben bedeutet, dass die Vorhand die Entscheidung über den Trumpf einem anderen Spieler überlässt. Bei der Jassart Schieber überträgt die Vorhand diese wichtige Entscheidung ihrem Partner, was dem Spiel seinen charakteristischen Namen gibt und die Teamarbeit in den Vordergrund rückt.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/schieben",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Schieben"
+        },
+        "keywords": [
+          "schieben"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schieben"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schmieren",
+      "title": "Schmieren",
+      "slug": "begriffe/spielaktionen/schmieren",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Das Schmieren bedeutet, dass man seinem Partner punktemässig wertvolle Karten zu seinem Stich beigibt. Diese wichtige taktische Spielaktion stärkt die Teamarbeit und hilft dabei, möglichst viele Punkte zu sammeln.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/schmieren",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Schmieren"
+        },
+        "keywords": [
+          "schmieren"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schmieren"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_untertrumpfen",
+      "title": "Untertrumpfen",
+      "slug": "begriffe/spielaktionen/untertrumpfen",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Untertrumpfen bedeutet, dass man einem bereits laufenden Stich eine Trumpfkarte beigibt. Dabei muss die gespielte Karte stechmässig niedriger sein als bereits im Stich vorhandene Trumpfkarten. Diese taktische Spielaktion ermöglicht es, den Stich zu gewinnen, ohne dabei die höchsten Trumpfkarten einsetzen zu müssen.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/untertrumpfen",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Untertrumpfen"
+        },
+        "keywords": [
+          "untertrumpfen"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "untertrumpfen"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_unterzug",
+      "title": "Unterzug",
+      "slug": "begriffe/spielaktionen/unterzug",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Beim Unterzug spielt man absichtlich eine stechmässig niedrige Karte aus einer starken und langen Farbe, um den Stich nicht zu gewinnen. Diese taktische Spielaktion wird eingesetzt, wenn man den Stich lieber dem Partner oder einem Gegner überlassen möchte und die hohen Karten für spätere entscheidende Stiche aufheben will.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/unterzug",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Unterzug"
+        },
+        "keywords": [
+          "unterzug"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.8,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "unterzug"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_verwerfen",
+      "title": "Verwerfen",
+      "slug": "begriffe/spielaktionen/verwerfen",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Das Verwerfen bezeichnet das Beigeben von Karten aus einer schwachen Farbe zu einem Stich. Diese Spielaktion signalisiert dem Partner, dass man in dieser Farbe keine guten Karten besitzt. Auf diese Weise kann man wichtige Informationen an den Partner weitergeben und die Teamkoordination verbessern.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/verwerfen",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Verwerfen"
+        },
+        "keywords": [
+          "verwerfen"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "verwerfen"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_banner",
+      "title": "Banner",
+      "slug": "begriffe/kartenbezeichnungen/banner",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Banner ist der Zehner einer Farbe bei den deutschschweizerischen Spielkarten. Er stellt die stechmässig höchste Karte jeder Farbe dar und besitzt damit einen besonders hohen Wert im Spiel. Diese Karte ist besonders wertvoll und sollte strategisch eingesetzt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/banner",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Banner"
+        },
+        "keywords": [
+          "banner",
+          "Zehner"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "banner",
+        "Zehner"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_bodentrumpf",
+      "title": "Bodentrumpf",
+      "slug": "begriffe/kartenbezeichnungen/bodentrumpf",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Bodentrumpf ist die unterste Karte, die nach dem Abheben sichtbar wird. Diese Karte zeigt die Trumpffarbe an und bestimmt damit, welche Farbe im aktuellen Spiel die stärkste ist. Sie ist von zentraler Bedeutung für den Spielverlauf und die taktischen Entscheidungen der Spieler.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/bodentrumpf",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Bodentrumpf"
+        },
+        "keywords": [
+          "bodentrumpf",
+          "boden-trumpf"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "bodentrumpf",
+        "boden-trumpf"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_braettli",
+      "title": "Brättli",
+      "slug": "begriffe/kartenbezeichnungen/brättli",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Brättli ist die Sammelbezeichnung für die Sechser, Siebner, Achter und Neuner. Diese Karten besitzen einen geringen Punktwert und werden oft für taktische Spielzüge verwendet, um höherwertige Karten zu schonen oder dem Partner zu signalisieren.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/brättli",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Brättli"
+        },
+        "keywords": [
+          "brättli",
+          "brett-karten",
+          "sechser",
+          "siebner",
+          "achter",
+          "neuner"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "brättli",
+        "brett-karten",
+        "sechser",
+        "siebner",
+        "achter",
+        "neuner"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_kartenfarben",
+      "title": "Kartenfarben",
+      "slug": "begriffe/kartenbezeichnungen/kartenfarben",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Kartenfarben unterscheiden sich je nach Kartensystem. Bei den deutschschweizerischen Spielkarten gibt es vier Farben: Schellen, Schilten, Rosen und Eichel. Bei den französischen Karten sind es Ecken, Schaufel, Herz und Kreuz. Jede Farbe umfasst neun Karten und bildet einen wichtigen Bestandteil des Spiels.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/kartenfarben",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Kartenfarben"
+        },
+        "keywords": [
+          "kartenfarben",
+          "schellen",
+          "schilten",
+          "rosen",
+          "eichel",
+          "ecken",
+          "schaufel",
+          "herz",
+          "kreuz"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "kartenfarben",
+        "schellen",
+        "schilten",
+        "rosen",
+        "eichel",
+        "ecken",
+        "schaufel",
+        "herz",
+        "kreuz"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_lukas",
+      "title": "Lukas",
+      "slug": "begriffe/kartenbezeichnungen/lukas",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Als Lukas wird beim Jass der Stock oder die nicht verteilten Karten bei der Jassart Aucho bezeichnet. Diese Karten spielen eine besondere Rolle im Spielverlauf und werden im Rahmen des Kehrs einzeln aufgedeckt.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/lukas",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Lukas"
+        },
+        "keywords": [
+          "lukas",
+          "stock",
+          "aucho"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "lukas",
+        "stock",
+        "aucho"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_nell",
+      "title": "Nell",
+      "slug": "begriffe/kartenbezeichnungen/nell",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Nell ist die Bezeichnung für den Trumpf-Neuner. Sie ist sowohl wert- als auch stechmässig die zweithöchste Karte einer Trumpffarbe und damit eine sehr wertvolle Karte, die strategisch klug eingesetzt werden sollte.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/nell",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Nell"
+        },
+        "keywords": [
+          "nell",
+          "trumpf-neuner"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "nell",
+        "trumpf-neuner"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_solokarte",
+      "title": "Solokarte",
+      "slug": "begriffe/kartenbezeichnungen/solokarte",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Eine Solokarte ist die einzige Karte einer Farbe, die ein Spieler in seinem Blatt besitzt. Diese Situation ist taktisch bedeutsam, da sie sowohl Möglichkeiten als auch Risiken birgt. Der Spieler muss entscheiden, wann der richtige Zeitpunkt ist, diese Karte zu spielen.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/solokarte",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Solokarte"
+        },
+        "keywords": [
+          "solokarte",
+          "einzelkarte"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "solokarte",
+        "einzelkarte"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_stoecke",
+      "title": "Stöcke",
+      "slug": "begriffe/kartenbezeichnungen/stöcke",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Stöcke bezeichnen die Kombination aus Trumpf-König und Trumpf-Ober beziehungsweise Trumpf-Dame. Diese wichtige Kartenkombination ist besonders wertvoll für Weismeldungen und kann erheblich zum Erfolg beitragen, wenn sie strategisch eingesetzt wird.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/stöcke",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Stöcke"
+        },
+        "keywords": [
+          "stöcke",
+          "trumpf-könig",
+          "trumpf-ober",
+          "trumpf-dame"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "stöcke",
+        "trumpf-könig",
+        "trumpf-ober",
+        "trumpf-dame"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_bauernpartei",
+      "title": "Bauernpartei",
+      "slug": "begriffe/spezialvarianten/bauernpartei",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Bauernpartei ist das gegnerische Team des Meistbietenden bei der Jassart Bieter, auch Steiger genannt. Diese Spielergruppe übernimmt eine wichtige taktische Rolle im Spielverlauf und muss strategisch gegen das überbietende Team vorgehen.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/bauernpartei",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Bauernpartei"
+        },
+        "keywords": [
+          "bauernpartei",
+          "bieter",
+          "steiger"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "bauernpartei",
+        "bieter",
+        "steiger"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_guschti",
+      "title": "Guschti/Zwischendurch/Quer",
+      "slug": "begriffe/spezialvarianten/guschti-zwischendurch-quer",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Guschti, auch Zwischendurch oder Quer genannt, ist eine Trumpf-Variante ohne feste Trumpffarbe. Dabei werden vier Stiche nach Obenabe-Regeln und fünf Stiche nach Undenufe-Regeln gespielt, wobei die Reihenfolge auch umgekehrt sein kann. Diese Variante bringt Abwechslung ins Spiel.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/guschti-zwischendurch-quer",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Guschti/Zwischendurch/Quer"
+        },
+        "keywords": [
+          "guschti",
+          "zwischendurch",
+          "quer"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "Guschti",
+        "Zwischendurch",
+        "Quer"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_hindersi",
+      "title": "Hindersi",
+      "slug": "begriffe/spezialvarianten/hindersi",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Hindersi ist eine Spielvariante mit umgekehrter Punktezählung. Das Ziel ist es, möglichst wenige Kartenpunkte zu erreichen, was eine völlig andere Spielstrategie erfordert als beim normalen Jass. Wer die wenigsten Punkte sammelt, gewinnt diese Variante.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/hindersi",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Hindersi"
+        },
+        "keywords": [
+          "hindersi"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "hindersi"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_joker",
+      "title": "Joker/Knecht",
+      "slug": "begriffe/spezialvarianten/joker-knecht",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Joker oder Knecht ist der fünfte Spieler bei der Jassart Schieber zu fünft. Diese spezielle Position hat eigene Regeln und bringt eine interessante Dynamik in das sonst vierköpfige Spiel. Der Joker kann flexibel eingesetzt werden und muss sich taktisch anpassen.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/joker-knecht",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Joker/Knecht"
+        },
+        "keywords": [
+          "joker",
+          "knecht"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "Joker",
+        "Knecht"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_koenigspartei",
+      "title": "Königspartei",
+      "slug": "begriffe/spezialvarianten/königspartei",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Königspartei besteht aus dem Meistbietenden und seinem Partner bei der Jassart Bieter, auch Steiger genannt, wenn mit fünf Spielern gespielt wird. Diese strategisch wichtige Spielergruppe muss gemeinsam gegen die Bauernpartei antreten und koordiniert vorgehen.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/königspartei",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Königspartei"
+        },
+        "keywords": [
+          "königspartei",
+          "bieter",
+          "steiger"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "königspartei",
+        "bieter",
+        "steiger"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_misere",
+      "title": "Misère",
+      "slug": "begriffe/spezialvarianten/misère",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Misère ist eine Spezialvariante bei Pandur und Bieter. Dabei darf der Spielübernehmer keinen einzigen Stich machen, was diese Variante besonders herausfordernd macht. Bei manchen Spielgruppen wird Misère auch als Schieber-Variante gespielt, was zusätzliche taktische Möglichkeiten eröffnet.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/misère",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Misère"
+        },
+        "keywords": [
+          "misère",
+          "pandur",
+          "bieter",
+          "schieber"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "misère",
+        "pandur",
+        "bieter",
+        "schieber"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_obenabe",
+      "title": "Obenabe",
+      "slug": "begriffe/spezialvarianten/obenabe",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Obenabe ist eine Trumpf-Variante ohne feste Trumpffarbe. Dabei zählen die stechhöchsten Karten von oben nach unten, was bedeutet, dass die normalerweise höchsten Karten auch in dieser Variante die stärksten sind. Diese Regelung macht die Spielweise besonders interessant.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/obenabe",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Obenabe"
+        },
+        "keywords": [
+          "obenabe"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "obenabe"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_slalom",
+      "title": "Slalom/Zickzack",
+      "slug": "begriffe/spezialvarianten/slalom-zickzack",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Slalom oder Zickzack ist eine spezielle Trumpf-Variante ohne feste Trumpffarbe. Dabei wird abwechselnd je ein Stich nach Undenufe-Regeln und dann nach Obenabe-Regeln gespielt, wobei die Reihenfolge auch umgekehrt sein kann. Diese Variante erfordert viel Aufmerksamkeit und strategisches Denken.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/slalom-zickzack",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Slalom/Zickzack"
+        },
+        "keywords": [
+          "slalom",
+          "zickzack"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "Slalom",
+        "Zickzack"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_trio",
+      "title": "Trio/3×3",
+      "slug": "begriffe/spezialvarianten/trio-3×3",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Trio oder 3×3 ist eine komplexe Trumpf-Variante, bei der drei Stiche mit Trumpf, drei Stiche nach Undenufe-Regeln und drei Stiche nach Obenabe-Regeln gespielt werden. Die Reihenfolge dieser drei Spielarten ist frei wählbar, was dem Spieler taktische Flexibilität gibt.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/trio-3×3",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Trio/3×3"
+        },
+        "keywords": [
+          "trio",
+          "3×3"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "Trio",
+        "3×3"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_undenufe",
+      "title": "Undenufe",
+      "slug": "begriffe/spezialvarianten/undenufe",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Undenufe ist eine Trumpf-Variante ohne feste Trumpffarbe. Dabei zählen die stechhöchsten Karten von unten nach oben, was bedeutet, dass die normalerweise niedrigsten Karten in dieser Variante die stärksten sind. Diese Umkehrung macht das Spiel besonders spannend und strategisch anspruchsvoll.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/undenufe",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Undenufe"
+        },
+        "keywords": [
+          "undenufe"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "undenufe"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_kreuzweis",
+      "title": "Kreuzweis",
+      "slug": "begriffe/spezialvarianten/kreuzweis",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Kreuzweis ist eine spezielle Weisform, bei der zwei Weise vorhanden sind, in denen jeweils die gleiche Karte vorkommt. Diese besondere Konstellation erfordert eine geschickte Deklaration und kann zu interessanten Spielsituationen führen.",
+      "url": "https://jasswiki.ch/begriffe/spezialvarianten/kreuzweis",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spezialvarianten",
+          "topic": "Kreuzweis"
+        },
+        "keywords": [
+          "kreuzweis"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "kreuzweis"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_kreuz",
+      "title": "Kreuz",
+      "slug": "begriffe/kartenbezeichnungen/kreuz",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Kreuz ist eine der vier Kartenfarben der französischen Spielkarten. Sie gehört zu den standardmässigen Farben und wird in allen Jassvarianten, die mit französischen Karten gespielt werden, verwendet.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/kreuz",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Kreuz"
+        },
+        "keywords": [
+          "kreuz"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "kreuz"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_belli",
+      "title": "Belli",
+      "slug": "begriffe/kartenbezeichnungen/belli",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Belli bezeichnet den Schellen-Siebner oder Ecken-Siebner als zweithöchste Stechkarte bei Ramset. Bei der Jassart Zwick-Jass gelten alle Siebner als zweit- bis fünft-höchste Stechkarten, was ihnen eine besondere strategische Bedeutung verleiht.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/belli",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Belli"
+        },
+        "keywords": [
+          "belli",
+          "siebner",
+          "schellen-siebner",
+          "ecken-siebner"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "belli",
+        "siebner",
+        "schellen-siebner",
+        "ecken-siebner"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_berg",
+      "title": "Berg",
+      "slug": "begriffe/punktebegriffe/berg",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Berg oder Bergpreis ist eine Zusatzprämie für das Team, das als Erstes die Hälfte des Spielziels erreicht. Diese besondere Auszeichnung motiviert die Teams und bringt zusätzliche Spannung in die Partie. Der Berg wird separat notiert und zählt zur Gesamtwertung.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/berg",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Berg"
+        },
+        "keywords": [
+          "berg",
+          "bergpreis"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "berg",
+        "bergpreis"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_bock",
+      "title": "Bock",
+      "slug": "begriffe/kartenbezeichnungen/bock",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Als Bock wird die höchste Karte einer Farbe bezeichnet, die nicht gestochen werden kann. Diese Karte hat eine besondere Stellung und ist sehr wertvoll, da sie nur durch Trumpfkarten oder durch eine höhere Karte der gleichen Farbe geschlagen werden kann.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/bock",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Bock"
+        },
+        "keywords": [
+          "bock",
+          "bockkarte",
+          "höchste karte"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "bock",
+        "bockkarte",
+        "höchste karte"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_bockkarte",
+      "title": "Bockkarte",
+      "slug": "begriffe/kartenbezeichnungen/bockkarte",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Bockkarte ist die stechmässig höchste Karte jeder Farbe. Sie stellt somit das stärkste Blatt einer Farbe dar und kann nur durch Trumpfkarten geschlagen werden. Diese Position macht sie zu einer besonders wertvollen Karte im Spiel.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/bockkarte",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Bockkarte"
+        },
+        "keywords": [
+          "bockkarte"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "bockkarte"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_ecken",
+      "title": "Ecken",
+      "slug": "begriffe/kartenbezeichnungen/ecken",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Ecken ist eine der vier Kartenfarben der französischen Spielkarten. Sie gehört zu den standardmässigen Farben und wird in allen Jassvarianten verwendet, die mit französischen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/ecken",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Ecken"
+        },
+        "keywords": [
+          "ecken"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "ecken"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_eichel",
+      "title": "Eichel",
+      "slug": "begriffe/kartenbezeichnungen/eichel",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Eichel ist eine der vier Kartenfarben der deutschschweizerischen Spielkarten. Sie gehört zu den traditionellen Farben des Deutschschweizer Blatts und wird in allen Varianten verwendet, die mit diesen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/eichel",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Eichel"
+        },
+        "keywords": [
+          "eichel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "eichel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_haerdoepfel",
+      "title": "Härdöpfel",
+      "slug": "begriffe/punktebegriffe/härdöpfel",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Härdöpfel ist eine weitere Bezeichnung für Nuller oder Sack. Dieser Begriff wird vor allem in der Schweiz verwendet und bezeichnet Minuspunkte, die ein Spieler erhalten kann, wenn er sein Ziel nicht erreicht.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/härdöpfel",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Härdöpfel"
+        },
+        "keywords": [
+          "härdöpfel",
+          "haerdoepfel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.8,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "härdöpfel",
+        "haerdoepfel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_herz",
+      "title": "Herz",
+      "slug": "begriffe/kartenbezeichnungen/herz",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Herz ist eine der vier Kartenfarben der französischen Spielkarten. Sie zählt zu den standardmässigen Farben und wird in allen Jassvarianten verwendet, die mit französischen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/herz",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Herz"
+        },
+        "keywords": [
+          "herz"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "herz"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_kontermatsch",
+      "title": "Kontermatsch",
+      "slug": "begriffe/punktebegriffe/kontermatsch",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Kontermatsch bezeichnet die Situation, in der das nicht trumpfmachende Team alle Stiche erzielt. Auch hier gibt es die Matschprämie, allerdings für die gegnerische Seite. Da dieses Ereignis sehr selten vorkommt, werden oft zwei Striche notiert, um die besondere Leistung zu würdigen.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/kontermatsch",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Kontermatsch"
+        },
+        "keywords": [
+          "kontermatsch",
+          "matschprämie"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "kontermatsch",
+        "matschprämie"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_minuspunkte",
+      "title": "Minuspunkte",
+      "slug": "begriffe/punktebegriffe/minuspunkte",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Minuspunkte entstehen, wenn bei Differenz-Jassarten die geschätzte Karten- und Weispunktzahl nicht oder nur unzureichend erreicht wird. Diese Punkte werden auch als Nuller, Sack oder Härdöpfel bezeichnet und müssen später durch positive Leistungen ausgeglichen werden.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/minuspunkte",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Minuspunkte"
+        },
+        "keywords": [
+          "minuspunkte",
+          "nuller",
+          "sack",
+          "härdöpfel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "minuspunkte",
+        "nuller",
+        "sack",
+        "härdöpfel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_offene_ansage",
+      "title": "Offene Ansage",
+      "slug": "begriffe/punktebegriffe/offene-ansage",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die offene Ansage ist die geschätzte Kartenpunktzahl bei der Jassart Differenzler. Diese wird für alle Spieler offen angesagt, sodass jeder Spieler die Ansagen der anderen kennt. Diese Transparenz ermöglicht eine bessere strategische Planung, da alle Teilnehmer die Einschätzungen der anderen einbeziehen können.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/offene-ansage",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Offene Ansage"
+        },
+        "keywords": [
+          "offene ansage",
+          "differenzler"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "offene ansage",
+        "differenzler"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_matsch",
+      "title": "Matsch",
+      "slug": "begriffe/punktebegriffe/matsch",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Matsch bedeutet, dass ein Team alle Stiche eines Spiels erzielt. Diese aussergewöhnliche Leistung wird in der Regel mit einer Prämie belohnt, die je nach Spielvariante unterschiedlich hoch ausfällt. Der Matsch ist ein seltenes, aber sehr lohnendes Ereignis im Spielverlauf.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/matsch",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Matsch"
+        },
+        "keywords": [
+          "matsch",
+          "matschprämie"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "matsch",
+        "matschprämie"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_trumpf_bauer",
+      "title": "Trumpf-Bauer",
+      "slug": "begriffe/kartenbezeichnungen/trumpf-bauer",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Trumpf-Bauer, auch Trumpf-Under oder Trumpf-Bube genannt, ist sowohl wert- als auch stechmässig die höchste Karte einer Trumpffarbe. Diese einzigartige Position macht ihn zur wertvollsten Karte im gesamten Spiel und sollte mit Bedacht eingesetzt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/trumpf-bauer",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Trumpf-Bauer"
+        },
+        "keywords": [
+          "trumpf-bauer",
+          "trumpf-under",
+          "trumpf-bube"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "trumpf-bauer",
+        "trumpf-under",
+        "trumpf-bube"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_trumpf_bauer_kombinationen",
+      "title": "Trumpf-Bauer Kombinationen",
+      "slug": "begriffe/kartenbezeichnungen/trumpf-bauer-kombinationen",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Trumpf-Bauer-Kombinationen sind wichtige Weismeldungen, die aus dem Trumpf-Bauer und weiteren Trumpfkarten bestehen. Bei \"zu dritt\" kommen genau zwei weitere Trumpfkarten hinzu, bei \"zu viert\" sind es drei, bei \"zu fünft\" vier und bei \"zu sechst\" fünf zusätzliche Trumpfkarten. Diese Kombinationen erhöhen den Wert des Weises erheblich.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/trumpf-bauer-kombinationen",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Trumpf-Bauer Kombinationen"
+        },
+        "keywords": [
+          "trumpf-bauer-kombinationen",
+          "zu-dritt",
+          "zu-viert",
+          "zu-fünft",
+          "zu-sechst"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "trumpf-bauer-kombinationen",
+        "zu-dritt",
+        "zu-viert",
+        "zu-fünft",
+        "zu-sechst"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_trumpf",
+      "title": "Trumpf",
+      "slug": "begriffe/kartenbezeichnungen/trumpf",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Trumpf sind jene Karten, die alle übrigen Farben stechen können. Die Trumpffarbe wird durch die Trumpfansage oder durch die spezifische Spielart bestimmt. Trumpfkarten haben somit die höchste Stechkraft und sind entscheidend für den Spielverlauf.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/trumpf",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Trumpf"
+        },
+        "keywords": [
+          "trumpf",
+          "trumpfkarten",
+          "trumpfansage"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "trumpf",
+        "trumpfkarten",
+        "trumpfansage"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_verdeckte_ansage",
+      "title": "Verdeckte Ansage",
+      "slug": "begriffe/punktebegriffe/verdeckte-ansage",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die verdeckte Ansage ist die geschätzte Kartenpunktzahl bei der Jassart Differenzler. Sie wird für alle Spieler verdeckt angesagt, sodass kein Spieler die Ansagen der anderen kennt. Diese Variante erhöht die Spannung und erfordert eine präzise Einschätzung der eigenen Chancen ohne Kenntnis der gegnerischen Pläne.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/verdeckte-ansage",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Verdeckte Ansage"
+        },
+        "keywords": [
+          "verdeckte ansage",
+          "differenzler",
+          "punktzahl"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "verdeckte ansage",
+        "differenzler",
+        "punktzahl"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schneider",
+      "title": "Schneider",
+      "slug": "begriffe/punktebegriffe/schneider",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Schneider bezeichnet die Situation, wenn ein Team die Hälfte des Ziels einer Partie nicht erreicht. Dieser wichtige Begriff ist entscheidend für die Spielabrechnung und kann erhebliche Auswirkungen auf das Endergebnis haben. Der Schneider wird in der Regel mit zusätzlichen Minuspunkten bestraft.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/schneider",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Schneider"
+        },
+        "keywords": [
+          "schneider",
+          "spielabrechnung"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schneider",
+        "spielabrechnung"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_stoeck_wys_stich",
+      "title": "Stöck-Wys-Stich",
+      "slug": "begriffe/punktebegriffe/stöck-wys-stich",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Stöck-Wys-Stich ist eine klassische Ausmachregel, die angewendet wird, wenn beide Teams im selben Stich das Spielziel erreichen. Diese Regel klärt die Situation und sorgt für einen fairen Spielabschluss. Der Name leitet sich von den drei Elementen ab: Stöck, Weis und Stich.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/stöck-wys-stich",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Stöck-Wys-Stich"
+        },
+        "keywords": [
+          "stöck-wys-stich",
+          "ausmachregel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "stöck-wys-stich",
+        "ausmachregel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_tisch_weis",
+      "title": "Tisch-Weis",
+      "slug": "begriffe/punktebegriffe/tisch-weis",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Tisch-Weis sind Weise, die bei der Jassart Molotow entstehen. Sie ergeben sich direkt auf dem Tisch durch das Spielen der Karten im Verlauf des Spiels, anstatt bereits zu Beginn gemeldet zu werden. Diese besondere Form des Weises erfordert eine gute Beobachtungsgabe und schnelle Reaktion.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/tisch-weis",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Tisch-Weis"
+        },
+        "keywords": [
+          "tisch-weis",
+          "molotow",
+          "weise"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "tisch-weis",
+        "molotow",
+        "weise"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_vogel",
+      "title": "Vogel",
+      "slug": "begriffe/punktebegriffe/vogel",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Vogel wird durch das Notieren eines \"V\" gekennzeichnet. Beim Zwick-Jass entspricht dies fünf abzuverdienenden Minusstrichen. Beim Schieber bedeutet ein Vogel 500 Schreibpunkte. Dieser Begriff wird verwendet, um bestimmte Spielsituationen zu dokumentieren und in die Abrechnung einzubeziehen.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/vogel",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Vogel"
+        },
+        "keywords": [
+          "vogel",
+          "minusstriche",
+          "schreibpunkte"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "vogel",
+        "minusstriche",
+        "schreibpunkte"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_weis",
+      "title": "Weis",
+      "slug": "begriffe/punktebegriffe/weis",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Ein Weis ist eine wertvolle Kartenkombination, die auf verschiedene Weise entstehen kann: Entweder durch aufeinanderfolgende Karten der gleichen Farbe wie Ober, König und Ass, oder durch vier Karten mit gleichen Bildern, zum Beispiel vier Siebner. Bei der Weismeldung wird die Weishöhe angesagt, bei der Weisdeklaration wird die genaue Kartenkombination bekanntgegeben, und die Weispunkte bewerten den Wert des Weises.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/weis",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Weis"
+        },
+        "keywords": [
+          "weis",
+          "weismeldung",
+          "weisdeklaration",
+          "weispunkte",
+          "kartenkombination"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "weis",
+        "weismeldung",
+        "weisdeklaration",
+        "weispunkte",
+        "kartenkombination"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_fort",
+      "title": "Fort",
+      "slug": "begriffe/spielaktionen/fort",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Fort ist die Bemerkung, die ein Spieler äußert, wenn er kein Angebot mehr machen kann oder möchte. Diese Spielaktion kommt besonders bei der Jassart Bieter, auch Steiger genannt, zum Einsatz und beendet für diesen Spieler die Bietphase.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/fort",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Fort"
+        },
+        "keywords": [
+          "fort",
+          "bieter",
+          "steiger"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "fort",
+        "bieter",
+        "steiger"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_matschpraemie",
+      "title": "Matschprämie",
+      "slug": "begriffe/punktebegriffe/matschprämie",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Matschprämie sind zusätzliche Punkte, die ein Team erhält, wenn es alle Stiche eines Spiels erzielt. Diese Belohnung wird in den meisten Jassvarianten vergeben und macht den Matsch zu einem besonders lohnenden Ziel. Die Höhe der Prämie kann je nach Spielvariante unterschiedlich ausfallen.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/matschprämie",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Matschprämie"
+        },
+        "keywords": [
+          "matschprämie",
+          "matsch"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "matschprämie",
+        "matsch"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_nuller",
+      "title": "Nuller",
+      "slug": "begriffe/punktebegriffe/nuller",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Ein Nuller entspricht einem Minusstrich, der mit einem Strich verrechnet wird. Dieser Begriff ist auch bekannt als Sack oder Härdöpfel und wird verwendet, um Minuspunkte zu bezeichnen, die ein Spieler bei Differenz-Jassarten erhält, wenn er sein angesagtes Ziel nicht erreicht.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/nuller",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Nuller"
+        },
+        "keywords": [
+          "nuller",
+          "minusstrich",
+          "sack",
+          "härdöpfel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "nuller",
+        "minusstrich",
+        "sack",
+        "härdöpfel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_rampo",
+      "title": "Rampo",
+      "slug": "begriffe/punktebegriffe/rampo",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Rampo ist ein notierter Querstrich bei der Jassart Schellenjass, auch Herzjass genannt. Dieser wird notiert, wenn mindestens zwei Spieler gleich viele Schellenkarten stechen müssen. Das Rampo ist ein wichtiger Bestandteil der Spielabrechnung und beeinflusst den Spielverlauf erheblich.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/rampo",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Rampo"
+        },
+        "keywords": [
+          "rampo",
+          "schellenjass",
+          "herzjass"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.8,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "rampo",
+        "schellenjass",
+        "herzjass"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_rose",
+      "title": "Rose",
+      "slug": "begriffe/kartenbezeichnungen/rose",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Rose ist eine der vier Kartenfarben der deutschschweizerischen Spielkarten. Sie gehört zu den Grundfarben im Deutschschweizer Blatt und wird in allen Varianten verwendet, die mit diesen traditionellen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/rose",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Rose"
+        },
+        "keywords": [
+          "rose",
+          "kartenfarbe",
+          "deutschschweizer"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "rose",
+        "kartenfarbe",
+        "deutschschweizer"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_stechkarten",
+      "title": "Stechkarten",
+      "slug": "begriffe/kartenbezeichnungen/stechkarten",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Stechkarten sind stechmässig höhere Karten als die im laufenden Stich gespielten. Diese Karten sind wichtig für die taktische Spielplanung, da sie die Möglichkeit bieten, den Stich zu gewinnen. Das Verständnis der Stechhierarchie ist entscheidend für erfolgreiches Jassen.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/stechkarten",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Stechkarten"
+        },
+        "keywords": [
+          "stechkarten",
+          "höhere karten"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "stechkarten",
+        "höhere karten"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_knecht",
+      "title": "Knecht",
+      "slug": "begriffe/grundbegriffe/knecht",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Der Knecht ist der fünfte Spieler bei der Jassart Schieber zu fünft. Dieser Begriff ist auch als Joker bekannt und bezeichnet einen Spieler, der eine besondere Rolle im Spiel einnimmt. Der Knecht kann in bestimmten Situationen eine wichtige strategische Position haben.",
+      "url": "https://jasswiki.ch/begriffe/grundbegriffe/knecht",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Grundbegriffe",
+          "topic": "Knecht"
+        },
+        "keywords": [
+          "knecht",
+          "joker",
+          "fünfter spieler"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "knecht",
+        "joker",
+        "fünfter spieler"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_leih_halten",
+      "title": "Leih halten",
+      "slug": "begriffe/spielaktionen/leih-halten",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Leih halten bedeutet, die Farbe zu bekennen, also eine Karte der ausgespielten Farbe anzugeben. Dies ist eine grundlegende Spielregel im Jass und muss strikt befolgt werden, sofern der Spieler eine entsprechende Karte besitzt. Diese Regel sorgt für eine faire Spielweise und klare Spielmechanik.",
+      "url": "https://jasswiki.ch/begriffe/spielaktionen/leih-halten",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Spielaktionen",
+          "topic": "Leih halten"
+        },
+        "keywords": [
+          "leih halten",
+          "farbe bekennen"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "leih halten",
+        "farbe bekennen"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_sack",
+      "title": "Sack",
+      "slug": "begriffe/punktebegriffe/sack",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Sack ist eine Bezeichnung für einen Nuller oder Minusstrich. Dieser Begriff wird auch als Härdöpfel bezeichnet und bezeichnet Minuspunkte, die ein Spieler erhält, wenn er bei Differenz-Jassarten sein angesagtes Ziel nicht erreicht. Der Sack muss später durch positive Leistungen ausgeglichen werden.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/sack",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Sack"
+        },
+        "keywords": [
+          "sack",
+          "nuller",
+          "härdöpfel",
+          "minusstrich"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "sack",
+        "nuller",
+        "härdöpfel",
+        "minusstrich"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schaufel",
+      "title": "Schaufel",
+      "slug": "begriffe/kartenbezeichnungen/schaufel",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Schaufel ist eine der vier Kartenfarben der französischen Spielkarten. Sie gehört zu den standardmässigen Farben und wird in allen Jassvarianten verwendet, die mit französischen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/schaufel",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Schaufel"
+        },
+        "keywords": [
+          "schaufel"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schaufel"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schelle",
+      "title": "Schelle",
+      "slug": "begriffe/kartenbezeichnungen/schelle",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Schelle ist eine der vier Kartenfarben der deutschschweizerischen Spielkarten. Sie gehört zu den traditionellen Farben des Deutschschweizer Blatts und wird in allen Varianten verwendet, die mit diesen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/schelle",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Schelle"
+        },
+        "keywords": [
+          "schelle"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schelle"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_schilte",
+      "title": "Schilte",
+      "slug": "begriffe/kartenbezeichnungen/schilte",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Schilte ist eine der vier Kartenfarben der deutschschweizerischen Spielkarten. Sie gehört zu den traditionellen Farben des Deutschschweizer Blatts und wird in allen Varianten verwendet, die mit diesen Karten gespielt werden.",
+      "url": "https://jasswiki.ch/begriffe/kartenbezeichnungen/schilte",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Kartenbezeichnungen",
+          "topic": "Schilte"
+        },
+        "keywords": [
+          "schilte"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 0.9,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "schilte"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_weismeldung",
+      "title": "Weismeldung",
+      "slug": "begriffe/punktebegriffe/weismeldung",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Weismeldung ist die Ansage der Weishöhe durch den Spieler, der einen Weis besitzt. Dies ist ein wichtiger Moment im Spielablauf, da die Meldung den Wert des Weises bekanntgibt und in die Spielabrechnung einfliesst. Die Weismeldung erfolgt meist zu Beginn des Spiels oder zu einem bestimmten Zeitpunkt, je nach Spielvariante.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/weismeldung",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Weismeldung"
+        },
+        "keywords": [
+          "weismeldung",
+          "weis",
+          "weishöhe"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "weismeldung",
+        "weis",
+        "weishöhe"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_weisdeklaration",
+      "title": "Weisdeklaration",
+      "slug": "begriffe/punktebegriffe/weisdeklaration",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Die Weisdeklaration ist die Bekanntgabe, aus welchen Karten sich der gültige Weis zusammensetzt. Diese erfolgt nach der Weismeldung und gibt den anderen Spielern Aufschluss über die genaue Kartenkombination. Die Weisdeklaration ist wichtig für die Spielabrechnung und die strategische Planung der weiteren Spielzüge.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/weisdeklaration",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Weisdeklaration"
+        },
+        "keywords": [
+          "weisdeklaration",
+          "weis",
+          "kartenkombination"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "weisdeklaration",
+        "weis",
+        "kartenkombination"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    },
+    {
+      "id": "expressions_weispunkte",
+      "title": "Weispunkte",
+      "slug": "begriffe/punktebegriffe/weispunkte",
+      "type": "begriff",
+      "variant": null,
+      "official": false,
+      "language": "de-CH",
+      "version": "1.0.0",
+      "text": "Weispunkte sind die Bewertung des Weises, die je nach Art und Höhe des Weises unterschiedlich ausfallen. Die Punktzahlen werden in die Spielabrechnung einbezogen und können den Spielverlauf erheblich beeinflussen. Ein höherer Weis bringt entsprechend mehr Weispunkte ein, was sich positiv auf die Gesamtpunktzahl auswirkt.",
+      "url": "https://jasswiki.ch/begriffe/punktebegriffe/weispunkte",
+      "metadata": {
+        "category": {
+          "main": "Begriffe",
+          "sub": "Punktebegriffe",
+          "topic": "Weispunkte"
+        },
+        "keywords": [
+          "weispunkte",
+          "weis",
+          "punktebewertung"
+        ],
+        "situations": [
+          "LEARNING"
+        ],
+        "importance": 1,
+        "difficulty": 2
+      },
+      "rule_data": {},
+      "exceptions": [],
+      "synonyms": [
+        "weispunkte",
+        "weis",
+        "punktebewertung"
+      ],
+      "see_also": [],
+      "citations": [],
+      "notes": null,
+      "updated_by": "agent4",
+      "updated_at": "2025-10-30T10:47:35Z"
+    }
+  ]
+}

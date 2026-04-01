@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useAuthStore } from '@/store/authStore';
 import { useGroupStore } from '@/store/groupStore';
+import { useGameStore } from '@/store/gameStore';
 import { useUIStore } from '@/store/uiStore';
 import MainLayout from '@/components/layout/MainLayout';
 import StartScreen from '@/components/layout/StartScreen';
@@ -21,6 +22,7 @@ const NewGamePage: React.FC = () => {
   const router = useRouter();
   const { status, isGuest } = useAuthStore();
   const { currentGroup } = useGroupStore();
+  const gameStore = useGameStore();
   const showNotification = useUIStore((state) => state.showNotification);
 
   const [members, setMembers] = useState<FirestorePlayer[]>([]);
@@ -95,6 +97,13 @@ const NewGamePage: React.FC = () => {
     // Dieser Effect stellt sicher, dass nur eingeloggte Benutzer
     // mit einer ausgewählten Gruppe diese Seite nutzen können.
     if (!isAuthLoading) {
+      // 🛡️ GUARD: Wenn bereits ein Spiel aktiv ist, direkt zum Jass umleiten
+      const { isGameStarted, isGameCompleted, activeGameId } = gameStore;
+      if (isGameStarted && !isGameCompleted && activeGameId) {
+        router.replace('/jass');
+        return;
+      }
+
       if (!isAuthenticated) {
         showNotification({ type: 'error', message: 'Sie müssen angemeldet sein, um ein Spiel zu starten.' });
         router.replace('/auth/login');
@@ -102,10 +111,8 @@ const NewGamePage: React.FC = () => {
         showNotification({ type: 'warning', message: 'Bitte wählen Sie zuerst eine Gruppe aus.' });
         router.replace('/start');
       }
-      // ENTFERNT: PWA-Prüfung, da sie den korrekten OnboardingFlow in JassKreidetafel.tsx blockiert
-      // Die intelligente Onboarding-Logik (Desktop=QR-Code, Mobile=Installation) ist bereits in JassKreidetafel.tsx implementiert
     }
-  }, [isAuthLoading, isAuthenticated, currentGroup, router, showNotification]);
+  }, [isAuthLoading, isAuthenticated, currentGroup, router, showNotification, gameStore]);
 
   // 🔧 ZUSÄTZLICHER SCHUTZ: Falls currentGroup während des Ladens verschwindet
   useEffect(() => {

@@ -473,3 +473,66 @@ export const getJvsMemberDetails = onCall({
   }
 });
 
+/**
+ * Öffentliche Badge-Infos für Profile/Gruppen
+ *
+ * Gibt nur öffentlich sichtbare JVS-Badge-Daten zurück (keine persönlichen Daten).
+ * Kein Auth erforderlich — wird für öffentliche Profile und Gruppenansichten verwendet.
+ */
+interface GetPublicJvsBadgesData {
+  playerIds: string[];
+}
+
+export interface PublicJvsBadge {
+  isMember: boolean;
+  memberNumber?: number | null;
+  season?: number | null;
+}
+
+export const getPublicJvsBadges = onCall<GetPublicJvsBadgesData>({
+  region: "europe-west1"
+}, async (request) => {
+  const playerIds = request.data?.playerIds;
+
+  if (!playerIds || !Array.isArray(playerIds) || playerIds.length === 0) {
+    return { badges: {} };
+  }
+
+  // Max 20 playerIds pro Anfrage (Missbrauchsschutz)
+  const limitedIds = playerIds.slice(0, 20);
+
+  try {
+    const badges: Record<string, PublicJvsBadge> = {};
+
+    // Firestore 'in' Query unterstützt max 30 Werte — passt
+    const memberQuery = await db.collection('jvs_members')
+      .where('playerId', 'in', limitedIds)
+      .where('status', '==', 'active')
+      .get();
+
+    const now = admin.firestore.Timestamp.now();
+
+    for (const doc of memberQuery.docs) {
+      const member = doc.data() as JvsMember;
+
+      // Abgelaufene überspringen
+      if (member.validUntil && member.validUntil.toMillis() < now.toMillis()) {
+        continue;
+      }
+
+      if (member.playerId) {
+        badges[member.playerId] = {
+          isMember: true,
+          memberNumber: member.memberNumber || null,
+          season: member.season || null
+        };
+      }
+    }
+
+    return { badges };
+  } catch (error) {
+    logger.error(`[getPublicJvsBadges] Fehler:`, error);
+    throw new HttpsError('internal', 'Badge-Abfrage fehlgeschlagen.');
+  }
+});
+

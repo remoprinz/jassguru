@@ -7,6 +7,7 @@ import HeroSection from './sections/HeroSection';
 import ErfassenSection from './sections/ErfassenSection';
 import ProSection from './sections/ProSection';
 import VerbandSection from './sections/VerbandSection';
+import TrustSection from './sections/TrustSection';
 import CtaSection from './sections/CtaSection';
 import LandingHeader from './LandingHeader';
 import LandingFooter from './LandingFooter';
@@ -45,6 +46,7 @@ const LandingPage: React.FC = () => {
       <ErfassenSection />
       <ProSection />
       <VerbandSection />
+      <TrustSection />
       <CtaSection onInstall={handleInstall} onLogin={handleLogin} />
       <LandingFooter onInstall={handleInstall} onLogin={handleLogin} />
     </motion.div>

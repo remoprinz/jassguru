@@ -2172,9 +2172,10 @@ export { syncPlayerProfileToGroups } from './syncPlayerProfile';
 // =====================================================================
 // Diese Functions verwalten die JVS-Mitgliedschaften und ermöglichen
 // Premium-Features (z.B. Buur Analytics) für JVS-Mitglieder.
-export { 
-  createJvsMember, 
-  checkJvsMembership, 
+export {
+  createJvsMember,
+  checkJvsMembership,
   activateMembership,
-  getJvsMemberDetails 
+  getJvsMemberDetails,
+  getPublicJvsBadges
 } from './jvsMembership';

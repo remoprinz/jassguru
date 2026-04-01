@@ -82,34 +82,32 @@ export const resetiOSScreenLockWarning = (): void => {
 export const createSimpleiOSScreenLockNotification = (
   onButtonClick: () => void
 ) => {
+  // Strukturierte Nachricht: Pfad + kurzer Satz
+  const messageContent = `Einstellungen → Anzeige & Helligkeit → Automatische Sperre → Nie
+
+So bleibt der Bildschirm während dem Jassen aktiv.`;
+
   return {
     type: 'info' as const,
-    message: `💡 iOS Tipp: Bildschirmsperre deaktivieren
-
-🔧 Schnelle Lösung:
-Einstellungen > Anzeige & Helligkeit
-> Automatische Sperre > Nie
-
-⏰ So bleibt der Bildschirm während der Jass-Partie aktiv!`,
+    message: messageContent,
+    // Titel wird über das notification-System nicht direkt unterstützt,
+    // aber der erste Teil der Message wird prominent dargestellt
     actions: [
       {
         label: 'Verstanden',
         onClick: () => {
           const currentState = useUIStore.getState().iosNotification.dontShowAgain;
 
-          
           if (currentState) {
             markiOSScreenLockWarningAsShown();
-            console.log('📝 [iOS Notification] Warnung dauerhaft ausgeblendet');
           }
-          
+
           onButtonClick();
         },
       },
     ],
-    // SPEZIELLE KENNUNG für iOS-Notification - GlobalNotificationContainer übernimmt Checkbox-Handling
     isIOSNotification: true,
     preventClose: false,
     duration: 0,
   };
-}; 
+};

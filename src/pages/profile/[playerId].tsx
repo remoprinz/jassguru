@@ -20,6 +20,7 @@ import { CheckCircle, XCircle, Award as AwardIcon, Archive } from 'lucide-react'
 import ProfileImage from '@/components/ui/ProfileImage';
 import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { getPublicJvsBadges, type PublicJvsBadge } from '@/services/jvsMembershipService';
 
 // PlayerProfilePageStats ist jetzt der primäre Typ für transformierte Statistiken
 interface PlayerProfilePageStats extends TransformedPlayerStats {
@@ -63,6 +64,9 @@ const PlayerProfilePage = () => {
   const [tournamentsLoading, setTournamentsLoading] = useState(false);
   const [tournamentsError, setTournamentsError] = useState<string | null>(null);
 
+  // JVS Badge für öffentliches Profil
+  const [publicJvsBadge, setPublicJvsBadge] = useState<PublicJvsBadge | null>(null);
+
   // State und Actions aus dem playerStatsStore
   const {
     stats: rawPlayerStats,
@@ -97,6 +101,11 @@ const PlayerProfilePage = () => {
       .then(sessions => { setCompletedSessions(sessions); })
       .catch(() => { setSessionsError("Sessions konnten nicht geladen werden."); })
       .finally(() => { setSessionsLoading(false); });
+
+    // JVS Badge laden
+    getPublicJvsBadges([playerId])
+      .then(badges => { setPublicJvsBadge(badges[playerId] || null); })
+      .catch(() => { /* Badge ist nicht kritisch */ });
 
     const tournamentsPromise = fetchTournamentsForUser(playerId)
       .then(tournaments => { setUserTournaments(tournaments); })
@@ -593,6 +602,7 @@ const PlayerProfilePage = () => {
       renderArchiveItem={renderArchiveItem}
       theme={activeThemeColors}
       profileTheme={activeTheme}
+      publicJvsBadge={publicJvsBadge}
     />
     </>
   );

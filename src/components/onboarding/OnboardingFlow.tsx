@@ -1,697 +1,390 @@
-import React, {useState, useEffect, useMemo} from "react";
-import {motion, AnimatePresence} from "framer-motion";
-import {FaArrowLeft, FaArrowRight} from "react-icons/fa";
-import {FaApple, FaAndroid} from "react-icons/fa";
-import type {
-  OnboardingContent,
-  BrowserOnboardingStep,
-} from "../../constants/onboardingContent";
-import {BROWSER_ONBOARDING} from "../../constants/onboardingContent";
-import {usePressableButton} from "../../hooks/usePressableButton";
-import {useDeviceScale} from "../../hooks/useDeviceScale";
-// isDev-Import entfernt - wird nicht mehr benötigt
+'use client';
 
-// Neue Funktion zur Erkennung von Desktop-Geräten
-function isDesktopDevice() {
-  // Wenn im Browser ausgeführt
-  if (typeof window !== "undefined") {
-    // Keine Touch-Unterstützung deutet auf Desktop hin
-    if (!("ontouchstart" in window || navigator.maxTouchPoints > 0)) {
-      return true;
-    }
-    // Große Bildschirme sind wahrscheinlich Desktops (>= 1024px)
-    if (window.innerWidth >= 1024) {
-      return true;
-    }
-  }
-  return false;
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { PanInfo } from 'framer-motion';
+import type { BrowserOnboardingStep, OnboardingContent } from '../../constants/onboardingContent';
+import { BROWSER_ONBOARDING } from '../../constants/onboardingContent';
+import { useUIStore } from '@/store/uiStore';
+
+/* ─── OS Detection ─── */
+function detectOS(): 'iOS' | 'Android' | 'Desktop' {
+  if (typeof window === 'undefined') return 'iOS';
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return 'iOS';
+  if (/Android/.test(ua)) return 'Android';
+  if (window.innerWidth >= 1024 && !('ontouchstart' in window || navigator.maxTouchPoints > 0))
+    return 'Desktop';
+  return 'iOS';
 }
 
-// QR-Code URL
-const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent("https://jassguru.ch")}`;
+/* ─── Slide definition aus den Original-Constants ─── */
+interface Slide {
+  title: string;
+  body: string;
+  secondaryBody?: string;
+  image?: string;
+  isGuru?: boolean;
+  isQR?: boolean;
+  isPhoneScreenshot?: boolean;
+}
 
+function buildSlides(os: 'iOS' | 'Android' | 'Desktop'): Slide[] {
+  if (os === 'Desktop') {
+    const content = BROWSER_ONBOARDING.iOS;
+    return [
+      {
+        title: content.WELCOME_SCREEN.title,
+        body: content.WELCOME_SCREEN.message,
+        secondaryBody: content.WELCOME_SCREEN.secondaryMessage,
+        image: content.WELCOME_SCREEN.image,
+        isGuru: true,
+      },
+      {
+        title: content.INSTALL_WELCOME.desktopTitle || content.INSTALL_WELCOME.title,
+        body: content.INSTALL_WELCOME.desktopMessage || content.INSTALL_WELCOME.message,
+        secondaryBody: content.INSTALL_WELCOME.desktopSecondaryMessage,
+        isQR: true,
+      },
+    ];
+  }
+
+  const content = BROWSER_ONBOARDING[os];
+  const slides: Slide[] = [
+    {
+      title: content.WELCOME_SCREEN.title,
+      body: content.WELCOME_SCREEN.message,
+      secondaryBody: content.WELCOME_SCREEN.secondaryMessage,
+      image: content.WELCOME_SCREEN.image,
+      isGuru: true,
+    },
+    {
+      title: content.INSTALL_WELCOME.title,
+      body: content.INSTALL_WELCOME.message,
+      image: content.INSTALL_WELCOME.image,
+      isGuru: true,
+    },
+    {
+      title: content.INSTALL_SHARE.title,
+      body: content.INSTALL_SHARE.message,
+      image: content.INSTALL_SHARE.image,
+      isPhoneScreenshot: true,
+    },
+    {
+      title: content.INSTALL_HOME.title,
+      body: content.INSTALL_HOME.message,
+      image: content.INSTALL_HOME.image,
+      isPhoneScreenshot: true,
+    },
+    {
+      title: content.INSTALL_FINAL.title,
+      body: content.INSTALL_FINAL.message,
+      image: content.INSTALL_FINAL.image,
+      isPhoneScreenshot: true,
+    },
+  ];
+
+  // iOS hat INSTALL_DONE
+  if (os === 'iOS' && 'INSTALL_DONE' in content) {
+    const done = (content as typeof BROWSER_ONBOARDING.iOS).INSTALL_DONE;
+    slides.push({
+      title: done.title,
+      body: done.message,
+      image: done.image,
+      isPhoneScreenshot: true,
+    });
+  }
+
+  // FINAL_HINTS
+  slides.push({
+    title: content.FINAL_HINTS.title,
+    body: content.FINAL_HINTS.message,
+    secondaryBody: 'finalMessage' in content.FINAL_HINTS ? (content.FINAL_HINTS as { finalMessage?: string }).finalMessage : undefined,
+    image: 'image' in content.FINAL_HINTS ? (content.FINAL_HINTS as { image?: string }).image : '/welcome-guru.png',
+    isGuru: true,
+  });
+
+  return slides;
+}
+
+const QR_CODE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent('https://jassguru.ch')}`;
+
+/* ─── Animation Variants ─── */
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 300 : -300,
+    opacity: 0,
+  }),
+  center: { x: 0, opacity: 1 },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 300 : -300,
+    opacity: 0,
+  }),
+};
+
+/* ─── Props (kompatibel mit JassKreidetafel) ─── */
 interface OnboardingFlowProps {
   show: boolean;
-  step: BrowserOnboardingStep;
-  content: OnboardingContent;
-  onNext: () => void;
-  onPrevious: () => void;
   onDismiss: () => void;
-  canBeDismissed: boolean;
-  isPWA: boolean;
-  isBrowserOnboarding: boolean;
+  step?: BrowserOnboardingStep;
+  content?: OnboardingContent;
+  onNext?: () => void;
+  onPrevious?: () => void;
+  canBeDismissed?: boolean;
+  isPWA?: boolean;
+  isBrowserOnboarding?: boolean;
 }
 
-export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
-  show,
-  step,
-  content,
-  onNext,
-  onPrevious,
-  onDismiss,
-  canBeDismissed,
-  isPWA,
-  isBrowserOnboarding,
-}) => {
-  // 🔧 GEÄNDERT: Keine pauschale isDev-Blockierung mehr
-  // Das Onboarding wird jetzt durch die show-Prop gesteuert
+/* ─── Main Component ─── */
+export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({ show, onDismiss }) => {
+  const [[page, direction], setPage] = useState([0, 0]);
+  const [os, setOS] = useState<'iOS' | 'Android' | 'Desktop'>('iOS');
 
-  // Hooks MÜSSEN hier oben und unbedingt aufgerufen werden
-  const {overlayScale, urlBarPosition} = useDeviceScale();
-  const [viewportHeight, setViewportHeight] = useState(0);
-  const [availableContentHeight, setAvailableContentHeight] = useState(0);
-  const [isDesktop, setIsDesktop] = useState(false);
-  const previousButtonHandlers = usePressableButton(onPrevious);
-  const nextButtonHandlers = usePressableButton(onNext);
-
-  // Erfasst die Viewport-Dimensionen und überprüft, ob es sich um einen Desktop handelt
   useEffect(() => {
-    const updateDimensions = () => {
-      setViewportHeight(window.innerHeight);
-
-      // Berechne die verfügbare Höhe für den Inhalt (abzüglich Navigation und Padding)
-      const estimatedHeaderHeight = 60; // Überschrift
-      const estimatedButtonHeight = 60; // Navigationsbuttons
-      const estimatedVerticalPadding = 48; // Padding oben und unten
-      const estimatedContentHeight = window.innerHeight - estimatedHeaderHeight - estimatedButtonHeight - estimatedVerticalPadding;
-      setAvailableContentHeight(estimatedContentHeight);
-
-      // Überprüfe, ob es sich um ein Desktop-Gerät handelt
-      setIsDesktop(isDesktopDevice());
-    };
-
-    updateDimensions();
-    window.addEventListener("resize", updateDimensions);
-    return () => window.removeEventListener("resize", updateDimensions);
+    setOS(detectOS());
   }, []);
 
-  // Berechnet die optimale Skalierung für verschiedene Bildschirmgrößen
-  const deviceSize = useMemo(() => {
-    // Weniger strenge Bedingungen für große Geräte
-    if (viewportHeight < 600) return "xs"; // Sehr kleine Geräte
-    if (viewportHeight < 700) return "sm"; // Kleine Geräte
-    if (viewportHeight >= 750) return "lg"; // Große Geräte - weniger strenge Bedingung
-    return "md"; // Standard Geräte
-  }, [viewportHeight]);
+  const slides = useMemo(() => buildSlides(os), [os]);
 
-  // Berechne die optimale Bildgröße basierend auf dem verfügbaren Platz
-  const optimalImageHeight = useMemo(() => {
-    // Verwende 40% der verfügbaren Content-Höhe für das Bild, aber mindestens 100px
-    const calculatedHeight = Math.max(Math.floor(availableContentHeight * 0.4), 100);
-    // Begrenze auf maximal 220px
-    return Math.min(calculatedHeight, 220);
-  }, [availableContentHeight]);
+  const totalSlides = slides.length;
+  const currentSlide = slides[page] || slides[0];
+  const isFirstSlide = page === 0;
+  const isLastSlide = page === totalSlides - 1;
 
-  // Berechne die optimale Bildgröße für Standard-Schritt-Bilder
-  const optimalStepImageHeight = useMemo(() => {
-    // Für die Schritt-Bilder großzügigere Basiswerte verwenden
-    const baseHeight = deviceSize === "lg" ? 380 : deviceSize === "md" ? 320 :
-      deviceSize === "sm" ? 260 : 220;
+  const paginate = useCallback(
+    (newDirection: number) => {
+      const next = page + newDirection;
+      if (next >= 0 && next < totalSlides) {
+        setPage([next, newDirection]);
+      } else if (next >= totalSlides) {
+        useUIStore.getState().showNotification({
+          message: 'Hat die Installation geklappt?',
+          type: 'info',
+          preventClose: true,
+          actions: [
+            {
+              label: 'Nein, nochmal zeigen',
+              onClick: () => setPage([0, -1]),
+            },
+            {
+              label: 'Ja, weiter!',
+              onClick: () => onDismiss(),
+              className: 'bg-green-600 hover:bg-green-700 text-white',
+            },
+          ],
+        });
+      }
+    },
+    [page, totalSlides, onDismiss],
+  );
 
-    // Begrenze die Höhe auf 65% der verfügbaren Content-Höhe - mehr Platz nutzen
-    return Math.min(baseHeight, Math.floor(availableContentHeight * 0.65));
-  }, [availableContentHeight, deviceSize]);
+  const goToSlide = useCallback(
+    (index: number) => {
+      setPage([index, index > page ? 1 : -1]);
+    },
+    [page],
+  );
 
-  const isFirstStep = step === "WELCOME_SCREEN";
-  const isWelcomeStep = step === "WELCOME_SCREEN" || step === "INSTALL_WELCOME";
+  const handleDragEnd = useCallback(
+    (_: unknown, info: PanInfo) => {
+      const swipe = Math.abs(info.offset.x) * info.velocity.x;
+      if (swipe < -4000) paginate(1);
+      else if (swipe > 4000) paginate(-1);
+    },
+    [paginate],
+  );
 
-  // Neuer Spezialfall: Prüfen, ob QR-Code angezeigt werden soll
-  const shouldShowQRCode = isDesktop && step === "INSTALL_WELCOME";
-
-  // Dynamische Padding-Anpassung basierend auf der Gerätegroße
-  const getPadding = () => {
-    switch (deviceSize) {
-    case "xs": return "p-3";
-    case "sm": return "p-4";
-    case "lg": return "p-6";
-    default: return "p-5";
+  // Preload next slide image
+  useEffect(() => {
+    const next = slides[page + 1];
+    if (next?.image) {
+      const img = new window.Image();
+      img.src = next.image;
     }
-  };
+  }, [page, slides]);
 
-  // Zusätzliche Prüfung: Nur rendern, wenn 'show' true ist (redundant mit AnimatePresence, aber schadet nicht)
-  if (!show) {
-     return null;
-  }
-  
-  // NEU: Zusätzlicher Schutz für öffentliche View-Pfade
-  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/view/')) {
-    return null; // Niemals OnboardingFlow auf öffentlichen View-Pfaden zeigen
-  }
+  if (!show) return null;
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/view/')) return null;
 
-  // JSX wird nur zurückgegeben, wenn NICHT im Development Mode und show=true
   return (
     <AnimatePresence>
       {show && (
-        <>
-          {/* Dunkler Hintergrund-Overlay */}
-          <motion.div
-            initial={{opacity: 0}}
-            animate={{opacity: 1}}
-            exit={{opacity: 0}}
-            className="fixed inset-0 bg-black/90 z-[99998]"
-          />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="min-h-[100dvh] flex flex-col relative"
+        >
+          {/* Background — wie Feature-Sections */}
+          <div className="absolute inset-0">
+            <img
+              src="/images/backgrounds/chalkboard-jvs.webp"
+              alt=""
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/30" />
+          </div>
 
-          {/* Onboarding Content */}
-          <motion.div
-            initial={{opacity: 0}}
-            animate={{opacity: 1}}
-            exit={{opacity: 0}}
-            className={`fixed inset-0 flex items-center justify-center z-[99999] 
-              ${isDesktop ? "py-8" : urlBarPosition === "top" ? "pt-8 sm:pt-16 pb-4 sm:pb-8" : "pt-4 sm:pt-8 pb-8 sm:pb-16"}`}
-          >
-            <motion.div
-              key={step}
-              initial={{scale: 0.95}}
-              animate={{
-                scale: overlayScale,
-                y: isDesktop ? 0 : (urlBarPosition === "top" ? (deviceSize === "xs" ? 20 : 40) : (deviceSize === "xs" ? -20 : -40)),
-              }}
-              exit={{scale: 0.95}}
-              className={`bg-gray-800 ${getPadding()} rounded-lg shadow-lg w-full relative text-white 
-                ${isDesktop && !isWelcomeStep && step !== "FINAL_HINTS" ? "max-w-4xl" : "max-w-xs sm:max-w-sm md:max-w-md"}
-                ${deviceSize === "xs" ? "max-h-[90vh] overflow-y-auto" : ""}`}
-            >
-              <div className="flex flex-col items-center justify-center">
-                {isWelcomeStep ? (
-                  shouldShowQRCode ? (
-                    <QRCodeStep
-                      content={content}
-                      deviceSize={deviceSize}
-                      optimalImageHeight={optimalImageHeight}
-                    />
-                  ) : (
-                    <WelcomeStep
-                      content={content}
-                      deviceSize={deviceSize}
-                      optimalImageHeight={optimalImageHeight}
-                    />
-                  )
-                ) : step === "FINAL_HINTS" ? (
-                  <FinalStep
-                    deviceSize={deviceSize}
-                    optimalImageHeight={optimalImageHeight}
-                    optimalStepImageHeight={optimalStepImageHeight}
+          {/* Content Area */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center overflow-hidden px-6 py-10">
+            <AnimatePresence custom={direction} mode="wait">
+              <motion.div
+                key={page}
+                custom={direction}
+                variants={slideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={{ type: 'spring', stiffness: 300, damping: 30, duration: 0.3 }}
+                drag="x"
+                dragConstraints={{ left: 0, right: 0 }}
+                dragElastic={0.15}
+                onDragEnd={handleDragEnd}
+                className="flex flex-col items-center text-center w-full max-w-lg select-none"
+              >
+                {/* Titel — IMMER Capita, IMMER oben */}
+                <h2
+                  className="text-white mb-5"
+                  style={{
+                    fontFamily: "'Capita', Georgia, serif",
+                    fontWeight: 700,
+                    fontSize: 'clamp(28px, 6vw, 42px)',
+                    lineHeight: 1.2,
+                    letterSpacing: '-0.96px',
+                    textShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                  }}
+                >
+                  {currentSlide.title}
+                </h2>
+
+                {/* Guru Image (Welcome/Intro/Final) */}
+                {currentSlide.isGuru && currentSlide.image && (
+                  <img
+                    src={currentSlide.image}
+                    alt="Jass Guru"
+                    className="w-auto max-h-[30vh] object-contain mb-5"
+                    draggable={false}
                   />
-                ) : (
-                  isDesktop ? (
-                    <DualOSStep
-                      step={step}
-                      deviceSize={deviceSize}
-                      optimalImageHeight={optimalImageHeight}
-                      optimalStepImageHeight={optimalStepImageHeight}
-                    />
-                  ) : (
-                    <StandardStep
-                      content={content}
-                      deviceSize={deviceSize}
-                      optimalImageHeight={optimalImageHeight}
-                      optimalStepImageHeight={optimalStepImageHeight}
-                    />
-                  )
                 )}
 
-                {/* Navigation Buttons */}
-                <NavigationButtons
-                  previousButton={previousButtonHandlers}
-                  nextButton={nextButtonHandlers}
-                  step={step}
-                  deviceSize={deviceSize}
-                  optimalImageHeight={optimalImageHeight}
-                  optimalStepImageHeight={optimalStepImageHeight}
+                {/* QR Code (Desktop) */}
+                {currentSlide.isQR && (
+                  <img
+                    src={QR_CODE_URL}
+                    alt="QR-Code für jassguru.ch"
+                    className="w-48 h-48 bg-white p-3 rounded-xl mb-5"
+                    draggable={false}
+                  />
+                )}
+
+                {/* Screenshot — eigener Rand als Device-Rahmen, gross dargestellt */}
+                {currentSlide.isPhoneScreenshot && currentSlide.image && (
+                  <div className="mb-5 flex justify-center">
+                    <img
+                      src={currentSlide.image}
+                      alt={currentSlide.title}
+                      className="w-auto max-h-[50vh] max-w-[85vw] object-contain"
+                      style={{
+                        borderRadius: 'clamp(16px, 4vw, 32px)',
+                        border: 'clamp(3px, 0.6vw, 5px) solid #1e1e1e',
+                        boxShadow: '0 22px 52px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
+                      }}
+                      draggable={false}
+                    />
+                  </div>
+                )}
+
+                {/* Body — IMMER Inter, unter dem Bild */}
+                <p
+                  className="text-white/80 max-w-md mx-auto"
+                  style={{
+                    fontFamily: "'Inter', system-ui, sans-serif",
+                    fontSize: 'clamp(17px, 3.5vw, 22px)',
+                    lineHeight: 1.6,
+                    textShadow: '0 1px 6px rgba(0,0,0,0.3)',
+                  }}
+                >
+                  {currentSlide.body}
+                </p>
+
+                {/* Secondary Body */}
+                {currentSlide.secondaryBody && (
+                  <p
+                    className="text-white/60 max-w-md mx-auto mt-3"
+                    style={{
+                      fontFamily: "'Inter', system-ui, sans-serif",
+                      fontSize: 'clamp(16px, 3vw, 20px)',
+                      lineHeight: 1.5,
+                      fontStyle: 'italic',
+                      textShadow: '0 1px 6px rgba(0,0,0,0.3)',
+                    }}
+                  >
+                    {currentSlide.secondaryBody}
+                  </p>
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          {/* Bottom Navigation */}
+          <div
+            className="relative z-10 px-6"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 24px), 2rem)' }}
+          >
+            {/* Dot Indicators */}
+            <div className="flex justify-center gap-2 mb-5">
+              {slides.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => goToSlide(i)}
+                  className={`rounded-full transition-all duration-300 ${
+                    i === page
+                      ? 'w-7 h-2.5 bg-white'
+                      : 'w-2.5 h-2.5 bg-white/30 hover:bg-white/50'
+                  }`}
+                  aria-label={`Schritt ${i + 1}`}
                 />
-              </div>
-            </motion.div>
-          </motion.div>
-        </>
+              ))}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 max-w-md mx-auto">
+              {!isFirstSlide && (
+                <button
+                  onClick={() => paginate(-1)}
+                  className="flex-1 py-3.5 rounded-full text-white font-semibold transition-all duration-200 active:scale-95"
+                  style={{
+                    fontFamily: "'Inter', system-ui, sans-serif",
+                    fontSize: '16px',
+                    backgroundColor: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                  }}
+                >
+                  Zurück
+                </button>
+              )}
+              <button
+                onClick={() => paginate(1)}
+                className={`flex-1 py-3.5 rounded-full text-white font-semibold transition-all duration-200 active:scale-95 ${
+                  isFirstSlide ? 'w-full' : ''
+                }`}
+                style={{
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  fontSize: '16px',
+                  background: isLastSlide
+                    ? 'linear-gradient(135deg, #16a34a, #15803d)'
+                    : 'linear-gradient(135deg, #ca8a04, #a16207)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                }}
+              >
+                {isLastSlide ? 'Los gehts!' : 'Weiter'}
+              </button>
+            </div>
+          </div>
+        </motion.div>
       )}
     </AnimatePresence>
-  );
-};
-
-// Neue QR-Code-Komponente für Desktop-Geräte - MIT BEIDEN OS-ANLEITUNGEN!
-const QRCodeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
-  content,
-  deviceSize,
-  optimalImageHeight,
-}) => {
-  // Dynamische Klassen basierend auf Gerätegroße
-  const getTitleClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-2xl mb-2";
-    case "sm": return "text-2xl mb-3";
-    case "lg": return "text-3xl mb-5";
-    default: return "text-3xl mb-4";
-    }
-  };
-
-  const getTextClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-sm mb-3";
-    case "sm": return "text-base mb-4";
-    case "lg": return "text-base mb-6";
-    default: return "text-base mb-5";
-    }
-  };
-
-  // Bestimme die QR-Code-Größe basierend auf dem verfügbaren Platz
-  const qrCodeSize = Math.min(optimalImageHeight * 1.2, 220);
-
-  // Verwende die Desktop-spezifischen Eigenschaften, wenn vorhanden
-  const title = content.desktopTitle || content.title;
-  const message = content.desktopMessage || content.message;
-  const secondaryMessage = content.desktopSecondaryMessage || content.secondaryMessage;
-
-  return (
-    <>
-      <h1 className={`font-bold text-center text-white ${getTitleClass()}`}>
-        {title}
-      </h1>
-      <div className={`flex justify-center items-center ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-5"}`}>
-        <img
-          src={QR_CODE_URL}
-          alt="QR-Code für Jassguru App"
-          style={{height: `${qrCodeSize}px`, width: `${qrCodeSize}px`}}
-          className="object-contain bg-white p-2 rounded-md"
-        />
-      </div>
-      <p className={`
-        text-center whitespace-pre-line ${getTextClass()}
-      `}>
-        {message}
-      </p>
-      {secondaryMessage && (
-        <p className={`text-center ${deviceSize === "xs" ? "text-sm mb-3" : "text-base mb-6"}`}>
-          {secondaryMessage}
-        </p>
-      )}
-    </>
-  );
-};
-
-// Separate Komponenten mit angepasstem Responsive Design
-interface StepComponentProps {
-  deviceSize: string;
-  optimalImageHeight: number;
-  optimalStepImageHeight?: number;
-}
-
-const WelcomeStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
-  content,
-  deviceSize,
-  optimalImageHeight,
-}) => {
-  // Dynamische Klassen basierend auf Gerätegroße
-  const getTitleClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-2xl mb-2";
-    case "sm": return "text-2xl mb-3";
-    case "lg": return "text-3xl mb-5";
-    default: return "text-3xl mb-4";
-    }
-  };
-
-  const getTextClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-sm mb-3";
-    case "sm": return "text-base mb-4";
-    case "lg": return "text-base mb-6";
-    default: return "text-base mb-5";
-    }
-  };
-
-  return (
-    <>
-      <h1 className={`font-bold text-center text-white ${getTitleClass()}`}>
-        {content.title}
-      </h1>
-      {content.image && (
-        <img
-          src={content.image}
-          alt="Jass Guru"
-          style={{height: `${optimalImageHeight}px`}}
-          className={`w-auto object-contain ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-5"}`}
-        />
-      )}
-      <p className={`
-        text-center whitespace-pre-line ${getTextClass()}
-        ${content.title === "Jassguru in 3 Schritten" && (deviceSize === "md" || deviceSize === "lg") ? "mb-12" : ""}
-      `}>
-        {content.message}
-      </p>
-      {content.secondaryMessage && (
-        <p className={`text-center ${deviceSize === "xs" ? "text-sm mb-3" : "text-base mb-6"}`}>
-          {content.secondaryMessage}
-        </p>
-      )}
-    </>
-  );
-};
-
-const FinalStep: React.FC<StepComponentProps> = ({
-  deviceSize,
-  optimalImageHeight,
-  optimalStepImageHeight = optimalImageHeight,
-}) => {
-  const getHeadingClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-xl mb-2";
-    case "sm": return "text-2xl mb-3";
-    case "lg": return "text-3xl mb-4";
-    default: return "text-3xl mb-4";
-    }
-  };
-
-  const getSubheadingClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-base mb-2";
-    case "sm": return "text-lg mb-2";
-    case "lg": return "text-xl mb-3";
-    default: return "text-lg mb-3";
-    }
-  };
-
-  const getTextClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-sm mb-3";
-    case "sm": return "text-base mb-4";
-    case "lg": return "text-base mb-6";
-    default: return "text-base mb-5";
-    }
-  };
-
-  // Berechne die Bildgröße - für dieses Bild etwas kleiner
-  const finalImageHeight = Math.min(optimalImageHeight * 0.8, 180);
-
-  return (
-    <>
-      <h1 className={`font-bold text-center text-white ${getHeadingClass()}`}>
-        Letzter Hinweis
-      </h1>
-      <img
-        src="/welcome-guru.png"
-        alt="Jass Guru"
-        style={{height: `${finalImageHeight}px`, width: "auto"}}
-        className={`object-contain ${deviceSize === "xs" ? "mb-2" : deviceSize === "sm" ? "mb-3" : "mb-4"}`}
-      />
-      <p className={`text-center ${getTextClass()}`}>
-        Beim ersten Öffnen der App wähle "Als Gast spielen" und du wirst durch alle wichtigen Funktionen geführt.
-      </p>
-      <h2 className={`font-bold text-center ${deviceSize === "xs" ? "text-xl mb-4" : deviceSize === "lg" ? "text-2xl mb-8" : "text-2xl mb-6"}`}>
-        Gutes Jassen!
-      </h2>
-    </>
-  );
-};
-
-const StandardStep: React.FC<{ content: OnboardingContent } & StepComponentProps> = ({
-  content,
-  deviceSize,
-  optimalImageHeight,
-  optimalStepImageHeight = optimalImageHeight,
-}) => {
-  const getHeadingClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-xl mb-2";
-    case "sm": return "text-2xl mb-3";
-    case "lg": return "text-3xl mb-5";
-    default: return "text-3xl mb-4";
-    }
-  };
-
-  const getIconSize = () => {
-    switch (deviceSize) {
-    case "xs": return 36;
-    case "sm": return 42;
-    case "lg": return 56; // Größeres Icon für große Geräte
-    default: return 48;
-    }
-  };
-
-  const getTextClass = () => {
-    switch (deviceSize) {
-    case "xs": return "text-sm mb-4";
-    case "sm": return "text-base mb-5";
-    case "lg": return "text-base mb-7";
-    default: return "text-base mb-6";
-    }
-  };
-
-  // Berechne einen angemessenen Maximalwert für die Bildbreite - großzügiger für große Geräte
-  const maxWidth = deviceSize === "xs" ? 220 : deviceSize === "sm" ? 260 :
-    deviceSize === "lg" ? 420 : 340;
-
-  return (
-    <>
-      <h1 className={`font-bold text-center text-white ${getHeadingClass()}`}>
-        {content.title}
-      </h1>
-      {content.image && (
-        <div className={`w-full mx-auto ${deviceSize === "xs" ? "mb-3" : deviceSize === "lg" ? "mb-6" : "mb-5"}`}>
-          <img
-            src={content.image}
-            alt={content.title}
-            style={{
-              maxHeight: `${optimalStepImageHeight}px`,
-              maxWidth: `${maxWidth}px`,
-              width: "auto",
-            }}
-            className="object-contain mx-auto"
-          />
-        </div>
-      )}
-      {content.icon && (
-        <div className={`text-yellow-600 ${deviceSize === "xs" ? "mb-2" : deviceSize === "lg" ? "mb-5" : "mb-4"}`}>
-          <content.icon size={getIconSize()} />
-        </div>
-      )}
-      <p className={`text-center ${getTextClass()}`}>
-        {content.message}
-      </p>
-      {content.secondaryMessage && (
-        <p className={`text-center ${getTextClass()}`}>
-          {content.secondaryMessage}
-        </p>
-      )}
-    </>
-  );
-};
-
-// NEUE Dual-OS-Komponente - INTELLIGENT: Zeigt nur iOS wenn Android keinen Content hat!
-const DualOSStep: React.FC<{ step: BrowserOnboardingStep } & StepComponentProps> = ({
-  step,
-  deviceSize,
-  optimalStepImageHeight = 200,
-}) => {
-  const iosContent = BROWSER_ONBOARDING.iOS[step as keyof typeof BROWSER_ONBOARDING.iOS];
-  const androidContent = BROWSER_ONBOARDING.Android[step as keyof typeof BROWSER_ONBOARDING.Android];
-
-  if (!iosContent) return null;
-
-  // INTELLIGENTE LOGIK: Wenn Android keinen Content hat oder identisch ist → nur iOS zeigen!
-  const showBothOS = androidContent && 
-    androidContent.message !== iosContent.message && 
-    androidContent.title === iosContent.title; // Gleicher Titel = gleicher Schritt
-
-  // INSTALL_DONE: Beide haben gleichen Content → nur einmal zeigen mit "iPhone & Android"
-  const isSharedStep = step === "INSTALL_DONE";
-  
-  // INSTALL_FINAL: iOS hat "Hinzufügen", Android braucht das nicht
-  const isIOSOnlyStep = step === "INSTALL_FINAL";
-
-  if (isIOSOnlyStep) {
-    return (
-      <div className="w-full">
-        <h1 className="text-2xl font-bold text-center text-white mb-6">
-          {iosContent.title}
-        </h1>
-        
-        {/* iOS + Android Hinweis nebeneinander */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* iOS Seite */}
-          <div className="flex flex-col items-center">
-            <div className="flex items-center gap-2 mb-3">
-              <FaApple className="text-white" size={24} />
-              <span className="text-lg font-semibold text-white">iPhone</span>
-            </div>
-            {('image' in iosContent) && iosContent.image && (
-              <img
-                src={iosContent.image}
-                alt={iosContent.title}
-                style={{ maxHeight: `${optimalStepImageHeight * 0.8}px`, maxWidth: '200px' }}
-                className="object-contain mb-4"
-              />
-            )}
-            <p className="text-center text-sm text-gray-300 mb-6">
-              {iosContent.message}
-            </p>
-          </div>
-
-          {/* Android Seite - Hinweis */}
-          <div className="flex flex-col items-center justify-center">
-            <div className="flex items-center gap-2 mb-3">
-              <FaAndroid className="text-white" size={24} />
-              <span className="text-lg font-semibold text-white">Android</span>
-            </div>
-            <div className="flex flex-col items-center justify-center h-full">
-              <p className="text-center text-base text-gray-400 italic">
-                Braucht diesen Schritt nicht.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isSharedStep || !showBothOS) {
-    return (
-      <div className="w-full">
-        <h1 className="text-2xl font-bold text-center text-white mb-6">
-          {isSharedStep ? iosContent.title : iosContent.title}
-        </h1>
-        
-        {/* SINGLE CONTENT - Zentriert */}
-        <div className="flex flex-col items-center max-w-md mx-auto">
-          {isSharedStep && (
-            <div className="flex items-center gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <FaApple className="text-white" size={20} />
-                <span className="text-base font-medium text-white">iPhone</span>
-              </div>
-              <span className="text-white">&</span>
-              <div className="flex items-center gap-2">
-                <FaAndroid className="text-white" size={20} />
-                <span className="text-base font-medium text-white">Android</span>
-              </div>
-            </div>
-          )}
-          
-          {!isSharedStep && (
-            <div className="flex items-center gap-2 mb-4">
-              <FaApple className="text-white" size={20} />
-              <span className="text-base font-medium text-white">iPhone</span>
-            </div>
-          )}
-          
-          {('image' in iosContent) && iosContent.image && (
-            <img
-              src={iosContent.image}
-              alt={iosContent.title}
-              style={{ maxHeight: `${optimalStepImageHeight * 0.9}px`, maxWidth: '300px' }}
-              className="object-contain mb-4"
-            />
-          )}
-          <p className="text-center text-base text-gray-300 mb-6">
-            {iosContent.message}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // DUAL CONTENT - Nebeneinander (nur wenn wirklich unterschiedlich)
-  return (
-    <div className="w-full">
-      <h1 className="text-2xl font-bold text-center text-white mb-6">
-        {iosContent.title}
-      </h1>
-      
-      {/* Beide OS-Anleitungen nebeneinander */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* iOS Seite */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-3">
-            <FaApple className="text-white" size={24} />
-            <span className="text-lg font-semibold text-white">iPhone</span>
-          </div>
-          {('image' in iosContent) && iosContent.image && (
-            <img
-              src={iosContent.image}
-              alt={iosContent.title}
-              style={{ maxHeight: `${optimalStepImageHeight * 0.8}px`, maxWidth: '200px' }}
-              className="object-contain mb-4"
-            />
-          )}
-          <p className="text-center text-sm text-gray-300 mb-6">
-            {iosContent.message}
-          </p>
-        </div>
-
-        {/* Android Seite */}
-        <div className="flex flex-col items-center">
-          <div className="flex items-center gap-2 mb-3">
-            <FaAndroid className="text-white" size={24} />
-            <span className="text-lg font-semibold text-white">Android</span>
-          </div>
-          {('image' in androidContent) && androidContent.image && (
-            <img
-              src={androidContent.image}
-              alt={androidContent.title}
-              style={{ maxHeight: `${optimalStepImageHeight * 0.8}px`, maxWidth: '200px' }}
-              className="object-contain mb-4"
-            />
-          )}
-          <p className="text-center text-sm text-gray-300 mb-6">
-            {androidContent.message}
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface NavigationButtonsProps extends StepComponentProps {
-  previousButton: ReturnType<typeof usePressableButton>;
-  nextButton: ReturnType<typeof usePressableButton>;
-  step: BrowserOnboardingStep;
-}
-
-const NavigationButtons: React.FC<NavigationButtonsProps> = ({
-  previousButton,
-  nextButton,
-  step,
-  deviceSize,
-  optimalImageHeight,
-  optimalStepImageHeight,
-}) => {
-  const getButtonClass = () => {
-    switch (deviceSize) {
-    case "xs": return "px-3 py-1.5 text-sm";
-    case "sm": return "px-4 py-2 text-base";
-    case "lg": return "px-6 py-2.5 text-lg";
-    default: return "px-5 py-2 text-base";
-    }
-  };
-
-  const isLastStep = step === "FINAL_HINTS";
-
-  return (
-    <div className="flex justify-between w-full gap-2 sm:gap-3">
-      <button
-        {...previousButton.handlers}
-        className={`
-          flex-1 bg-gray-600 text-white rounded-full 
-          hover:bg-gray-700 transition-all duration-100 font-semibold 
-          flex items-center justify-center ${getButtonClass()}
-          ${previousButton.buttonClasses}
-        `}
-      >
-        <FaArrowLeft className={`${deviceSize === "xs" ? "mr-0.5" : "mr-1"}`} size={deviceSize === "xs" ? 12 : 14} />
-        Zurück
-      </button>
-      <button
-        {...nextButton.handlers}
-        className={`
-          flex-1 bg-yellow-600 text-white rounded-full 
-          hover:bg-yellow-700 transition-all duration-100 font-semibold 
-          flex items-center justify-center ${getButtonClass()}
-          ${nextButton.buttonClasses}
-          ${isLastStep ? 'invisible pointer-events-none' : ''}
-        `}
-      >
-        <>Weiter<FaArrowRight className={`${deviceSize === "xs" ? "ml-0.5" : "ml-1"}`} size={deviceSize === "xs" ? 12 : 14} /></>
-      </button>
-    </div>
   );
 };
 

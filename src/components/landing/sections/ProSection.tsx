@@ -89,15 +89,16 @@ const ProSection: React.FC = () => {
                 className="text-white/90 text-base sm:text-lg font-semibold"
                 style={{ textShadow: '0 1px 4px rgba(0,0,0,0.35)' }}
               >
-                So sieht deine Gruppe aus:
+                Live-Beispiel:
               </p>
               <a
                 href="https://jassguru.ch/view/group/Tz0wgIHMTlhvTtFastiJ"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block mt-1 text-white text-sm sm:text-base underline underline-offset-2 break-all hover:text-white/85 transition-colors"
+                className="inline-flex items-center gap-1.5 mt-1 text-white text-sm sm:text-base underline underline-offset-2 hover:text-white/85 transition-colors"
               >
-                Vorschau Gruppe
+                Gruppenansicht
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
               </a>
             </div>
           </motion.div>
@@ -124,15 +125,16 @@ const ProSection: React.FC = () => {
                 className="text-white/90 text-base sm:text-lg font-semibold"
                 style={{ textShadow: '0 1px 4px rgba(0,0,0,0.35)' }}
               >
-                So sieht dein Profil aus:
+                Live-Beispiel:
               </p>
               <a
                 href="https://jassguru.ch/profile/b16c1120111b7d9e7d733837"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block mt-1 text-white text-sm sm:text-base underline underline-offset-2 break-all hover:text-white/85 transition-colors"
+                className="inline-flex items-center gap-1.5 mt-1 text-white text-sm sm:text-base underline underline-offset-2 hover:text-white/85 transition-colors"
               >
-                Vorschau Profil
+                Spielerprofil
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
               </a>
             </div>
           </motion.div>
