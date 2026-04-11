@@ -1,72 +1,72 @@
 # JassGuru
 
-Die digitale Infrastruktur fuer den Schweizer Jass. Was als Kreidetafel begann, ist heute eine vollstaendige Plattform: Elo-Ratings, Spielerprofile, Gruppenranglisten, Turniere, Statistiken — alles offline-faehig, alles in Echtzeit.
+The digital infrastructure for Swiss Jass. What started as a chalk scoreboard is now a full platform: Elo ratings, player profiles, group leaderboards, tournaments, statistics — all offline-capable, all in real-time.
 
 **[jassguru.ch](https://jassguru.ch)**
 
-## Was JassGuru kann
+## Features
 
-- **Digitale Kreidetafel** — Schieber-Punkteerfassung mit Z-Linie, Kreide-Textur und automatischer Strich-Berechnung nach Schweizer Regeln
-- **Jass-Elo Rating** — eigenes Bewertungssystem mit K-Ramping, Tier-System (Bronze bis Grandmaster) und gruppenuebergreifendem Skill-Level
-- **Spielerprofile** — persoenliche Statistiken, Elo-Verlauf, Spielhistorie
-- **Gruppen & Ranglisten** — Gruppen erstellen, Mitspieler einladen, Elo-basierte Ranglisten
-- **Turniere** — Turnierplanung und -durchfuehrung
-- **Offline-First** — IndexedDB Sync Queue, funktioniert ohne Internet, synchronisiert bei Reconnect
-- **PWA** — installierbar auf iOS, Android und Desktop
+- **Digital Scoreboard** — Schieber score tracking with Z-line, chalk texture, and automatic score calculation following Swiss rules
+- **Jass-Elo Rating** — custom rating system with K-ramping, tier system (Bronze to Grandmaster), and cross-group skill levels
+- **Player Profiles** — personal statistics, Elo history, game archive
+- **Groups & Leaderboards** — create groups, invite players, Elo-based rankings
+- **Tournaments** — tournament planning and execution
+- **Offline-First** — IndexedDB sync queue, works without internet, syncs on reconnect
+- **PWA** — installable on iOS, Android, and desktop
 
 ## Jass-Elo Rating System
 
-Das Elo-System basiert auf dem klassischen Algorithmus mit Jass-spezifischen Anpassungen:
+Custom Elo algorithm with Jass-specific adaptations:
 
-- **Performance-Metric:** Striche (wie Punkte im Tischtennis)
-- **K-Rampe:** Neue Spieler starten mit 10% Volatilitaet, steigend auf 100% nach 50 Spielen
-- **Zero-Sum:** Jedes Spiel verschiebt Rating-Punkte von Verlierern zu Gewinnern
-- **Gruppenuebergreifend:** Ein globaler Skill-Level ueber alle Spielgruppen
+- **Performance metric:** Striche (lines) — like points in table tennis
+- **K-ramp:** New players start at 10% volatility, rising to 100% after 50 games
+- **Zero-sum:** Every game shifts rating points from losers to winners
+- **Cross-group:** One global skill level across all play groups
 
-| Rating | Tier | 
+| Rating | Tier |
 |--------|------|
-| 2000+  | Grandmaster |
-| 1800+  | Master |
-| 1600+  | Diamond |
-| 1400+  | Platin |
-| 1300+  | Gold |
-| 1200+  | Silber |
-| <1200  | Bronze |
+| 2000+ | Grandmaster |
+| 1800+ | Master |
+| 1600+ | Diamond |
+| 1400+ | Platinum |
+| 1300+ | Gold |
+| 1200+ | Silver |
+| <1200 | Bronze |
 
 Details: [SPECIFICATION.md](SPECIFICATION.md)
 
 ## Tech Stack
 
 - **Framework:** Next.js 16, React 19, TypeScript 5.9
-- **Styling:** Tailwind CSS 3.4 + Custom Chalk Theme
+- **Styling:** Tailwind CSS 3.4 + custom chalk theme
 - **State:** Zustand 5
 - **Backend:** Firebase (Auth, Firestore, Storage, Cloud Functions)
 - **Charts:** Chart.js 4 + chartjs-plugin-datalabels
 - **UI:** Radix UI + Framer Motion
-- **Export:** Static Export, PWA mit Custom Service Worker
+- **Export:** Static export, PWA with custom service worker
 
 ## Development
 
 ```bash
 npm install
 npm run dev       # localhost:3000
-npm run build     # Production Build
+npm run build     # Production build
 npm run lint      # ESLint
 ```
 
-## Das JassGuru-Oekosystem
+## The JassGuru Ecosystem
 
-JassGuru ist das Herzstück eines groesseren Oekosystems fuer den Schweizer Jass:
+JassGuru is the centerpiece of a broader ecosystem for Swiss Jass:
 
-| Projekt | Beschreibung |
+| Project | Description |
 |---------|-------------|
-| **[JassGuru](https://jassguru.ch)** | Digitale Kreidetafel + Elo-System (dieses Repo) |
-| [JassWiki](https://jasswiki.ch) | 520+ Artikel Jass-Enzyklopaedie, maschinenlesbar (Schema.org, Wikidata) |
-| [Jassmeister](https://jassmeister.ch) | Turnierplattform |
-| [JassAI](https://github.com/remoprinz/jassai) | Hybrid-KI: Convention Engine + PPO Self-Play |
-| [Jasskalkulator](https://jasskalkulator.vercel.app) | Wahrscheinlichkeitsrechner (hypergeometrische Verteilung) |
-| [Jassverband Schweiz](https://jassverband.ch) | Der Verband hinter dem Oekosystem |
+| **[JassGuru](https://jassguru.ch)** | Digital scoreboard + Elo system (this repo) |
+| [JassWiki](https://jasswiki.ch) | 520+ article Jass encyclopedia, machine-readable (Schema.org, Wikidata) |
+| [Jassmeister](https://jassmeister.ch) | Tournament platform |
+| [JassAI](https://github.com/remoprinz/jassai) | Hybrid AI: convention engine + PPO self-play |
+| [Jasskalkulator](https://jasskalkulator.vercel.app) | Probability calculator (hypergeometric distribution) |
+| [Swiss Jass Federation](https://jassverband.ch) | The federation behind the ecosystem |
 
-## Lizenz
+## License
 
-Alle Rechte vorbehalten. (c) 2025 Remo Prinz.
+All rights reserved. (c) 2025 Remo Prinz.
