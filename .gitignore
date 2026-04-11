@@ -53,6 +53,7 @@ email-pdf-config.json
 **/.DS_Store
 .vercel
 .cursorrules
+.claude/
 /.firebase/
 .firebaserc
 

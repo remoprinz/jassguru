@@ -177,9 +177,12 @@
     "tsx": "^4.20.3",
     "typescript": "^5.9.3",
     "uglify-js": "^3.19.3",
-    "vite": "^7.1.3",
+    "vite": "^7.3.2",
     "vitest": "^3.0.4",
     "webpack": "^5.103.0"
+  },
+  "overrides": {
+    "@tootallnate/once": "^3.0.1"
   },
   "description": "Dieses Projekt ist eine digitale Jass-Kreidetafel, entwickelt mit Next.js, TypeScript und Tailwind CSS.",
   "repository": {
