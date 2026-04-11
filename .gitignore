@@ -6,6 +6,35 @@
 _local/
 .publicbuilder.json
 
+# One-off analysis & debug scripts in root
+ablation_*.js
+analyze-*.cjs
+check-*.cjs
+find-*.cjs
+
+# Shell scripts (local tooling)
+*.sh
+
+# Loose assets in root (belong in /public or nowhere)
+welcome-guru.png
+apple-touch-icon.png
+google-logo.svg
+cors.json
+npm
+
+# PDFs & whitepapers (not for public repo)
+*.pdf
+WHITEPAPER_*.txt
+
+# Legacy artefacts
+jasstafel-frontend@*
+
+# Directories that don't belong in public repo
+Ragit/
+exports/
+assets/
+.vscode/
+
 # ============================================
 # DEPENDENCIES
 # ============================================
