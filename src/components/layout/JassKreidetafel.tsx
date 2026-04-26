@@ -473,19 +473,19 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
 
   // Funktion, die entscheidet, ob das Tutorial angezeigt werden soll (Hierher verschoben)
   const shouldShowTutorial = useCallback(() => {
-    // 1. Prüfe zuerst, ob das Tutorial bereits abgeschlossen wurde
+    // 1. Tutorial NUR in der PWA anzeigen — im Browser nie (dort kommt das Browser-Onboarding)
+    if (!isPWAInstalled) {
+      return false;
+    }
+
+    // 2. Prüfe, ob das Tutorial bereits abgeschlossen wurde
     if (hasCompletedTutorial) {
       return false;
     }
-    
-    // 2. Tutorial nicht anzeigen, wenn der Benutzer ECHT eingeloggt ist (nicht nur Gast)
-    if (authStatus === 'authenticated') {
-      return false;
-    }
-    
-    // 3. Standard Tutorial-Logik für Gäste und nicht eingeloggte Benutzer
+
+    // 3. Standard Tutorial-Logik
     return !isGameStarted && !isJassStarted && !isTutorialInfoOpen;
-  }, [isGameStarted, isJassStarted, isTutorialInfoOpen, hasCompletedTutorial, authStatus]);
+  }, [isPWAInstalled, isGameStarted, isJassStarted, isTutorialInfoOpen, hasCompletedTutorial]);
 
   // Tutorial
   useEffect(() => {
@@ -498,26 +498,23 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     const currentIsActive = storeState.isActive;
     const currentHasCompleted = storeState.hasCompletedTutorial;
 
-      // Definiere die Bedingungen für den Tutorial-Start hier direkt
-  // basierend auf den aktuellsten Store-Werten und anderen reaktiven Props.
-  const conditionsMetForTutorialStart = 
-    !currentHasCompleted &&         // Tutorial ist definitiv NICHT abgeschlossen
-    authStatus !== 'authenticated' && // User ist Gast oder nicht eingeloggt
+      // Tutorial NUR in der PWA starten — im Browser nie
+  if (!isPWAInstalled) {
+    return;
+  }
+
+  const conditionsMetForTutorialStart =
+    !currentHasCompleted &&
     !isGameStarted &&
     !isJassStarted &&
     !isTutorialInfoOpen;
 
-  // 🔥 FIX: FORCE_TUTORIAL nur für NICHT-EINGELOGGTE User im Dev-Modus
-  const devTutorialCondition = isDev && FORCE_TUTORIAL && authStatus !== 'authenticated';
+  const devTutorialCondition = isDev && FORCE_TUTORIAL;
 
   if (mounted && !currentIsActive && (conditionsMetForTutorialStart || devTutorialCondition)) {
     startTutorial();
   }
-    // Abhängigkeiten: Dieser Effekt soll neu laufen, wenn sich einer dieser Werte ändert.
-    // authStatus, isGameStarted, etc. sind für conditionsMetForTutorialStart relevant.
-    // isTutorialActive und hasCompletedTutorial (die reaktiven Pendants zu currentIsActive/currentHasCompleted)
-    // stellen sicher, dass der Hook bei Store-Änderungen erneut getriggert wird.
-  }, [mounted, authStatus, isGameStarted, isJassStarted, isTutorialInfoOpen, isReadOnlyMode, startTutorial, isTutorialActive, hasCompletedTutorial, isDev]);
+  }, [mounted, isPWAInstalled, isGameStarted, isJassStarted, isTutorialInfoOpen, isReadOnlyMode, startTutorial, isTutorialActive, hasCompletedTutorial, isDev]);
 
   const tutorialInteractions = useMemo(() => {
     if (!isTutorialActive) return null;

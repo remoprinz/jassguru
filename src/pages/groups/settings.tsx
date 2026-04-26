@@ -283,10 +283,7 @@ const GroupSettingsPage = () => {
                if (newEnabled.berg) newScores.berg = Math.min(halfValue, SCORE_RANGES.berg.max);
                if (newEnabled.schneider) newScores.schneider = Math.min(halfValue, SCORE_RANGES.schneider.max);
              } else if (modeKey === 'berg') {
-               const maxBergValue = Math.floor(newScores.sieg / 2);
-               const validatedBergValue = Math.max(0, Math.min(cleanValue, maxBergValue, SCORE_RANGES.berg.max));
-               newScores.berg = validatedBergValue;
-               if (newEnabled.schneider) newScores.schneider = Math.min(validatedBergValue, SCORE_RANGES.schneider.max);
+               newScores.berg = Math.max(0, Math.min(cleanValue, newScores.sieg, SCORE_RANGES.berg.max));
              } else if (modeKey === 'schneider') {
                // NEU: Schneider kann bis zu Sieg-Punkte gehen (nicht mehr durch Berg begrenzt)
                const maxSchneiderValue = Math.min(newScores.sieg, SCORE_RANGES.schneider.max);
@@ -664,22 +661,13 @@ const GroupSettingsPage = () => {
                       setTempInput(prev => ({ ...prev, schneider: newSchneiderValue.toString() }));
         }
       } else if (mode === 'berg') {
-                   // Wenn Berg geändert wird
-                   const validatedBergValue = Math.max(0, Math.min(numericValue, Math.floor(currentSiegValue / 2), SCORE_RANGES.berg.max));
-                   // Aktualisiere Schneider-Buffer, wenn Schneider aktiviert
-                   if (currentEnabled.schneider) {
-                       const newSchneiderValue = Math.min(validatedBergValue, SCORE_RANGES.schneider.max);
-                       setTempInput(prev => ({ ...prev, schneider: newSchneiderValue.toString() }));
-                   }
+              // Berg ist unabhängig von Schneider
               } // Schneider hat keine Abhängigkeiten nach außen
           }
       } else { // Wenn Input leer ist
            if (mode === 'sieg') {
               // Leere auch abhängige Buffer, wenn Sieg geleert wird
               setTempInput(prev => ({ ...prev, berg: undefined, schneider: undefined }));
-           } else if (mode === 'berg') {
-              // Leere Schneider Buffer, wenn Berg geleert wird
-              setTempInput(prev => ({ ...prev, schneider: undefined }));
            }
       }
   };
@@ -690,12 +678,7 @@ const GroupSettingsPage = () => {
           const newEnabled = { ...prev.enabled, [mode]: !prev.enabled[mode] };
           const newValues = { ...prev.values };
 
-          if (mode === 'berg' && !newEnabled.berg && newEnabled.schneider) {
-              const maxSchneiderValue = Math.min(Math.floor(newValues.sieg / 2), SCORE_RANGES.schneider.max);
-              newValues.schneider = Math.min(newValues.schneider, maxSchneiderValue);
-          }
-          // NEU: Berg-Änderungen beeinflussen Schneider nicht mehr
-          // Schneider bleibt unabhängig und wird nur durch Sieg-Punkte begrenzt
+          // Berg und Schneider sind unabhängig voneinander
           
           return { ...prev, values: newValues, enabled: newEnabled };
       });
@@ -775,7 +758,7 @@ const GroupSettingsPage = () => {
               <div className="flex items-center justify-between p-3">
                 <Label htmlFor="score-berg" className="font-medium text-gray-200">Berg-Punkte</Label>
                 <Input id="score-berg" type="number" inputMode="numeric" pattern="[0-9]*" min="0"
-                  max={Math.floor(tempScoreSettings.values.sieg / 2)}
+                  max={tempScoreSettings.values.sieg}
                   className="w-24 bg-gray-700 border-gray-600 text-white text-right"
                   value={tempInput.berg ?? tempScoreSettings.values.berg}
                   onChange={(e) => handleScoreInputChange('berg', e.target.value)}

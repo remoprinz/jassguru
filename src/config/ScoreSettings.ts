@@ -89,16 +89,6 @@ export const isScoreModeEnabled = (mode: ScoreMode, settings: ScoreSettings): bo
 // Validierungsfunktion
 export const validateScoreValue = (mode: ScoreMode, value: number): boolean => {
   const config = getScoreModeConfig(mode);
-
   if (value < 0) return false;
-
-  if (mode === "sieg") {
-    return value <= config.maxValue;
-  }
-
-  // Berg und Schneider dürfen maximal die Hälfte des Siegwertes sein
-  const siegConfig = getScoreModeConfig("sieg");
-  const maxAllowedValue = Math.floor(siegConfig.defaultValue / 2);
-
-  return value <= Math.min(config.maxValue, maxAllowedValue);
+  return value <= config.maxValue;
 };
