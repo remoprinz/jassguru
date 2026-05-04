@@ -215,12 +215,7 @@ showNotification({
         setPageStatus(finalStatus);
         if (finalStatus === "error") setErrorDetails(uiMessage);
 
-        if (showNotification) {
-            if (finalStatus === "success" && uiMessage) showNotification({ message: uiMessage, type: "success" });
-            else if (finalStatus === "error" && uiMessage) showNotification({ message: uiMessage, type: "error" });
-        }
-        
-        setLoading(false); 
+        setLoading(false);
 
         if (finalStatus === "success" && successRedirectionPath) {
           setTimeout(() => {
