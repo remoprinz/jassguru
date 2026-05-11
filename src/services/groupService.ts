@@ -38,6 +38,7 @@ import {
 import {useGroupStore} from "@/store/groupStore"; // Importiere den GroupStore
 import {useAuthStore} from "@/store/authStore"; // Importiere den AuthStore
 import { addDoc, arrayUnion, arrayRemove, Timestamp, documentId, runTransaction } from "firebase/firestore"; // documentId hier hinzugefügt, arrayRemove und runTransaction importiert
+import { persistToStorage, loadFromStorage } from "@/services/persistentCacheHelper";
 import { DEFAULT_FARBE_SETTINGS } from "@/config/FarbeSettings"; // Nur die Konstante von hier
 import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings"; // Importiere DEFAULT_SCORE_SETTINGS
 import { DEFAULT_STROKE_SETTINGS } from "@/config/GameSettings"; // Importiere DEFAULT_STROKE_SETTINGS
@@ -447,42 +448,98 @@ export const getGroupMembers = async (groupId: string): Promise<Array<{
  * @param groupId Die ID der Gruppe
  * @returns Promise mit Array von FirestorePlayer-Objekten (sortiert nach gamesPlayed)
  */
+// 🚀 INSTANT-Cache helpers für Gruppen-Members (persistiert in localStorage)
+const MEMBERS_CACHE_KEY = (gid: string) => `members-by-group:${gid}`;
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+function reviveMemberDates<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    return (ISO_DATE_RE.test(obj) ? (new Date(obj) as any) : obj) as any;
+  }
+  if (Array.isArray(obj)) return obj.map(reviveMemberDates) as any;
+  if (typeof obj === 'object') {
+    const out: any = {};
+    for (const k in obj) out[k] = reviveMemberDates((obj as any)[k]);
+    return out;
+  }
+  return obj;
+}
+
+// In-flight Promise-Deduper — falls die selbe Group-Members-Query parallel vom selben
+// Mount mehrfach gefeuert wird (z.B. /profile + /start parallel), teilen sie sich.
+const inflight = new Map<string, Promise<FirestorePlayer[]>>();
+
 export const getGroupMembersOptimized = async (groupId: string): Promise<FirestorePlayer[]> => {
   if (!db) throw new Error("Firestore ist nicht initialisiert.");
   if (!groupId) throw new Error("Ungültige Gruppen-ID.");
 
+  // 🚀 INSTANT: Erst aus localStorage hydrieren — Profilbilder erscheinen sofort
+  //    statt erst nach Firestore-Roundtrip. Background-Refresh läuft trotzdem.
+  const cached = loadFromStorage<FirestorePlayer[]>(MEMBERS_CACHE_KEY(groupId));
+  if (cached && Array.isArray(cached) && cached.length > 0) {
+    const revived = reviveMemberDates(cached);
+    // Fire-and-forget Refresh im Hintergrund (deduped)
+    if (!inflight.has(groupId)) {
+      const refresh = doFetchGroupMembers(groupId)
+        .then(fresh => {
+          persistToStorage(MEMBERS_CACHE_KEY(groupId), fresh);
+          return fresh;
+        })
+        .catch(err => {
+          console.warn(`[getGroupMembersOptimized] Background-Refresh fehlgeschlagen für ${groupId}:`, err);
+          return revived; // Fallback: cached
+        })
+        .finally(() => {
+          inflight.delete(groupId);
+        });
+      inflight.set(groupId, refresh);
+    }
+    return revived;
+  }
+
+  // Kein Cache: regulärer Fetch (mit In-flight Deduping)
+  const existing = inflight.get(groupId);
+  if (existing) return existing;
+
+  const promise = doFetchGroupMembers(groupId)
+    .then(fresh => {
+      persistToStorage(MEMBERS_CACHE_KEY(groupId), fresh);
+      return fresh;
+    })
+    .finally(() => {
+      inflight.delete(groupId);
+    });
+  inflight.set(groupId, promise);
+  return promise;
+};
+
+async function doFetchGroupMembers(groupId: string): Promise<FirestorePlayer[]> {
   try {
-    // console.log(`[getGroupMembersOptimized] 🚀 Versuche optimierten Lade-Prozess für Gruppe ${groupId}...`);
-    
     // 1. Versuche Members aus der optimierten Subcollection zu laden
     const members = await getGroupMembers(groupId);
-    
+
     if (members.length > 0) {
       // 2. Konvertiere zu kompatiblen FirestorePlayer-Objekten
       const firestorePlayers: FirestorePlayer[] = members.map(member => ({
         id: member.playerId,
         displayName: member.displayName,
         photoURL: member.photoURL,
-        userId: null, // Wird für UI-Zwecke nicht benötigt
-        isGuest: false, // Default-Wert
+        userId: null,
+        isGuest: false,
         createdAt: member.joinedAt,
         updatedAt: member.joinedAt,
         groupIds: [groupId],
-        stats: { gamesPlayed: 0, wins: 0, totalScore: 0 } // Default-Stats, werden von Statistik-Service überschrieben
+        stats: { gamesPlayed: 0, wins: 0, totalScore: 0 }
       }));
-      
-      // console.log(`[getGroupMembersOptimized] ✅ OPTIMIERT: ${firestorePlayers.length} Members in 1 Read geladen!`);
       return firestorePlayers;
     }
-    
-    // console.log(`[getGroupMembersOptimized] ⚠️ FALLBACK: members-Subcollection leer, nutze alte Methode...`);
+
     // 3. Fallback zur alten Methode (nur wenn members-Subcollection leer)
     const { getGroupMembersSortedByGames } = await import('../services/playerService');
     return await getGroupMembersSortedByGames(groupId);
-    
+
   } catch (error) {
     console.error(`[getGroupMembersOptimized] ❌ FALLBACK: Fehler beim optimierten Laden, nutze alte Methode:`, error);
-    // Vollständiger Fallback zur alten Methode
     try {
       const { getGroupMembersSortedByGames } = await import('../services/playerService');
       return await getGroupMembersSortedByGames(groupId);
@@ -491,7 +548,7 @@ export const getGroupMembersOptimized = async (groupId: string): Promise<Firesto
       return [];
     }
   }
-};
+}
 
 /**
  * Ruft alle Gruppen ab, in denen ein Spieler Mitglied ist, basierend auf seiner Player-ID.
