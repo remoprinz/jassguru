@@ -1,5 +1,5 @@
 /**
- * Jassguru Service Worker v2.8.5
+ * Jassguru Service Worker v2.10.0
  *
  * Eigenständiger SW mit Workbox 6.6.0 (CDN).
  * Kein Build-Tool-Generierung – alle Dateien sind im Repo versioniert.
@@ -43,7 +43,7 @@ if (workbox) {
   // Veraltete Caches aufräumen
   workbox.precaching.cleanupOutdatedCaches();
 
-  const APP_VERSION = '2.8.5';
+  const APP_VERSION = '2.10.0';
 
   // 0) 🚨 KRITISCH: Firestore + Firebase-APIs NICHT cachen.
   //    Diese Endpoints nutzen Streaming / Listen-Channels — der SW darf
