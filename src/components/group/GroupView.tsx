@@ -35,6 +35,18 @@ import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
 import { loadPlayerRatings, loadPlayerRatingsSync, type PlayerRatingWithTier } from '@/services/jassElo';
 import { getRanglisteFromCache, setRanglisteCache, getGroupEloVerlaufFromCache, setGroupEloVerlaufCache } from '@/services/eloInstantCache';
+import { YearFilter } from '@/components/group/YearFilter';
+import {
+  computeAvailableYears,
+  filterSessionsByYear,
+  filterTimeSeriesByYear,
+  aggregateYearCounts,
+  aggregatePlayerStrichePointsForYear,
+  aggregateTeamStrichePointsForYear,
+  aggregatePlayerEventCountsForYear,
+  aggregateTeamEventCountsForYear,
+  derivePlayerRatingsFromChart,
+} from '@/utils/yearStatsFilter';
 import { collection, getDocs, query, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
@@ -360,7 +372,48 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return currentGroup?.id ? getGroupEloVerlaufFromCache(currentGroup.id) : null;
   });
   const [chartLoading, setChartLoading] = useState(false);
-  
+
+  // 🗓️ Year-Filter (Statistik-Tab): "gesamt" oder Jahr-Number. Sync via URL ?year=...
+  const yearQueryParam = (router?.query?.year as string | undefined) ?? undefined;
+  const initialYear: 'gesamt' | number = (() => {
+    if (!yearQueryParam || yearQueryParam === 'gesamt') return 'gesamt';
+    const n = parseInt(yearQueryParam, 10);
+    return Number.isFinite(n) && n >= 1900 && n <= 2100 ? n : 'gesamt';
+  })();
+  const [selectedYear, setSelectedYearState] = useState<'gesamt' | number>(initialYear);
+
+  // Sync mit URL bei Änderung des Query-Params (z.B. Browser-Back)
+  useEffect(() => {
+    const v: 'gesamt' | number = (() => {
+      if (!yearQueryParam || yearQueryParam === 'gesamt') return 'gesamt';
+      const n = parseInt(yearQueryParam, 10);
+      return Number.isFinite(n) && n >= 1900 && n <= 2100 ? n : 'gesamt';
+    })();
+    setSelectedYearState(v);
+  }, [yearQueryParam]);
+
+  const setSelectedYear = (y: 'gesamt' | number) => {
+    setSelectedYearState(y);
+    const newQuery: any = { ...router.query };
+    if (y === 'gesamt') {
+      delete newQuery.year;
+    } else {
+      newQuery.year = String(y);
+    }
+    router.replace({ pathname: router.pathname, query: newQuery }, undefined, { shallow: true });
+  };
+
+  // Jahre für Dropdown (aus completedSessions abgeleitet)
+  const availableYears = useMemo(() => {
+    return computeAvailableYears(Array.isArray(completedSessions) ? completedSessions : []);
+  }, [completedSessions]);
+
+  // Sessions, die ins ausgewählte Jahr fallen (für Aggregations-Helpers)
+  const sessionsInSelectedYear = useMemo(() => {
+    if (selectedYear === 'gesamt' || !Array.isArray(completedSessions)) return null;
+    return filterSessionsByYear(completedSessions, selectedYear);
+  }, [completedSessions, selectedYear]);
+
   // NEU: State für Strichdifferenz-Chart
   const [stricheChartData, setStricheChartData] = useState<{
     labels: string[];
@@ -916,34 +969,136 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return ranking;
   }, [members, playerStats]);
 
+  // 🗓️ Year-Filter: DisplayMap mit Member-DisplayNames für Team-Aggregations
+  const playerDisplayNamesMap = useMemo(() => {
+    const m = new Map<string, string>();
+    if (Array.isArray(members)) {
+      members.forEach(mem => {
+        const id = mem.id || mem.userId;
+        if (id) m.set(id, mem.displayName || id);
+      });
+    }
+    return m;
+  }, [members]);
+
+  // 🗓️ Year-Filter: Display-Versionen der Chart-Daten.
+  //    Wenn 'gesamt' → originale Daten. Sonst → gefiltert/aggregiert client-seitig.
+  const displayChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return chartData;
+    return filterTimeSeriesByYear(chartData, selectedYear, false);
+  }, [chartData, selectedYear]);
+
+  const displayStricheChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return stricheChartData;
+    return filterTimeSeriesByYear(stricheChartData, selectedYear, true);
+  }, [stricheChartData, selectedYear]);
+
+  const displayPointsChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return pointsChartData;
+    return filterTimeSeriesByYear(pointsChartData, selectedYear, true);
+  }, [pointsChartData, selectedYear]);
+
+  const displayMatschChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return matschChartData;
+    return filterTimeSeriesByYear(matschChartData, selectedYear, true);
+  }, [matschChartData, selectedYear]);
+
+  const displaySchneiderChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return schneiderChartData;
+    return filterTimeSeriesByYear(schneiderChartData, selectedYear, true);
+  }, [schneiderChartData, selectedYear]);
+
+  const displayTeamStricheChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return teamStricheChartData;
+    return filterTimeSeriesByYear(teamStricheChartData, selectedYear, true);
+  }, [teamStricheChartData, selectedYear]);
+
+  const displayTeamPointsChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return teamPointsChartData;
+    return filterTimeSeriesByYear(teamPointsChartData, selectedYear, true);
+  }, [teamPointsChartData, selectedYear]);
+
+  const displayTeamMatschChartData = useMemo(() => {
+    if (selectedYear === 'gesamt') return teamMatschChartData;
+    return filterTimeSeriesByYear(teamMatschChartData, selectedYear, true);
+  }, [teamMatschChartData, selectedYear]);
+
+  // 🗓️ Year-Filter: Top-Count (Partien · Spiele · Turniere)
+  const displayYearCounts = useMemo(() => {
+    if (selectedYear === 'gesamt') return null;
+    return aggregateYearCounts(sessionsInSelectedYear || []);
+  }, [sessionsInSelectedYear, selectedYear]);
+
+  // 🗓️ Year-Filter: Player/Team-Aggregate aus gefilterten Sessions
+  const displayPlayerStricheTotals = useMemo(() => {
+    if (selectedYear === 'gesamt') return playerStricheTotals;
+    return aggregatePlayerStrichePointsForYear(sessionsInSelectedYear || [], 'striche');
+  }, [playerStricheTotals, sessionsInSelectedYear, selectedYear]);
+
+  const displayPlayerPointsTotals = useMemo(() => {
+    if (selectedYear === 'gesamt') return playerPointsTotals;
+    return aggregatePlayerStrichePointsForYear(sessionsInSelectedYear || [], 'points');
+  }, [playerPointsTotals, sessionsInSelectedYear, selectedYear]);
+
+  const displayTeamStricheTotals = useMemo(() => {
+    if (selectedYear === 'gesamt') return teamStricheTotals;
+    return aggregateTeamStrichePointsForYear(sessionsInSelectedYear || [], 'striche', playerDisplayNamesMap);
+  }, [teamStricheTotals, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
+
+  const displayTeamPointsTotals = useMemo(() => {
+    if (selectedYear === 'gesamt') return teamPointsTotals;
+    return aggregateTeamStrichePointsForYear(sessionsInSelectedYear || [], 'points', playerDisplayNamesMap);
+  }, [teamPointsTotals, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
+
+  const displayPlayerMatschCounts = useMemo(() => {
+    if (selectedYear === 'gesamt') return playerMatschCounts;
+    return aggregatePlayerEventCountsForYear(sessionsInSelectedYear || [], 'matsch');
+  }, [playerMatschCounts, sessionsInSelectedYear, selectedYear]);
+
+  const displayPlayerSchneiderCounts = useMemo(() => {
+    if (selectedYear === 'gesamt') return playerSchneiderCounts;
+    return aggregatePlayerEventCountsForYear(sessionsInSelectedYear || [], 'schneider');
+  }, [playerSchneiderCounts, sessionsInSelectedYear, selectedYear]);
+
+  const displayTeamEventCountsMap = useMemo(() => {
+    if (selectedYear === 'gesamt') return teamEventCountsMap;
+    return aggregateTeamEventCountsForYear(sessionsInSelectedYear || [], playerDisplayNamesMap);
+  }, [teamEventCountsMap, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
+
+  // 🗓️ Year-Filter: Elo-Rangliste = letzter Datenpunkt pro Spieler im Jahr (Snapshot)
+  const displayPlayerRatings = useMemo(() => {
+    if (selectedYear === 'gesamt') return playerRatings;
+    return derivePlayerRatingsFromChart(displayChartData);
+  }, [playerRatings, displayChartData, selectedYear]);
+
   // ✅ NEU: Ranglisten aus Backfill-Daten (statt groupStats)
   const stricheRanking = useMemo(() => {
     // ✅ ROBUST: Zeige Ranking auch wenn playerStats noch lädt oder leer ist
-    return getRankingFromChartData(stricheChartData, members, playerStats);
-  }, [stricheChartData, members, playerStats]);
-  
+    return getRankingFromChartData(displayStricheChartData, members, playerStats);
+  }, [displayStricheChartData, members, playerStats]);
+
   const pointsRanking = useMemo(() => {
     // ✅ ROBUST: Zeige Ranking auch wenn playerStats noch lädt oder leer ist
-    return getRankingFromChartData(pointsChartData, members, playerStats);
-  }, [pointsChartData, members, playerStats]);
-  
+    return getRankingFromChartData(displayPointsChartData, members, playerStats);
+  }, [displayPointsChartData, members, playerStats]);
+
   const eloRanking = useMemo(() => {
     // ✅ ROBUST: Zeige Ranking auch wenn playerStats noch lädt oder leer ist
-    return getRankingFromChartData(chartData, members, playerStats);
-  }, [chartData, members, playerStats]);
-  
+    return getRankingFromChartData(displayChartData, members, playerStats);
+  }, [displayChartData, members, playerStats]);
+
   const matschRanking = useMemo(() => {
-    return getRankingFromChartData(matschChartData, members, playerStats);
-  }, [matschChartData, members, playerStats]);
+    return getRankingFromChartData(displayMatschChartData, members, playerStats);
+  }, [displayMatschChartData, members, playerStats]);
 
   const schneiderRanking = useMemo(() => {
-    return getRankingFromChartData(schneiderChartData, members, playerStats);
-  }, [schneiderChartData, members, playerStats]);
+    return getRankingFromChartData(displaySchneiderChartData, members, playerStats);
+  }, [displaySchneiderChartData, members, playerStats]);
   
   // ✅ TEAM-RANKINGS: Direkt aus Totals-Maps (ALLE Teams, nicht nur Top 15!)
   const teamStricheRanking = useMemo(() => {
     // ✅ DIREKT aus teamStricheTotals: Zeigt ALLE Teams, nicht nur Top 15!
-    return Array.from(teamStricheTotals.entries())
+    return Array.from(displayTeamStricheTotals.entries())
       .map(([teamName, totals]) => ({
         teamName,
         bilanz: totals.made - totals.received,
@@ -952,11 +1107,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
       }))
       .filter(team => team.made > 0 || team.received > 0)
       .sort((a, b) => b.bilanz - a.bilanz);
-  }, [teamStricheTotals]);
-  
+  }, [displayTeamStricheTotals]);
+
   const teamPointsRanking = useMemo(() => {
     // ✅ DIREKT aus teamPointsTotals: Zeigt ALLE Teams, nicht nur Top 15!
-    return Array.from(teamPointsTotals.entries())
+    return Array.from(displayTeamPointsTotals.entries())
       .map(([teamName, totals]) => ({
         teamName,
         bilanz: totals.made - totals.received,
@@ -965,11 +1120,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
       }))
       .filter(team => team.made > 0 || team.received > 0)
       .sort((a, b) => b.bilanz - a.bilanz);
-  }, [teamPointsTotals]);
-  
+  }, [displayTeamPointsTotals]);
+
   const teamMatschRanking = useMemo(() => {
     // ✅ Bereits korrekt: Direkt aus teamEventCountsMap (ALLE Teams!)
-    return Array.from(teamEventCountsMap.entries())
+    return Array.from(displayTeamEventCountsMap.entries())
       .map(([teamName, counts]) => ({
         teamName,
         bilanz: counts.eventsMade - counts.eventsReceived,
@@ -978,7 +1133,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       }))
       .filter(team => team.eventsMade > 0 || team.eventsReceived > 0)
       .sort((a, b) => b.bilanz - a.bilanz);
-  }, [teamEventCountsMap]);
+  }, [displayTeamEventCountsMap]);
 
   // ✅ NEU: Hilfsfunktion um aktuellen Wert aus Chart-Daten zu holen
   const getCurrentValueFromChart = (chartData: any, playerId: string): number => {
@@ -1786,23 +1941,29 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
           {/* Kompakte Gruppenstatistik: unter Badge/Titel, vor Beschreibung — Reihenfolge Partien · Spiele · Turniere */}
           {currentGroup && groupStats && (() => {
+            // 🗓️ Year-Filter: wenn aktiv, zeige Jahres-Counts statt Gesamt
+            const counts = displayYearCounts ?? {
+              partien: groupStats.sessionCount,
+              spiele: groupStats.gameCount,
+              turniere: groupStats.tournamentCount,
+            };
             const segments: { key: string; text: string }[] = [];
-            if (groupStats.sessionCount > 0) {
+            if (counts.partien > 0) {
               segments.push({
                 key: 'parties',
-                text: `${groupStats.sessionCount} ${groupStats.sessionCount === 1 ? 'Partie' : 'Partien'}`,
+                text: `${counts.partien} ${counts.partien === 1 ? 'Partie' : 'Partien'}`,
               });
             }
-            if (groupStats.gameCount > 0) {
+            if (counts.spiele > 0) {
               segments.push({
                 key: 'games',
-                text: `${groupStats.gameCount} ${groupStats.gameCount === 1 ? 'Spiel' : 'Spiele'}`,
+                text: `${counts.spiele} ${counts.spiele === 1 ? 'Spiel' : 'Spiele'}`,
               });
             }
-            if (groupStats.tournamentCount > 0) {
+            if (counts.turniere > 0) {
               segments.push({
                 key: 'tournaments',
-                text: `${groupStats.tournamentCount} ${groupStats.tournamentCount === 1 ? 'Turnier' : 'Turniere'}`,
+                text: `${counts.turniere} ${counts.turniere === 1 ? 'Turnier' : 'Turniere'}`,
               });
             }
             if (segments.length === 0) return null;
@@ -2062,9 +2223,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                     </TabsTrigger>
                   </TabsList>
                 </div>
-                
+
+                {/* 🗓️ Jahres-Filter (gilt für alle Sub-Tabs der Statistik) */}
+                <div className="flex justify-center mt-3 mb-1">
+                  <YearFilter
+                    availableYears={availableYears}
+                    selectedYear={selectedYear}
+                    onChange={setSelectedYear}
+                  />
+                </div>
+
                 {/* ÜBERSICHT TAB - MIT ECHTEN INHALTEN UND REFS */}
-                <TabsContent 
+                <TabsContent
                   value="overview"
                   className={`w-full rounded-lg ${layout.cardPadding}`}
                 >
@@ -2093,9 +2263,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : chartData && chartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={chartData}
+                        ) : displayChartData && displayChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayChartData}
                             title="Elo-Rating"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -2148,7 +2318,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           }
                           
                           // Erstelle sortierte Liste aus Elo-Ratings
-                          const ratingsArray = Array.from(playerRatings.values())
+                          const ratingsArray = Array.from(displayPlayerRatings.values())
                             .filter(rating => rating && rating.rating > 0) // Nur Spieler mit Rating > 0
                             .sort((a, b) => b.rating - a.rating); // Nach Rating sortiert
                           
@@ -2428,9 +2598,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : stricheChartData && stricheChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={stricheChartData}
+                        ) : displayStricheChartData && displayStricheChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayStricheChartData}
                             title="Strichdifferenz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -2467,7 +2637,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           </div>
                         ) : stricheRanking.length > 0 ? (
                           stricheRanking.map((player) => {
-                            const stricheTotals = playerStricheTotals.get(player.playerId) || { made: 0, received: 0 };
+                            const stricheTotals = displayPlayerStricheTotals.get(player.playerId) || { made: 0, received: 0 };
                             return (
                             <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`stricheDiff-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
                               <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
@@ -2517,9 +2687,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : pointsChartData && pointsChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={pointsChartData}
+                        ) : displayPointsChartData && displayPointsChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayPointsChartData}
                             title="Punktedifferenz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -2557,7 +2727,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                           </div>
                         ) : pointsRanking.length > 0 ? (
                           pointsRanking.map((player) => {
-                            const pointsTotals = playerPointsTotals.get(player.playerId) || { made: 0, received: 0 };
+                            const pointsTotals = displayPlayerPointsTotals.get(player.playerId) || { made: 0, received: 0 };
                             return (
                             <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`pointsDiff-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
                               <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
@@ -2818,9 +2988,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : matschChartData && matschChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={matschChartData}
+                        ) : displayMatschChartData && displayMatschChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayMatschChartData}
                             title="Matsch Bilanz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -2852,7 +3022,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       <div ref={playerMatschRateRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {matschRanking.length > 0 ? (
                           matschRanking.map((player) => {
-                            const eventCounts = playerMatschCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
+                            const eventCounts = displayPlayerMatschCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
                               return (
                               <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`matschBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
@@ -2903,9 +3073,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : schneiderChartData && schneiderChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={schneiderChartData}
+                        ) : displaySchneiderChartData && displaySchneiderChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displaySchneiderChartData}
                             title="Schneider Bilanz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -2938,7 +3108,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       <div ref={playerSchneiderRateRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {schneiderRanking.length > 0 ? (
                           schneiderRanking.map((player) => {
-                            const eventCounts = playerSchneiderCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
+                            const eventCounts = displayPlayerSchneiderCounts.get(player.playerId) || { eventsMade: 0, eventsReceived: 0 };
                               return (
                               <StatLink href={player.playerId ? `/profile/${player.playerId}?returnTo=/start&returnMainTab=statistics&returnStatsSubTab=players` : '#'} key={`schneiderBilanz-${player.playerId}`} isClickable={!!player.playerId} className="block border-b border-gray-500/40 last:border-b-0">
                                   <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
@@ -3051,9 +3221,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : teamStricheChartData && teamStricheChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={teamStricheChartData}
+                        ) : displayTeamStricheChartData && displayTeamStricheChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayTeamStricheChartData}
                             title="Strichdifferenz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -3144,9 +3314,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : teamPointsChartData && teamPointsChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={teamPointsChartData}
+                        ) : displayTeamPointsChartData && displayTeamPointsChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayTeamPointsChartData}
                             title="Punktedifferenz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -3444,9 +3614,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             <div className={`${layout.spinnerSize} rounded-full border-2 border-t-transparent border-white animate-spin`}></div>
                             <span className={`ml-3 ${layout.bodySize} text-gray-300`}>Lade Chart-Daten...</span>
                           </div>
-                        ) : teamMatschChartData && teamMatschChartData.datasets.length > 0 ? (
-                          <PowerRatingChart 
-                            data={teamMatschChartData}
+                        ) : displayTeamMatschChartData && displayTeamMatschChartData.datasets.length > 0 ? (
+                          <PowerRatingChart
+                            data={displayTeamMatschChartData}
                             title="Matsch-Bilanz"
                             height={layout.isDesktop ? 400 : 300}
                             theme={groupTheme}
@@ -3476,7 +3646,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       <div ref={teamMatschRateRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
                           // ✅ DIREKT aus teamEventCountsMap: Zeigt ALLE Teams, nicht nur Top 15!
-                          const allTeamsRanking = Array.from(teamEventCountsMap.entries())
+                          const allTeamsRanking = Array.from(displayTeamEventCountsMap.entries())
                             .map(([teamName, counts]) => ({
                               teamName,
                               bilanz: counts.eventsMade - counts.eventsReceived,
