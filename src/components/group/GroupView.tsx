@@ -1168,28 +1168,41 @@ export const GroupView: React.FC<GroupViewProps> = ({
     //    pro Spieler eine ratingHistory-Query.
     const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
 
-    // ⚡ SYNC-PFAD: Wenn der Cache hit, ohne Spinner-Flicker direkt anzeigen.
+    // 🚀 INSTANT-Cache-Check (gekeyed by groupId, robust gegen Member-Änderungen).
+    //    Setzt direkt + überspringt setLoading(true) → kein Spinner.
+    const instant = currentGroup?.id ? getRanglisteFromCache(currentGroup.id) : null;
+    if (instant && instant.size > 0) {
+      setPlayerRatings(instant);
+      setEloRatingsLoading(false);
+      // Im Hintergrund frisch laden + Cache refreshen
+      loadPlayerRatings(playerIds, false)
+        .then((ratingsMap) => {
+          setPlayerRatings(ratingsMap);
+          if (currentGroup?.id) setRanglisteCache(currentGroup.id, ratingsMap);
+        })
+        .catch(error => console.warn('Fehler beim Hintergrund-Refresh der Elo-Ratings:', error));
+      return;
+    }
+
+    // Sekundärer Sync-Pfad (legacy, by playerIds)
     const cached = loadPlayerRatingsSync(playerIds, false);
     if (cached && cached.size > 0) {
       setPlayerRatings(cached);
       setEloRatingsLoading(false);
+      if (currentGroup?.id) setRanglisteCache(currentGroup.id, cached);
       return;
     }
 
-    // Wenn lazy-init bereits Daten geliefert hat → kein Spinner, im Hintergrund refreshen.
-    const hasInstantData = playerRatings.size > 0;
-    if (!hasInstantData) {
-      setEloRatingsLoading(true);
-    }
+    // Beide Caches miss → richtiges Laden mit Spinner
+    setEloRatingsLoading(true);
     loadPlayerRatings(playerIds, false)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
-        // 💾 Instant-Cache füllen (gekeyed by groupId, für nächsten Mount)
         if (currentGroup?.id) setRanglisteCache(currentGroup.id, ratingsMap);
       })
       .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error))
       .finally(() => {
-        setEloRatingsLoading(false); // ✅ Loading-State auf false setzen
+        setEloRatingsLoading(false);
       });
   }, [members, currentGroup?.id]);
 
@@ -1224,12 +1237,16 @@ export const GroupView: React.FC<GroupViewProps> = ({
   React.useEffect(() => {
     if (!currentGroup?.id) return;
 
-    // ⚡ Wenn lazy-init bereits Chart-Daten geliefert hat → kein Spinner.
-    //    Im Hintergrund trotzdem frisch laden + Cache aktualisieren.
-    const hasInstantData = chartData !== null && chartData.datasets && chartData.datasets.length > 0;
-    if (!hasInstantData) {
+    // 🚀 INSTANT-Cache-Check direkt im Effect (robust auch wenn lazy-init zu früh lief).
+    const instant = getGroupEloVerlaufFromCache(currentGroup.id);
+    const hasInstantData = !!instant && Array.isArray(instant.datasets) && instant.datasets.length > 0;
+    if (hasInstantData) {
+      setChartData(instant);
+      setChartLoading(false);
+    } else {
       setChartLoading(true);
     }
+
     const timer = setTimeout(() => {
       getOptimizedRatingChart(currentGroup.id)
         .then((result) => {
