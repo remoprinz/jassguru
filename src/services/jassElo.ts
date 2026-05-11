@@ -122,12 +122,12 @@ async function calculateLastSessionRatingDelta(playerId: string): Promise<number
  */
 async function calculateLastSessionRatingDeltasBatch(playerIds: string[]): Promise<Map<string, number | null>> {
   const results = new Map<string, number | null>();
-  
-  // Berechne für alle Spieler parallel (aber nicht alle auf einmal!)
-  const batchSize = 5;
+
+  // ⚡ Berechne für alle Spieler parallel (10er-Wellen reichen für typische Gruppen-Größen)
+  const batchSize = 10;
   for (let i = 0; i < playerIds.length; i += batchSize) {
     const batch = playerIds.slice(i, i + batchSize);
-    
+
     await Promise.all(
       batch.map(async (playerId) => {
         const delta = await calculateLastSessionRatingDelta(playerId);
@@ -135,7 +135,7 @@ async function calculateLastSessionRatingDeltasBatch(playerIds: string[]): Promi
       })
     );
   }
-  
+
   return results;
 }
 
@@ -188,14 +188,15 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
     for (let i = 0; i < playerIds.length; i += 10) {
       batches.push(playerIds.slice(i, i + 10));
     }
-    
-    for (const batch of batches) {
-      const playersQuery = query(
-        collection(db, 'players'),
-        where(documentId(), 'in', batch)
-      );
-      const snapshot = await getDocs(playersQuery);
-      
+
+    // ⚡ Batches parallel statt sequentiell ausführen
+    const snapshots = await Promise.all(
+      batches.map(batch =>
+        getDocs(query(collection(db, 'players'), where(documentId(), 'in', batch)))
+      )
+    );
+
+    snapshots.forEach(snapshot => {
       snapshot.forEach(doc => {
         const data: any = doc.data();
         const ratingValRaw = data?.globalRating;
@@ -206,7 +207,7 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
         const lastUpdated = lastUpdatedTs?.toMillis ? lastUpdatedTs.toMillis() : Date.now();
         const name = data?.displayName || `Spieler_${doc.id.slice(0, 6)}`;
         const tierInfo = getRatingTier(ratingVal);
-        
+
         ratings.set(doc.id, {
           id: doc.id,
           rating: ratingVal,
@@ -219,7 +220,7 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
           lastSessionDelta: data?.lastSessionDelta || data?.lastDelta || 0, // Session-Delta (Fallback)
         });
       });
-    }
+    });
     
     // 🆕 NEU: Berechne live das Delta zwischen vorletzter und letzter Session
     const deltaResults = await calculateLastSessionRatingDeltasBatch(playerIds);

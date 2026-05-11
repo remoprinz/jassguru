@@ -873,161 +873,154 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
     
-    // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
-    const timer = setTimeout(() => {
-      setChartLoading(true);
-      getGlobalPlayerRatingTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt: Alle Spiele laden!
-        .then((data) => {
-          setChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Chart-Daten:', error);
-          setChartData(null);
-        })
-        .finally(() => {
-          setChartLoading(false);
-        });
-    }, 50); // 50ms Verzögerung für bessere UX
-    
-    return () => clearTimeout(timer);
+    // ⚡ Stagger entfernt: alle Charts feuern parallel
+    let cancelled = false;
+    setChartLoading(true);
+    getGlobalPlayerRatingTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt: Alle Spiele laden!
+      .then((data) => {
+        if (!cancelled) setChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Chart-Daten:', error);
+        if (!cancelled) setChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId, profileTheme]);
 
   // 🆕 STRICH-DIFFERENZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    const timer = setTimeout(() => {
-      setStricheChartLoading(true);
-      getGlobalPlayerStricheTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-        .then((data) => {
-          setStricheChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Strich-Chart-Daten:', error);
-          setStricheChartData(null);
-        })
-        .finally(() => {
-          setStricheChartLoading(false);
-        });
-    }, 100);
-    
-    return () => clearTimeout(timer);
+
+    let cancelled = false;
+    setStricheChartLoading(true);
+    getGlobalPlayerStricheTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
+      .then((data) => {
+        if (!cancelled) setStricheChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Strich-Chart-Daten:', error);
+        if (!cancelled) setStricheChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setStricheChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId, profileTheme]);
 
   // 🆕 PUNKT-DIFFERENZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    const timer = setTimeout(() => {
-      setPointsChartLoading(true);
-      getGlobalPlayerPointsTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-        .then((data) => {
-          setPointsChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Punkte-Chart-Daten:', error);
-          setPointsChartData(null);
-        })
-        .finally(() => {
-          setPointsChartLoading(false);
-        });
-    }, 150);
-    
-    return () => clearTimeout(timer);
+
+    let cancelled = false;
+    setPointsChartLoading(true);
+    getGlobalPlayerPointsTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
+      .then((data) => {
+        if (!cancelled) setPointsChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Punkte-Chart-Daten:', error);
+        if (!cancelled) setPointsChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setPointsChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId, profileTheme]);
 
   // 🆕 MATSCH-BILANZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    const timer = setTimeout(() => {
-      setMatschChartLoading(true);
-      getGlobalPlayerMatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-        .then((data) => {
-          setMatschChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Matsch-Chart-Daten:', error);
-          setMatschChartData(null);
-        })
-        .finally(() => {
-          setMatschChartLoading(false);
-        });
-    }, 200);
-    
-    return () => clearTimeout(timer);
+
+    let cancelled = false;
+    setMatschChartLoading(true);
+    getGlobalPlayerMatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
+      .then((data) => {
+        if (!cancelled) setMatschChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Matsch-Chart-Daten:', error);
+        if (!cancelled) setMatschChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setMatschChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId]);
 
   // 🆕 SCHNEIDER-BILANZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    const timer = setTimeout(() => {
-      setSchneiderChartLoading(true);
-      getGlobalPlayerSchneiderTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-        .then((data) => {
-          setSchneiderChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Schneider-Chart-Daten:', error);
-          setSchneiderChartData(null);
-        })
-        .finally(() => {
-          setSchneiderChartLoading(false);
-        });
-    }, 250);
-    
-    return () => clearTimeout(timer);
+
+    let cancelled = false;
+    setSchneiderChartLoading(true);
+    getGlobalPlayerSchneiderTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
+      .then((data) => {
+        if (!cancelled) setSchneiderChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Schneider-Chart-Daten:', error);
+        if (!cancelled) setSchneiderChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setSchneiderChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId]);
 
   // 🆕 KONTERMATSCH-BILANZ CHART
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    const timer = setTimeout(() => {
-      setKontermatschChartLoading(true);
-      getGlobalPlayerKontermatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-        .then((data) => {
-          setKontermatschChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Kontermatsch-Chart-Daten:', error);
-          setKontermatschChartData(null);
-        })
-        .finally(() => {
-          setKontermatschChartLoading(false);
-        });
-    }, 300);
-    
-    return () => clearTimeout(timer);
+
+    let cancelled = false;
+    setKontermatschChartLoading(true);
+    getGlobalPlayerKontermatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
+      .then((data) => {
+        if (!cancelled) setKontermatschChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Kontermatsch-Chart-Daten:', error);
+        if (!cancelled) setKontermatschChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setKontermatschChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId]);
 
   // 🆕 WEIS-PUNKTE CHART (3 KURVEN!)
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    const timer = setTimeout(() => {
-      setWeisChartLoading(true);
-      getGlobalPlayerWeisTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-        .then((data) => {
-          setWeisChartData(data);
-        })
-        .catch(error => {
-          console.warn('Fehler beim Laden der Weis-Chart-Daten:', error);
-          setWeisChartData(null);
-        })
-        .finally(() => {
-          setWeisChartLoading(false);
-        });
-    }, 350);
-    
-    return () => clearTimeout(timer);
+
+    let cancelled = false;
+    setWeisChartLoading(true);
+    getGlobalPlayerWeisTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
+      .then((data) => {
+        if (!cancelled) setWeisChartData(data);
+      })
+      .catch(error => {
+        console.warn('Fehler beim Laden der Weis-Chart-Daten:', error);
+        if (!cancelled) setWeisChartData(null);
+      })
+      .finally(() => {
+        if (!cancelled) setWeisChartLoading(false);
+      });
+
+    return () => { cancelled = true; };
   }, [viewPlayerId]);
 
   // NEU: Berechne Partner-Chart-Daten aus bereits geladenen normalSessionSummaries
