@@ -58,6 +58,7 @@ import WinRateChart from '@/components/charts/WinRateChart';
 import {
   getOptimizedRatingChart,
   getYearEndPlayerRatings,
+  getYearTrumpfStats,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -468,12 +469,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const [teamEventCountsMap, setTeamEventCountsMap] = useState<Map<string, { eventsMade: number; eventsReceived: number }>>(new Map());
 
   // NEU: Trumpfverteilung-Daten aus groupStats
+  // 🗓️ Year-aware Trumpf-Quellen. Im Gesamt-Mode → groupStats. Im Year-Mode →
+  //    asynchron pro Jahr aus jassGameSummaries aggregiert (siehe useEffect unten).
+  const [yearTrumpfStats, setYearTrumpfStats] = React.useState<{ trumpfStatistik: Record<string, number>; totalTrumpfCount: number } | null>(null);
+
+  const activeTrumpfStatistik = useMemo<Record<string, number> | undefined>(() => {
+    if (selectedYear === 'gesamt') return groupStats?.trumpfStatistik;
+    return yearTrumpfStats?.trumpfStatistik;
+  }, [selectedYear, groupStats, yearTrumpfStats]);
+
+  const activeTotalTrumpfCount = useMemo<number>(() => {
+    if (selectedYear === 'gesamt') return groupStats?.totalTrumpfCount || 0;
+    return yearTrumpfStats?.totalTrumpfCount || 0;
+  }, [selectedYear, groupStats, yearTrumpfStats]);
+
   const trumpfDistributionData = useMemo(() => {
-    if (!groupStats?.trumpfStatistik || groupStats.totalTrumpfCount === 0) {
+    if (!activeTrumpfStatistik || activeTotalTrumpfCount === 0) {
       return null;
     }
-    return getTrumpfDistributionChartData(groupStats.trumpfStatistik, groupStats.totalTrumpfCount);
-  }, [groupStats]);
+    return getTrumpfDistributionChartData(activeTrumpfStatistik, activeTotalTrumpfCount);
+  }, [activeTrumpfStatistik, activeTotalTrumpfCount]);
 
   // ===== REFS FÜR SCROLLBARE STATISTIK-CONTAINER (IDENTISCH ZUM ORIGINAL) =====
   // Übersicht
@@ -535,30 +550,26 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return normalized;
   };
 
-  // ===== TRUMP-STATISTIK ARRAY (IDENTISCH ZUM ORIGINAL) =====
+  // ===== TRUMP-STATISTIK ARRAY (Year-aware) =====
   const trumpfStatistikArray = useMemo(() => {
-    if (!groupStats?.trumpfStatistik || groupStats.totalTrumpfCount === 0) {
+    if (!activeTrumpfStatistik || activeTotalTrumpfCount === 0) {
       return [];
     }
-    
-    // KORREKTUR: Alle Varianten auf kanonische Keys zusammenführen (DE/FR/Altformen)
+
     const consolidatedStats: Record<string, number> = {};
-    
-    Object.entries(groupStats.trumpfStatistik).forEach(([farbe, anzahl]) => {
+    Object.entries(activeTrumpfStatistik).forEach(([farbe, anzahl]) => {
       const mappedFarbe = canonicalTrumpfKey(farbe);
-      
-      // Zusammenfassen
       consolidatedStats[mappedFarbe] = (consolidatedStats[mappedFarbe] || 0) + anzahl;
     });
-    
+
     return Object.entries(consolidatedStats)
       .map(([farbe, anzahl]) => ({
         farbe,
         anzahl,
-        anteil: anzahl / groupStats.totalTrumpfCount,
+        anteil: anzahl / activeTotalTrumpfCount,
       }))
       .sort((a, b) => b.anzahl - a.anzahl);
-  }, [groupStats]);
+  }, [activeTrumpfStatistik, activeTotalTrumpfCount]);
 
   // ===== HILFSFUNKTION FÜR JASS-COLOR NORMALISIERUNG (IDENTISCH ZUM ORIGINAL) =====
   const normalizeJassColor = (farbe: string): JassColor => {
@@ -1098,6 +1109,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
         setYearEndRatingsMap(out);
       })
       .catch(err => console.warn('[GroupView] getYearEndPlayerRatings:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  // 🗓️ Year-Filter: Trumpfansagen-Statistik aus Sessions im Zieljahr.
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearTrumpfStats(null);
+      return;
+    }
+    let cancelled = false;
+    getYearTrumpfStats(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearTrumpfStats(res); })
+      .catch(err => console.warn('[GroupView] getYearTrumpfStats:', err));
     return () => { cancelled = true; };
   }, [currentGroup?.id, selectedYear]);
 
@@ -2472,7 +2496,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                             }}
                             height={layout.isDesktop ? 300 : 250}
                             isDarkMode={true}
-                            centerText={groupStats?.totalTrumpfCount ? `${groupStats.totalTrumpfCount}` : undefined}
+                            centerText={activeTotalTrumpfCount ? `${activeTotalTrumpfCount}` : undefined}
                             hideLegend={false}
                             legendPosition="right"
                             activeTab={activeMainTab}

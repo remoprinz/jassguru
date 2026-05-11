@@ -327,6 +327,47 @@ export async function getYearEndPlayerRatings(
 }
 
 /**
+ * 🗓️ Trumpf-Counts pro Farbe für ein bestimmtes Jahr.
+ *
+ * Liest `aggregatedTrumpfCountsByPlayer` aus den Session-Dokumenten und
+ * summiert über alle Spieler. Das Resultat ist {farbe: anzahl} + totalCount,
+ * direkt kompatibel mit `getTrumpfDistributionChartData` und der bestehenden
+ * Trumpfansagen-Liste.
+ */
+export async function getYearTrumpfStats(
+  groupId: string,
+  year: number,
+): Promise<{ trumpfStatistik: Record<string, number>; totalTrumpfCount: number }> {
+  const trumpfStatistik: Record<string, number> = {};
+  let totalTrumpfCount = 0;
+  try {
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const perPlayer = d.aggregatedTrumpfCountsByPlayer;
+      if (!perPlayer || typeof perPlayer !== 'object') return;
+      Object.values(perPlayer).forEach((playerCounts: any) => {
+        if (!playerCounts || typeof playerCounts !== 'object') return;
+        Object.entries(playerCounts).forEach(([farbe, count]) => {
+          if (typeof count !== 'number') return;
+          trumpfStatistik[farbe] = (trumpfStatistik[farbe] || 0) + count;
+          totalTrumpfCount += count;
+        });
+      });
+    });
+  } catch (error) {
+    console.warn('[getYearTrumpfStats] Fehler:', error);
+  }
+  return { trumpfStatistik, totalTrumpfCount };
+}
+
+/**
  * 🚀 Lade Strichdifferenz-Chart aus aggregated/chartData_striche
  */
 export async function getOptimizedStricheChart(
