@@ -582,10 +582,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return candidate ? String(candidate) : null;
   }, [isPublicView, router?.query?.playerId, currentPlayer, user]);
 
-  // ✅ STATE: Geladene jassGameSummaries (nur normale Sessions, ohne Turniere)
+  // ✅ STATE: Geladene jassGameSummaries (Sessions UND Turniere — pro Spiel-Iteration
+  //    in den Partner/Gegner-Verlaufscharts behandelt beide korrekt).
   const [normalSessionSummaries, setNormalSessionSummaries] = React.useState<any[]>([]);
 
-  // ✅ LADE: jassGameSummaries direkt aus Firestore (nur normale Sessions)
+  // ✅ LADE: jassGameSummaries direkt aus Firestore (normale Sessions + Turniere)
   // groupIds kommen direkt aus den Props – kein doppelter Player-Doc-Read nötig
   React.useEffect(() => {
     const groupIds = player?.groupIds;
@@ -614,20 +615,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
         const allSummaries = perGroupResults.flat();
 
-        // Filtere NUR normale Sessions (ohne Turniere)
-        const normalSummaries = allSummaries.filter(summary => {
+        // 🆕 Inkludiere Turniere: Partner/Gegner-Charts iterieren pro Spiel und
+        //    handhaben Turniere (mit rotierenden Teams) korrekt aus den gameResults.
+        const filtered = allSummaries.filter(summary => {
           if (summary.status !== 'completed' && summary.status !== 'completed_empty') return false;
-          if (summary.isTournamentSession || summary.tournamentId) return false;
-          if (!summary.teams?.top?.players || !summary.teams?.bottom?.players) return false;
-          if (!summary.finalScores) return false;
           const participantIds = summary.participantPlayerIds || [];
           if (!participantIds.includes(viewPlayerId)) return false;
+          // Brauchen gameResults für per-Spiel-Iteration (sowohl normale Sessions als auch Turniere)
+          if (!Array.isArray(summary.gameResults) || summary.gameResults.length === 0) return false;
           return true;
         });
 
-        setNormalSessionSummaries(normalSummaries);
+        setNormalSessionSummaries(filtered);
       } catch (error) {
-        console.error('[ProfileView] Fehler beim Laden der normalen Sessions:', error);
+        console.error('[ProfileView] Fehler beim Laden der Sessions:', error);
         setNormalSessionSummaries([]);
       }
     })();
