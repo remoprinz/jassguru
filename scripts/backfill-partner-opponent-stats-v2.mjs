@@ -113,9 +113,26 @@ async function recomputeForPlayer(playerId) {
   console.log(`   Name: ${playerName}`);
 
   // 2. Lade alle jassGameSummaries wo dieser Spieler dabei war
-  const sessionsSnap = await db.collectionGroup('jassGameSummaries')
-    .where('participantPlayerIds', 'array-contains', playerId)
-    .get();
+  //    Strategie: über players/{pid}.groupIds iterieren und pro Gruppe alle Sessions
+  //    lesen. Vermeidet collectionGroup-Composite-Indexe.
+  const groupIds = playerDocSnap.data().groupIds || [];
+  console.log(`   Groups: ${groupIds.length}`);
+
+  const sessionDocs = [];
+  for (const gid of groupIds) {
+    const snap = await db.collection('groups').doc(gid).collection('jassGameSummaries').get();
+    snap.forEach(d => {
+      const data = d.data();
+      // Filter im Code (kein Index nötig)
+      if (data.status !== 'completed') return;
+      const participants = data.participantPlayerIds || [];
+      if (!participants.includes(playerId)) return;
+      sessionDocs.push({ id: d.id, data });
+    });
+  }
+  // Sortiere chronologisch für deterministische lastPlayedTimestamp-Werte
+  sessionDocs.sort((a, b) => compareTs(a.data.completedAt || a.data.endedAt, b.data.completedAt || b.data.endedAt));
+  const sessionsSnap = { size: sessionDocs.length, docs: sessionDocs.map(s => ({ data: () => s.data })) };
 
   let validSessions = 0;
   // Aggregations-Maps
@@ -124,8 +141,8 @@ async function recomputeForPlayer(playerId) {
 
   for (const doc of sessionsSnap.docs) {
     const sessionData = doc.data();
-    const status = sessionData.status;
-    if (status !== 'completed' && status !== 'completed_empty') continue;
+    // status filter already in query (=='completed'); kept guard for safety
+    if (sessionData.status !== 'completed') continue;
 
     const delta = calculateSessionDelta(playerId, sessionData);
     if (!delta.playerTeam && delta.partnerDeltas.size === 0) {
