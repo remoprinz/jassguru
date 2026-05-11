@@ -4090,7 +4090,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                     </div>
 
-                     {/* 7. Weisdifferenz */}
+                     {/* 7. Weisdifferenz — im Year-Mode ausgeblendet, da sessionTotalWeisPoints
+                         nur Session-Level ist und bei Turnieren mit rotierenden Teams nicht
+                         korrekt aufteilbar wäre. */}
+                     {selectedYear === 'gesamt' && (
                      <div className={`overflow-hidden`}>
                        <div className={`flex items-center border-b-2 border-gray-500/50 ${layout.cardInnerPadding}`}>
                          <div className={`${layout.accentBarWidth} ${layout.accentBarHeight} ${theme.accent} rounded-r-md mr-3`}></div>
@@ -4176,6 +4179,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         })()}
                       </div>
                     </div>
+                    )}
 
                     {/* 9. Rundentempo */}
                     <div className={`overflow-hidden`}>
