@@ -920,6 +920,22 @@ export const GroupView: React.FC<GroupViewProps> = ({
   }, [currentGroup?.id, members]);
   
 
+  // 🗓️ Year-Filter: Siegquoten (Partien + Spiele) pro Spieler.
+  //    Muss VOR den useMemos für sessionWinRateRanking/gameWinRateRanking stehen,
+  //    sonst TDZ-ReferenceError (Crash beim Mount).
+  const [yearWinRates, setYearWinRates] = React.useState<Map<string, { sessionWins: number; sessionLosses: number; sessionDraws: number; gameWins: number; gameLosses: number }> | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearWinRates(null);
+      return;
+    }
+    let cancelled = false;
+    getYearPlayerWinRates(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearWinRates(res); })
+      .catch(err => console.warn('[GroupView] getYearPlayerWinRates:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
   // ✅ Session Win Rate Ranking — im Gesamt-Mode aus playerStats (globalStats.current),
   //    im Year-Mode aus yearWinRates (year-aware Aggregation aus jassGameSummaries).
   const sessionWinRateRanking = useMemo(() => {
@@ -1192,20 +1208,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
       playerName: playerDisplayNamesMap.get(rt.playerId) || rt.playerName,
     }));
   }, [selectedYear, groupStats, yearRoundTimes, playerDisplayNamesMap]);
-
-  // 🗓️ Year-Filter: Siegquoten (Partien + Spiele) pro Spieler.
-  const [yearWinRates, setYearWinRates] = React.useState<Map<string, { sessionWins: number; sessionLosses: number; sessionDraws: number; gameWins: number; gameLosses: number }> | null>(null);
-  React.useEffect(() => {
-    if (selectedYear === 'gesamt' || !currentGroup?.id) {
-      setYearWinRates(null);
-      return;
-    }
-    let cancelled = false;
-    getYearPlayerWinRates(currentGroup.id, selectedYear)
-      .then(res => { if (!cancelled) setYearWinRates(res); })
-      .catch(err => console.warn('[GroupView] getYearPlayerWinRates:', err));
-    return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
 
   // 🗓️ Year-Filter: Durchschnittswerte & Gruppenübersicht.
   const [yearGroupStats, setYearGroupStats] = React.useState<Awaited<ReturnType<typeof getYearGroupStats>>>(null);
