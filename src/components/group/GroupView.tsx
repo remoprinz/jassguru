@@ -347,8 +347,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // NEU: State für Elo-Ratings
   const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
   const [eloRatingsLoading, setEloRatingsLoading] = useState(false); // ✅ NEU: Loading-State für Elo-Ratings
-  // NEU: State für Elo-Deltas (aus jassGameSummaries)
-  const [playerDeltas, setPlayerDeltas] = useState<Map<string, number>>(new Map());
   // NEU: State für Chart-Daten
   const [chartData, setChartData] = useState<{
     labels: string[];
@@ -1161,8 +1159,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
     setEloRatingsLoading(true);
     
     // ✅ IMMER globale Ratings laden (über alle Gruppen hinweg)
-    // ⚡ computeSessionDeltas=false: GroupView nutzt playerDeltas (aus jassGameSummaries),
-    //    NICHT rating.lastSessionDelta — spart pro Spieler eine ratingHistory-Query.
+    // ⚡ computeSessionDeltas=false: rating.lastSessionDelta kommt aus dem denormalisierten
+    //    Feld auf players/{id} (Cloud Function), nicht aus einer live-Berechnung — spart
+    //    pro Spieler eine ratingHistory-Query.
     const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
     loadPlayerRatings(playerIds, false)
       .then((ratingsMap) => {
@@ -1174,65 +1173,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
       });
   }, [members, currentGroup?.id]);
 
-  // 🆕 NEU: Lade letzte Session-Deltas für JEDEN Spieler aus jassGameSummaries
-  React.useEffect(() => {
-    if (!currentGroup?.id || !members || members.length === 0) return;
-    
-    const loadLastDeltasForAllPlayers = async () => {
-      try {
-        // Hole ALLE Sessions aus jassGameSummaries, sortiert nach Datum
-        const summariesRef = collection(db, `groups/${currentGroup.id}/jassGameSummaries`);
-        const summariesQuery = query(
-          summariesRef,
-          where('status', '==', 'completed'),
-          orderBy('completedAt', 'desc')
-        );
-        
-        const summariesSnap = await getDocs(summariesQuery);
-        
-        // Map für die letzten Deltas jedes Spielers
-        const lastDeltaMap = new Map<string, number>();
-        
-        // Durchsuche alle Sessions chronologisch und sammle die letzten Deltas
-        for (const summaryDoc of summariesSnap.docs) {
-          const summaryData = summaryDoc.data();
-          const playerFinalRatings = summaryData.playerFinalRatings;
-          
-          if (playerFinalRatings && Object.keys(playerFinalRatings).length > 0) {
-            // Für jeden Spieler in dieser Session
-            Object.entries(playerFinalRatings).forEach(([playerId, ratingData]: [string, any]) => {
-              if (ratingData?.ratingDelta !== undefined) {
-                // Finde den entsprechenden Member
-                const member = members.find(m => 
-                  (m.id === playerId || m.userId === playerId) ||
-                  (ratingData.displayName && m.displayName?.toLowerCase() === ratingData.displayName.toLowerCase())
-                );
-                
-                if (member) {
-                  const memberId = member.id || member.userId;
-                  
-                  // Nur hinzufügen, wenn wir noch kein Delta für diesen Spieler haben
-                  // (da Sessions nach Datum sortiert sind, ist das erste gefundene Delta das neueste)
-                  if (!lastDeltaMap.has(memberId)) {
-                    lastDeltaMap.set(memberId, ratingData.ratingDelta);
-                    
-                    // Zusätzlich mit der ursprünglichen playerId als Schlüssel
-                    lastDeltaMap.set(playerId, ratingData.ratingDelta);
-                  }
-                }
-              }
-            });
-          }
-        }
-        
-        setPlayerDeltas(lastDeltaMap);
-      } catch (error) {
-        console.warn('Fehler beim Laden der letzten Session-Deltas:', error);
-      }
-    };
-    
-    loadLastDeltasForAllPlayers();
-  }, [currentGroup?.id, members]);
+  // ⚡ ENTFERNT: separater playerDeltas-Loader aus jassGameSummaries.
+  // Wir nutzen jetzt direkt `rating.lastSessionDelta` aus playerRatings (denormalisiertes
+  // Feld auf players/{id}, gepflegt von der Cloud Function in jassEloUpdater.ts).
+  // Spart pro Login alle Doc-Reads der completed Sessions dieser Gruppe.
 
   // 🌍 GLOBAL ELO: Öffentliche Gruppenansicht - lade globale Ratings
   React.useEffect(() => {
@@ -2192,62 +2136,22 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                       <span className={`text-white ${layout.valueSize} font-medium mr-2`}>
                                         {Math.round(rating.rating)}
                                         {(() => {
-                                          // 🚨 KORREKTUR: Versuche verschiedene Schlüssel für die Delta-Zuordnung
-                                          let delta = playerDeltas.get(rating.id);
-                                          
-                                          // Fallback 1: Suche über Member-ID
-                                          if (delta === undefined) {
-                                            const member = members.find(m => (m.id || m.userId) === rating.id);
-                                            if (member) {
-                                              delta = playerDeltas.get(member.id || member.userId);
-                                            }
-                                          }
-                                          
-                                          // Fallback 2: Suche über displayName
-                                          if (delta === undefined && rating.displayName) {
-                                            const member = members.find(m => 
-                                              m.displayName?.toLowerCase() === rating.displayName.toLowerCase()
-                                            );
-                                            if (member) {
-                                              delta = playerDeltas.get(member.id || member.userId);
-                                            }
-                                          }
-                                          
-                                          if (delta !== undefined) {
-                                            // 🛡️ FIX: Robuste Konvertierung - delta kann String, Objekt oder NaN sein
-                                            const numericDelta = typeof delta === 'number' && !isNaN(delta) 
-                                              ? delta 
-                                              : (typeof delta === 'string' ? parseFloat(delta) : NaN);
-                                            
-                                            // Wenn keine gültige Zahl, zeige (0)
-                                            if (isNaN(numericDelta)) {
-                                              return (
-                                                <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
-                                                  (0)
-                                                </span>
-                                              );
-                                            }
-                                            
-                                            const roundedDelta = Math.round(numericDelta);
-                                            // ✅ Wenn gerundetes Delta 0 ist, immer grau ohne Vorzeichen
-                                            if (roundedDelta === 0) {
-                                              return (
-                                                <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
-                                                  (0)
-                                                </span>
-                                              );
-                                            }
+                                          // ⚡ Delta direkt aus rating.lastSessionDelta (denormalisiertes Feld
+                                          // auf players/{id}, von Cloud Function in jassEloUpdater.ts gepflegt).
+                                          const raw = rating.lastSessionDelta;
+                                          const numericDelta = typeof raw === 'number' && !isNaN(raw) ? raw : 0;
+                                          const roundedDelta = Math.round(numericDelta);
+
+                                          if (roundedDelta === 0) {
                                             return (
-                                              <span className={`ml-1 ${layout.smallTextSize} ${numericDelta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                                ({numericDelta > 0 ? '+' : ''}{roundedDelta})
+                                              <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
+                                                (0)
                                               </span>
                                             );
                                           }
-                                          
-                                          // 🚨 NEU: Zeige (0) in grau für Spieler ohne Delta
                                           return (
-                                            <span className={`ml-1 ${layout.smallTextSize} text-gray-400`}>
-                                              (0)
+                                            <span className={`ml-1 ${layout.smallTextSize} ${numericDelta > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                              ({numericDelta > 0 ? '+' : ''}{roundedDelta})
                                             </span>
                                           );
                                         })()}
