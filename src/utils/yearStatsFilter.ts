@@ -24,8 +24,10 @@ export function parseGermanDate(label: string): Date | null {
   if (parts.length !== 3) return null;
   const day = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10);
-  const year = parseInt(parts[2], 10);
+  let year = parseInt(parts[2], 10);
   if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  // Chart-Labels nutzen 2-stelliges Jahr (toLocaleDateString year:'2-digit') → 20YY
+  if (year < 100) year += 2000;
   if (year < 1900 || year > 2100) return null;
   return new Date(year, month - 1, day);
 }
@@ -111,13 +113,22 @@ export function filterTimeSeriesByYear(
   const newLabels = inYearIndices.map(i => chartData.labels[i]);
 
   const newDatasets = chartData.datasets.map(ds => {
-    const baseValue = resetToZero && lastIndexBeforeYear >= 0
-      ? (Number(ds.data?.[lastIndexBeforeYear]) || 0)
-      : 0;
+    // Baseline = letzter NICHT-NULL Wert vor dem Zieljahr (Spieler war evtl. nicht in der letzten Session vor 1.1.).
+    let baseValue = 0;
+    if (resetToZero && lastIndexBeforeYear >= 0) {
+      for (let j = lastIndexBeforeYear; j >= 0; j--) {
+        const v = ds.data?.[j];
+        if (v === null || v === undefined) continue;
+        const n = Number(v);
+        if (Number.isFinite(n)) { baseValue = n; break; }
+      }
+    }
     const newData = inYearIndices.map(i => {
-      const raw = Number(ds.data?.[i]);
-      if (!Number.isFinite(raw)) return ds.data?.[i] ?? null;
-      return raw - baseValue;
+      const raw = ds.data?.[i];
+      if (raw === null || raw === undefined) return null;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return null;
+      return n - baseValue;
     });
     return { ...ds, data: newData };
   });
