@@ -1,6 +1,7 @@
 import { db } from '@/services/firebaseInit';
 import { doc, getDoc, collection, getDocs, query, where, orderBy, FieldPath } from 'firebase/firestore';
 import { getRankingColor } from '../config/chartColors';
+import { getGroupSessionsSnapshot, getGroupPlayersSnapshot } from '@/services/groupQueryDeduperService';
 
 /**
  * Helper: Lädt lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
@@ -105,15 +106,10 @@ export async function getOptimizedRatingChart(
   lastUpdated?: Date;
 }> {
   try {
-    // 📊 Lade alle completed jassGameSummaries für diese Gruppe
-    const summariesSnap = await getDocs(
-      query(
-        collection(db, `groups/${groupId}/jassGameSummaries`),
-        where('status', '==', 'completed'),
-        orderBy('completedAt', 'asc')
-      )
-    );
-    
+    // ⚡ Geteilter Loader (request-deduper) — kollabiert konkurrierende Queries der
+    //    4 schweren Charts (Elo, Team-Striche/Points/Matsch) zu einem Roundtrip.
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+
     if (summariesSnap.empty) {
       return {
         labels: [],
@@ -610,25 +606,17 @@ export async function getOptimizedTeamMatschChart(
     const playerDisplayNames = new Map<string, string>();
     const allPlayerIdsInSessions = new Set<string>();
     try {
-      const playersSnap = await getDocs(
-        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
-      );
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
       playersSnap.forEach(doc => {
         playerDisplayNames.set(doc.id, doc.data().displayName);
       });
     } catch (error) {
       console.warn('[getOptimizedTeamMatschChart] Could not load player names:', error);
     }
-    
-    // 📊 Lade alle completed Sessions
-    const summariesSnap = await getDocs(
-      query(
-        collection(db, `groups/${groupId}/jassGameSummaries`),
-        where('status', '==', 'completed'),
-        orderBy('completedAt', 'asc')
-      )
-    );
-    
+
+    // ⚡ Geteilter Sessions-Loader (request-deduper)
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+
     if (summariesSnap.empty) {
       return {
         labels: [],
@@ -1443,24 +1431,16 @@ export async function getOptimizedTeamStricheChart(
     const playerDisplayNames = new Map<string, string>();
     const allPlayerIdsInSessions = new Set<string>();
     try {
-      const playersSnap = await getDocs(
-        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
-      );
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
       playersSnap.forEach(doc => {
         playerDisplayNames.set(doc.id, doc.data().displayName);
       });
     } catch (error) {
       console.warn('[getOptimizedTeamStricheChart] Could not load player names:', error);
     }
-    
-    // 📊 Lade alle completed Sessions
-    const summariesSnap = await getDocs(
-      query(
-        collection(db, `groups/${groupId}/jassGameSummaries`),
-        where('status', '==', 'completed'),
-        orderBy('completedAt', 'asc')
-      )
-    );
+
+    // ⚡ Geteilter Sessions-Loader (request-deduper)
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
     
     if (summariesSnap.empty) {
       return {
@@ -1724,24 +1704,16 @@ export async function getOptimizedTeamPointsChart(
     const playerDisplayNames = new Map<string, string>();
     const allPlayerIdsInSessions = new Set<string>();
     try {
-      const playersSnap = await getDocs(
-        query(collection(db, 'players'), where('groupIds', 'array-contains', groupId))
-      );
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
       playersSnap.forEach(doc => {
         playerDisplayNames.set(doc.id, doc.data().displayName);
       });
     } catch (error) {
       console.warn('[getOptimizedTeamPointsChart] Could not load player names:', error);
     }
-    
-    // 📊 Lade alle completed Sessions
-    const summariesSnap = await getDocs(
-      query(
-        collection(db, `groups/${groupId}/jassGameSummaries`),
-        where('status', '==', 'completed'),
-        orderBy('completedAt', 'asc')
-      )
-    );
+
+    // ⚡ Geteilter Sessions-Loader (request-deduper)
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
     
     if (summariesSnap.empty) {
       return {
