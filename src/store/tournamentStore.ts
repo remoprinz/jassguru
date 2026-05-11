@@ -43,6 +43,17 @@ import { persistToStorage, loadFromStorage } from '@/services/persistentCacheHel
 const TOURNAMENTS_BY_USER_KEY = (pid: string) => `tournaments-by-user:${pid}`;
 const TOURNAMENTS_BY_GROUP_KEY = (gid: string) => `tournaments-by-group:${gid}`;
 
+// 🚀 Detail-Cache NUR für ABGESCHLOSSENE Turniere (status === 'completed').
+//    Bei aktiven Turnieren würde der Cache mit den Realtime-Listenern kollidieren —
+//    daher hier strikt: nur completed → cached.
+const TOURNAMENT_DETAILS_KEY = (iid: string) => `tournament-details:${iid}`;
+const TOURNAMENT_GAMES_KEY = (iid: string) => `tournament-games:${iid}`;
+const TOURNAMENT_PARTICIPANTS_KEY = (iid: string) => `tournament-participants:${iid}`;
+
+function isCompletedTournament(instance: { status?: string } | null | undefined): boolean {
+  return instance?.status === 'completed';
+}
+
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 function reviveDates<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
@@ -387,21 +398,47 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
       return;
     }
     
-    // ✅ Logs aufgeräumt: Nur bei echten Problemen loggen
-    if (state.currentTournamentInstance?.id !== instanceId || !state.currentTournamentInstance) {
-      set({
-        currentTournamentGames: [],
-        gamesStatus: 'idle',
-        tournamentParticipants: [],
-        participantsStatus: 'idle',
-        passeRoundsCache: {},
-        passeRoundsStatus: {},
-        currentViewingPasse: null,
-        passeDetailsStatus: 'idle',
-      });
-    }
+    // 🚀 INSTANT-Cache: NUR für completed Turniere (sonst gibt's Konflikte
+    //    mit Realtime-Listenern bei aktiven Turnieren).
+    const cachedInstanceRaw = loadFromStorage<TournamentInstance>(TOURNAMENT_DETAILS_KEY(instanceId));
+    const cachedInstance = cachedInstanceRaw ? reviveDates(cachedInstanceRaw) : null;
+    const useCache = isCompletedTournament(cachedInstance);
 
-    set({ detailsStatus: 'loading', loadingInstanceId: instanceId, error: null });
+    if (useCache && cachedInstance) {
+      // Hydriere alle drei Caches synchron — Tournament ist fertig, Daten sind unveränderlich.
+      const cachedGamesRaw = loadFromStorage<TournamentGame[]>(TOURNAMENT_GAMES_KEY(instanceId));
+      const cachedGames = cachedGamesRaw ? reviveDates(cachedGamesRaw) : null;
+      const cachedParticipantsRaw = loadFromStorage<ParticipantWithProgress[]>(TOURNAMENT_PARTICIPANTS_KEY(instanceId));
+      const cachedParticipants = cachedParticipantsRaw ? reviveDates(cachedParticipantsRaw) : null;
+
+      set({
+        currentTournamentInstance: cachedInstance,
+        currentTournamentGames: Array.isArray(cachedGames) ? cachedGames : [],
+        gamesStatus: cachedGames && cachedGames.length > 0 ? 'success' : 'idle',
+        tournamentParticipants: Array.isArray(cachedParticipants) ? cachedParticipants : [],
+        participantsStatus: cachedParticipants && cachedParticipants.length > 0 ? 'success' : 'idle',
+        status: 'success',
+        detailsStatus: 'success',
+        loadingInstanceId: null,
+        error: null,
+        // passeRoundsCache + state-resets nicht anfassen
+      });
+    } else {
+      // ✅ Logs aufgeräumt: Nur bei echten Problemen loggen
+      if (state.currentTournamentInstance?.id !== instanceId || !state.currentTournamentInstance) {
+        set({
+          currentTournamentGames: [],
+          gamesStatus: 'idle',
+          tournamentParticipants: [],
+          participantsStatus: 'idle',
+          passeRoundsCache: {},
+          passeRoundsStatus: {},
+          currentViewingPasse: null,
+          passeDetailsStatus: 'idle',
+        });
+      }
+      set({ detailsStatus: 'loading', loadingInstanceId: instanceId, error: null });
+    }
 
     try {
       const instanceFromService = await fetchTournamentInstanceDetailsService(instanceId);
@@ -442,14 +479,23 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
         // ✅ Logs aufgeräumt: Settings-Log entfernt
         
-        if (get().loadingInstanceId === instanceId) {
-          set({ 
-            currentTournamentInstance: normalizedInstance, 
-            status: 'success', 
-            detailsStatus: 'success', 
-            loadingInstanceId: null 
+        // Background-Refresh (auch nach Cache-Hit): state aktualisieren wenn UI noch
+        // dieses Turnier zeigt. Race-Schutz: aktueller currentTournamentInstance.id muss
+        // matchen ODER wir sind im normalen Lade-Pfad.
+        const stillSameInstance = get().currentTournamentInstance?.id === instanceId;
+        if (get().loadingInstanceId === instanceId || stillSameInstance) {
+          set({
+            currentTournamentInstance: normalizedInstance,
+            status: 'success',
+            detailsStatus: 'success',
+            loadingInstanceId: null
           });
-          
+
+          // 💾 Persist NUR wenn completed
+          if (isCompletedTournament(normalizedInstance)) {
+            persistToStorage(TOURNAMENT_DETAILS_KEY(instanceId), normalizedInstance);
+          }
+
           get().setupTournamentListener(instanceId);
         }
       } else {
@@ -468,14 +514,29 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
   loadTournamentGames: async (instanceId) => {
     if (get().gamesStatus === 'loading') {
-      // ✅ Logs aufgeräumt: Redundant fetch-Log entfernt
       return;
     }
-    
+
+    // 🚀 Cache-Pfad NUR für completed Tournaments
+    const completed = isCompletedTournament(get().currentTournamentInstance);
+    if (completed) {
+      const cachedRaw = loadFromStorage<TournamentGame[]>(TOURNAMENT_GAMES_KEY(instanceId));
+      const cached = cachedRaw ? reviveDates(cachedRaw) : null;
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        set({ currentTournamentGames: cached, gamesStatus: 'success', error: null });
+        // Bei completed Turnieren ändern sich Spiele nie wieder — kein Fetch nötig.
+        return;
+      }
+    }
+
     set({ status: 'loading-games', gamesStatus: 'loading', error: null });
     try {
       const games = await fetchTournamentGames(instanceId);
       set({ currentTournamentGames: games, status: 'success', gamesStatus: 'success' });
+      // 💾 Persist NUR wenn completed
+      if (isCompletedTournament(get().currentTournamentInstance)) {
+        persistToStorage(TOURNAMENT_GAMES_KEY(instanceId), games);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Fehler beim Laden der Turnier-Spiele.';
       console.error(`[TournamentStore] Error loading tournament games for ${instanceId}:`, error);
@@ -485,20 +546,33 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
 
   loadTournamentParticipants: async (instanceId) => {
     if (get().participantsStatus === 'loading') {
-      // ✅ Logs aufgeräumt: Redundant fetch-Log entfernt
       return;
     }
-  
+
+    // 🚀 Cache-Pfad NUR für completed Tournaments
+    const completed = isCompletedTournament(get().currentTournamentInstance);
+    if (completed) {
+      const cachedRaw = loadFromStorage<ParticipantWithProgress[]>(TOURNAMENT_PARTICIPANTS_KEY(instanceId));
+      const cached = cachedRaw ? reviveDates(cachedRaw) : null;
+      if (cached && Array.isArray(cached) && cached.length > 0) {
+        set({ tournamentParticipants: cached, participantsStatus: 'success', error: null });
+        // Bei completed Turnieren ändern sich Teilnehmer nie wieder — kein Fetch nötig.
+        return;
+      }
+    }
+
     set({ status: 'loading-participants', participantsStatus: 'loading', error: null });
     try {
       const participantsFromService = await fetchTournamentParticipants(instanceId);
       const participantsWithProgress = participantsFromService.map(p_service => {
-        // KORREKTUR: Direkte Verwendung von ParticipantWithProgress aus dem Service
-        // Der Service gibt bereits ParticipantWithProgress[] zurück, keine weitere Konvertierung nötig
         return p_service as ParticipantWithProgress;
       });
-      
+
       set({ tournamentParticipants: participantsWithProgress, status: 'success', participantsStatus: 'success' });
+      // 💾 Persist NUR wenn completed
+      if (isCompletedTournament(get().currentTournamentInstance)) {
+        persistToStorage(TOURNAMENT_PARTICIPANTS_KEY(instanceId), participantsWithProgress);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Fehler beim Laden der Teilnehmer.';
       console.error(`[TournamentStore] Error loading participants for ${instanceId}:`, error);
