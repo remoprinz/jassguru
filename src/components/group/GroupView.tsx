@@ -63,6 +63,7 @@ import {
   getYearGroupStats,
   getYearPlayerWinRates,
   getYearRawSessions,
+  getYearTeamRoundTimes,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -1217,6 +1218,25 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .catch(err => console.warn('[GroupView] getYearPlayerRoundTimes:', err));
     return () => { cancelled = true; };
   }, [currentGroup?.id, selectedYear]);
+
+  // 🗓️ Year-Filter: Team-Rundentempo (Median pro Team) aus Sessions im Zieljahr.
+  const [yearTeamRoundTimes, setYearTeamRoundTimes] = React.useState<Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearTeamRoundTimes(null);
+      return;
+    }
+    let cancelled = false;
+    getYearTeamRoundTimes(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearTeamRoundTimes(res); })
+      .catch(err => console.warn('[GroupView] getYearTeamRoundTimes:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  const activeTeamRoundTimes = useMemo(() => {
+    if (selectedYear === 'gesamt') return groupStats?.teamWithFastestRounds || [];
+    return yearTeamRoundTimes || [];
+  }, [selectedYear, groupStats, yearTeamRoundTimes]);
 
   const activeRoundTimes = useMemo(() => {
     if (selectedYear === 'gesamt') return groupStats?.playerAllRoundTimes || [];
@@ -4064,10 +4084,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>Rundentempo</h3>
                       </div>
                       <div ref={teamRoundTimeRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {groupStats?.teamWithFastestRounds && groupStats.teamWithFastestRounds.length > 0 ? (
-                          groupStats.teamWithFastestRounds
-                            .filter(team => 
-                              team.value && team.value > 0
+                        {activeTeamRoundTimes && activeTeamRoundTimes.length > 0 ? (
+                          activeTeamRoundTimes
+                            .filter(team =>
+                              team.value && Number(team.value) > 0
                             )
                             .map((team, index) => (
                             <div key={`team-${team.names.join('-')}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>

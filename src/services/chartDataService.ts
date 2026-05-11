@@ -653,6 +653,108 @@ export async function getYearPlayerWinRates(
 }
 
 /**
+ * 🗓️ Rundentempo pro Team für ein bestimmtes Jahr.
+ *
+ * Logik analog zur Cloud Function: für jede Session/jedes Tournament-Game in der
+ * Year-Range werden die roundDurations[] beider Partner an das Team-Bucket
+ * angehängt; am Ende = Median in Millisekunden. Aufsteigend sortiert (schnellstes
+ * Team zuerst). Shape identisch zu groupStats.teamWithFastestRounds.
+ */
+export async function getYearTeamRoundTimes(
+  groupId: string,
+  year: number,
+): Promise<Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }>> {
+  const teamMap = new Map<string, { playerIds: string[]; durations: number[] }>();
+
+  const sortedKey = (ids: string[]) => [...ids].sort().join('-');
+
+  const addToTeam = (playerIds: string[], durations: number[]) => {
+    if (playerIds.length !== 2) return;
+    const key = sortedKey(playerIds);
+    if (!teamMap.has(key)) teamMap.set(key, { playerIds: [...playerIds].sort(), durations: [] });
+    const bucket = teamMap.get(key)!;
+    for (const v of durations) {
+      if (typeof v === 'number' && Number.isFinite(v) && v > 0) bucket.durations.push(v);
+    }
+  };
+
+  // Player-Display-Namen laden (für Name-Resolution + Photo-Lookup im UI).
+  // Ausserhalb des äusseren try-Blocks deklariert, damit der Map-Lookup beim
+  // Bauen des result-Arrays Zugriff hat.
+  const playerDisplayNames = new Map<string, string>();
+  try {
+    try {
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
+      playersSnap.forEach(doc => {
+        const d = doc.data();
+        if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
+      });
+    } catch { /* leeres Mapping → playerId als Name */ }
+
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const isTournament = !!d.isTournamentSession || !!d.tournamentId;
+      const perPlayer = d.aggregatedRoundDurationsByPlayer || {};
+
+      const collectDurations = (playerId: string): number[] => {
+        const raw = perPlayer[playerId];
+        if (!raw || typeof raw !== 'object') return [];
+        if (Array.isArray(raw.roundDurations)) return raw.roundDurations.filter((v: any) => typeof v === 'number' && v > 0);
+        if (typeof raw.roundCount === 'number' && raw.roundCount > 0 && typeof raw.totalDuration === 'number') {
+          // Fallback: avg über roundCount duplizieren
+          const avg = raw.totalDuration / raw.roundCount;
+          return Array(raw.roundCount).fill(avg);
+        }
+        return [];
+      };
+
+      if (isTournament && Array.isArray(d.gameResults) && d.gameResults.length > 0) {
+        // Pro Game eigene Team-Composition
+        d.gameResults.forEach((g: any) => {
+          const top: string[] = (g.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+          const bottom: string[] = (g.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+          // Für Turniere fehlt evtl. eine per-Game Rundendauer; Cloud-Fn nutzt session-level
+          // aggregatedRoundDurationsByPlayer. Hier identisch.
+          const topDurs = top.flatMap(collectDurations);
+          const botDurs = bottom.flatMap(collectDurations);
+          addToTeam(top, topDurs);
+          addToTeam(bottom, botDurs);
+        });
+      } else {
+        const top: string[] = (d.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const bottom: string[] = (d.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const topDurs = top.flatMap(collectDurations);
+        const botDurs = bottom.flatMap(collectDurations);
+        addToTeam(top, topDurs);
+        addToTeam(bottom, botDurs);
+      }
+    });
+  } catch (error) {
+    console.warn('[getYearTeamRoundTimes] Fehler:', error);
+    return [];
+  }
+
+  const result: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> = [];
+  teamMap.forEach(bucket => {
+    if (bucket.durations.length === 0) return;
+    const sorted = [...bucket.durations].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    const names = bucket.playerIds.map(id => playerDisplayNames.get(id) || id);
+    result.push({ names, playerIds: bucket.playerIds, value: median, eventsPlayed: bucket.durations.length });
+  });
+  result.sort((a, b) => a.value - b.value);
+  return result;
+}
+
+/**
  * 🗓️ Rohe jassGameSummary-Docs eines Jahres als Plain-Objects.
  *
  * Genau das, was die client-seitigen Aggregatoren brauchen:
