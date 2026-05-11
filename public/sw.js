@@ -1,10 +1,11 @@
 /**
- * Jassguru Service Worker v2.8.4
+ * Jassguru Service Worker v2.8.5
  *
  * Eigenständiger SW mit Workbox 6.6.0 (CDN).
  * Kein Build-Tool-Generierung – alle Dateien sind im Repo versioniert.
  *
  * Caching-Strategien:
+ *   Firestore/Firebase APIs → NetworkOnly (KEIN SW-Interception!)
  *   /_next/static/**  → CacheFirst  (hash-basiert, unveränderlich)
  *   Google Fonts      → StaleWhileRevalidate
  *   Statische Fonts   → CacheFirst
@@ -42,7 +43,32 @@ if (workbox) {
   // Veraltete Caches aufräumen
   workbox.precaching.cleanupOutdatedCaches();
 
-  const APP_VERSION = '2.8.4';
+  const APP_VERSION = '2.8.5';
+
+  // 0) 🚨 KRITISCH: Firestore + Firebase-APIs NICHT cachen.
+  //    Diese Endpoints nutzen Streaming / Listen-Channels — der SW darf
+  //    sie nicht abfangen, sonst kommen Latenz und Cache-Bugs rein.
+  //    Muss VOR dem Catch-all #10 registriert sein, sonst gewinnt der.
+  workbox.routing.registerRoute(
+    /^https:\/\/firestore\.googleapis\.com\/.*/i,
+    new workbox.strategies.NetworkOnly()
+  );
+  workbox.routing.registerRoute(
+    /^https:\/\/firebaseinstallations\.googleapis\.com\/.*/i,
+    new workbox.strategies.NetworkOnly()
+  );
+  workbox.routing.registerRoute(
+    /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
+    new workbox.strategies.NetworkOnly()
+  );
+  workbox.routing.registerRoute(
+    /^https:\/\/securetoken\.googleapis\.com\/.*/i,
+    new workbox.strategies.NetworkOnly()
+  );
+  workbox.routing.registerRoute(
+    /^https:\/\/.*\.cloudfunctions\.net\/.*/i,
+    new workbox.strategies.NetworkOnly()
+  );
 
   // 1) /_next/static/** → CacheFirst (hash-basiert, immutable)
   workbox.routing.registerRoute(
