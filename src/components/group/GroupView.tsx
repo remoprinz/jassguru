@@ -34,6 +34,7 @@ import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
 import { loadPlayerRatings, loadPlayerRatingsSync, type PlayerRatingWithTier } from '@/services/jassElo';
+import { getRanglisteFromCache, setRanglisteCache, getGroupEloVerlaufFromCache, setGroupEloVerlaufCache } from '@/services/eloInstantCache';
 import { collection, getDocs, query, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
@@ -345,13 +346,19 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const [isImageLoading, setIsImageLoading] = useState(true);
   
   // NEU: State für Elo-Ratings
-  const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(new Map());
+  // 🚀 INSTANT-Cache: useState mit Initial-Wert aus localStorage. Damit zeigt der
+  //    allererste Render schon die Daten, ohne dass ein Spinner aufblitzt.
+  const [playerRatings, setPlayerRatings] = useState<Map<string, PlayerRatingWithTier>>(() => {
+    return currentGroup?.id ? (getRanglisteFromCache(currentGroup.id) ?? new Map()) : new Map();
+  });
   const [eloRatingsLoading, setEloRatingsLoading] = useState(false); // ✅ NEU: Loading-State für Elo-Ratings
   // NEU: State für Chart-Daten
   const [chartData, setChartData] = useState<{
     labels: string[];
     datasets: any[];
-  } | null>(null);
+  } | null>(() => {
+    return currentGroup?.id ? getGroupEloVerlaufFromCache(currentGroup.id) : null;
+  });
   const [chartLoading, setChartLoading] = useState(false);
   
   // NEU: State für Strichdifferenz-Chart
@@ -1169,10 +1176,16 @@ export const GroupView: React.FC<GroupViewProps> = ({
       return;
     }
 
-    setEloRatingsLoading(true);
+    // Wenn lazy-init bereits Daten geliefert hat → kein Spinner, im Hintergrund refreshen.
+    const hasInstantData = playerRatings.size > 0;
+    if (!hasInstantData) {
+      setEloRatingsLoading(true);
+    }
     loadPlayerRatings(playerIds, false)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
+        // 💾 Instant-Cache füllen (gekeyed by groupId, für nächsten Mount)
+        if (currentGroup?.id) setRanglisteCache(currentGroup.id, ratingsMap);
       })
       .catch(error => console.warn('Fehler beim Laden der Elo-Ratings:', error))
       .finally(() => {
@@ -1210,26 +1223,29 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // 🚀 OPTIMIERT: Lade Elo-Rating-Chart-Daten mit Backfill-Priorität
   React.useEffect(() => {
     if (!currentGroup?.id) return;
-    
-    // ✅ Verzögerung um 1-2 Frames nach Tab-Expandieren für smooth Chart-Rendering
-    const timer = setTimeout(() => {
+
+    // ⚡ Wenn lazy-init bereits Chart-Daten geliefert hat → kein Spinner.
+    //    Im Hintergrund trotzdem frisch laden + Cache aktualisieren.
+    const hasInstantData = chartData !== null && chartData.datasets && chartData.datasets.length > 0;
+    if (!hasInstantData) {
       setChartLoading(true);
+    }
+    const timer = setTimeout(() => {
       getOptimizedRatingChart(currentGroup.id)
         .then((result) => {
-          setChartData({
-            labels: result.labels,
-            datasets: result.datasets
-          });
+          const data = { labels: result.labels, datasets: result.datasets };
+          setChartData(data);
+          if (currentGroup?.id) setGroupEloVerlaufCache(currentGroup.id, data);
         })
         .catch(error => {
           console.warn('Fehler beim Laden der Elo-Rating-Chart-Daten:', error);
-          setChartData(null);
+          if (!hasInstantData) setChartData(null);
         })
         .finally(() => {
           setChartLoading(false);
         });
-    }, 50); // 50ms Verzögerung für bessere UX
-    
+    }, 50);
+
     return () => clearTimeout(timer);
   }, [currentGroup?.id]);
   

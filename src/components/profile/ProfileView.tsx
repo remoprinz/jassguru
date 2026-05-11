@@ -52,6 +52,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
   import WinRateChart from '@/components/charts/WinRateChart';
   import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
   import { getGlobalPlayerScoresCharts, getGlobalPlayerScoresChartsSync } from '@/services/globalScoresHistoryService'; // ⚡ COMBINED Loader (5-in-1): Striche/Points/Matsch/Schneider/Kontermatsch
+  import { getPlayerEloVerlaufFromCache, setPlayerEloVerlaufCache } from '@/services/eloInstantCache';
   import { getGlobalPlayerWeisTimeSeries } from '@/services/globalWeisHistoryService'; // 🎯 WEIS-PUNKTE Chart (3 Kurven!)
   import { getTrumpfDistributionChartData } from '@/services/chartDataService'; // 🎯 TRUMPFVERTEILUNG CHART
   import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
@@ -868,17 +869,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
-    
-    // ⚡ Stagger entfernt: alle Charts feuern parallel
+
+    // 🚀 INSTANT: erst aus localStorage hydrieren (kein Spinner, wenn Cache da).
     let cancelled = false;
-    setChartLoading(true);
+    const cached = getPlayerEloVerlaufFromCache(viewPlayerId);
+    const hasInstantData = !!cached && Array.isArray(cached.datasets) && cached.datasets.length > 0;
+    if (hasInstantData) {
+      setChartData(cached);
+    } else {
+      setChartLoading(true);
+    }
+
     getGlobalPlayerRatingTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt: Alle Spiele laden!
       .then((data) => {
-        if (!cancelled) setChartData(data);
+        if (cancelled) return;
+        setChartData(data);
+        if (data && Array.isArray(data.datasets) && data.datasets.length > 0) {
+          setPlayerEloVerlaufCache(viewPlayerId, data);
+        }
       })
       .catch(error => {
         console.warn('Fehler beim Laden der Chart-Daten:', error);
-        if (!cancelled) setChartData(null);
+        if (!cancelled && !hasInstantData) setChartData(null);
       })
       .finally(() => {
         if (!cancelled) setChartLoading(false);
