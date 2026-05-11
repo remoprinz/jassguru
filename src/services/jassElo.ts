@@ -27,6 +27,22 @@ export function invalidatePlayerRatingsCache(): void {
   ratingsCache.clear();
 }
 
+/**
+ * Synchroner Cache-Lookup für loadPlayerRatings.
+ * Gibt die gecachte Map zurück oder null, wenn nichts im Cache ist.
+ * Aufrufer können damit verhindern, dass ein Loading-Spinner aufblitzt,
+ * obwohl die Daten direkt aus dem RAM kämen.
+ */
+export function loadPlayerRatingsSync(
+  playerIds: string[],
+  computeSessionDeltas: boolean = true,
+): Map<string, PlayerRatingWithTier> | null {
+  if (playerIds.length === 0) return new Map();
+  const key = makeRatingsCacheKey(playerIds, computeSessionDeltas);
+  const cached = ratingsCache.get(key);
+  return cached ? new Map(cached) : null;
+}
+
 export interface PlayerRating {
   rating: number;
   gamesPlayed: number;

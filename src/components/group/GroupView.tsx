@@ -33,7 +33,7 @@ import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
-import { loadPlayerRatings, type PlayerRatingWithTier } from '@/services/jassElo';
+import { loadPlayerRatings, loadPlayerRatingsSync, type PlayerRatingWithTier } from '@/services/jassElo';
 import { collection, getDocs, query, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 // NEU: Chart-Komponenten
@@ -1155,14 +1155,21 @@ export const GroupView: React.FC<GroupViewProps> = ({
   React.useEffect(() => {
     if (!currentGroup?.id || !members || members.length === 0) return;
     
-    // ✅ NEU: Setze Loading-State auf true
-    setEloRatingsLoading(true);
-    
     // ✅ IMMER globale Ratings laden (über alle Gruppen hinweg)
     // ⚡ computeSessionDeltas=false: rating.lastSessionDelta kommt aus dem denormalisierten
     //    Feld auf players/{id} (Cloud Function), nicht aus einer live-Berechnung — spart
     //    pro Spieler eine ratingHistory-Query.
     const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
+
+    // ⚡ SYNC-PFAD: Wenn der Cache hit, ohne Spinner-Flicker direkt anzeigen.
+    const cached = loadPlayerRatingsSync(playerIds, false);
+    if (cached && cached.size > 0) {
+      setPlayerRatings(cached);
+      setEloRatingsLoading(false);
+      return;
+    }
+
+    setEloRatingsLoading(true);
     loadPlayerRatings(playerIds, false)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);

@@ -57,6 +57,19 @@ export function invalidateScoresHistoryCache(): void {
   scoresCache.clear();
 }
 
+/**
+ * Synchroner Cache-Lookup für getGlobalPlayerScoresCharts.
+ * Gibt das gecachte ScoresCharts-Objekt zurück oder null.
+ */
+export function getGlobalPlayerScoresChartsSync(
+  playerId: string,
+  limitCount: number = 9999,
+  profileTheme: string = 'blue',
+): ScoresCharts | null {
+  const key = `${playerId}::${limitCount}::${profileTheme}`;
+  return scoresCache.get(key) || null;
+}
+
 function getColors(theme: string) {
   return THEME_COLORS[theme] || THEME_COLORS.blue;
 }

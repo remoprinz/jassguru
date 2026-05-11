@@ -51,7 +51,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
   import PieChart from '@/components/charts/PieChart';
   import WinRateChart from '@/components/charts/WinRateChart';
   import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
-  import { getGlobalPlayerScoresCharts } from '@/services/globalScoresHistoryService'; // ⚡ COMBINED Loader (5-in-1): Striche/Points/Matsch/Schneider/Kontermatsch
+  import { getGlobalPlayerScoresCharts, getGlobalPlayerScoresChartsSync } from '@/services/globalScoresHistoryService'; // ⚡ COMBINED Loader (5-in-1): Striche/Points/Matsch/Schneider/Kontermatsch
   import { getGlobalPlayerWeisTimeSeries } from '@/services/globalWeisHistoryService'; // 🎯 WEIS-PUNKTE Chart (3 Kurven!)
   import { getTrumpfDistributionChartData } from '@/services/chartDataService'; // 🎯 TRUMPFVERTEILUNG CHART
   import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
@@ -893,6 +893,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
+
+    // ⚡ SYNC-PFAD: Wenn der Cache hit, ohne Spinner-Flicker direkt anzeigen.
+    const cached = getGlobalPlayerScoresChartsSync(viewPlayerId, 9999, profileTheme || 'blue');
+    if (cached) {
+      setStricheChartData(cached.striche);
+      setPointsChartData(cached.points);
+      setMatschChartData(cached.matsch);
+      setSchneiderChartData(cached.schneider);
+      setKontermatschChartData(cached.kontermatsch);
+      setStricheChartLoading(false);
+      setPointsChartLoading(false);
+      setMatschChartLoading(false);
+      setSchneiderChartLoading(false);
+      setKontermatschChartLoading(false);
+      return;
+    }
 
     let cancelled = false;
     setStricheChartLoading(true);
