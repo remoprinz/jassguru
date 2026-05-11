@@ -62,6 +62,7 @@ import {
   getYearPlayerRoundTimes,
   getYearGroupStats,
   getYearPlayerWinRates,
+  getYearRawSessions,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -413,11 +414,28 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return computeAvailableYears(Array.isArray(completedSessions) ? completedSessions : []);
   }, [completedSessions]);
 
-  // Sessions, die ins ausgewählte Jahr fallen (für Aggregations-Helpers)
+  // Sessions, die ins ausgewählte Jahr fallen (nur SessionSummary — ohne gameResults).
+  // Wird für aggregateYearCounts genutzt; Aggregatoren mit (made/received) brauchen
+  // stattdessen rawYearSessions (siehe unten) damit Turniere mit gameResults korrekt
+  // ausgewertet werden.
   const sessionsInSelectedYear = useMemo(() => {
     if (selectedYear === 'gesamt' || !Array.isArray(completedSessions)) return null;
     return filterSessionsByYear(completedSessions, selectedYear);
   }, [completedSessions, selectedYear]);
+
+  // Raw jassGameSummary-Docs für das Zieljahr (mit gameResults für Turnier-Spiele).
+  const [rawYearSessions, setRawYearSessions] = React.useState<any[] | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setRawYearSessions(null);
+      return;
+    }
+    let cancelled = false;
+    getYearRawSessions(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setRawYearSessions(res); })
+      .catch(err => console.warn('[GroupView] getYearRawSessions:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
 
   // NEU: State für Strichdifferenz-Chart
   const [stricheChartData, setStricheChartData] = useState<{
@@ -1100,41 +1118,43 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return aggregateYearCounts(sessionsInSelectedYear || []);
   }, [sessionsInSelectedYear, selectedYear]);
 
-  // 🗓️ Year-Filter: Player/Team-Aggregate aus gefilterten Sessions
+  // 🗓️ Year-Filter: Player/Team-Aggregate aus RAW Sessions (mit gameResults für Turniere).
+  //    rawYearSessions ist async — bis es geladen ist, leere Maps zeigen, damit Anzeige
+  //    nicht „flickert" mit halben Daten.
   const displayPlayerStricheTotals = useMemo(() => {
     if (selectedYear === 'gesamt') return playerStricheTotals;
-    return aggregatePlayerStrichePointsForYear(sessionsInSelectedYear || [], 'striche');
-  }, [playerStricheTotals, sessionsInSelectedYear, selectedYear]);
+    return aggregatePlayerStrichePointsForYear(rawYearSessions || [], 'striche');
+  }, [playerStricheTotals, rawYearSessions, selectedYear]);
 
   const displayPlayerPointsTotals = useMemo(() => {
     if (selectedYear === 'gesamt') return playerPointsTotals;
-    return aggregatePlayerStrichePointsForYear(sessionsInSelectedYear || [], 'points');
-  }, [playerPointsTotals, sessionsInSelectedYear, selectedYear]);
+    return aggregatePlayerStrichePointsForYear(rawYearSessions || [], 'points');
+  }, [playerPointsTotals, rawYearSessions, selectedYear]);
 
   const displayTeamStricheTotals = useMemo(() => {
     if (selectedYear === 'gesamt') return teamStricheTotals;
-    return aggregateTeamStrichePointsForYear(sessionsInSelectedYear || [], 'striche', playerDisplayNamesMap);
-  }, [teamStricheTotals, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
+    return aggregateTeamStrichePointsForYear(rawYearSessions || [], 'striche', playerDisplayNamesMap);
+  }, [teamStricheTotals, rawYearSessions, selectedYear, playerDisplayNamesMap]);
 
   const displayTeamPointsTotals = useMemo(() => {
     if (selectedYear === 'gesamt') return teamPointsTotals;
-    return aggregateTeamStrichePointsForYear(sessionsInSelectedYear || [], 'points', playerDisplayNamesMap);
-  }, [teamPointsTotals, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
+    return aggregateTeamStrichePointsForYear(rawYearSessions || [], 'points', playerDisplayNamesMap);
+  }, [teamPointsTotals, rawYearSessions, selectedYear, playerDisplayNamesMap]);
 
   const displayPlayerMatschCounts = useMemo(() => {
     if (selectedYear === 'gesamt') return playerMatschCounts;
-    return aggregatePlayerEventCountsForYear(sessionsInSelectedYear || [], 'matsch');
-  }, [playerMatschCounts, sessionsInSelectedYear, selectedYear]);
+    return aggregatePlayerEventCountsForYear(rawYearSessions || [], 'matsch');
+  }, [playerMatschCounts, rawYearSessions, selectedYear]);
 
   const displayPlayerSchneiderCounts = useMemo(() => {
     if (selectedYear === 'gesamt') return playerSchneiderCounts;
-    return aggregatePlayerEventCountsForYear(sessionsInSelectedYear || [], 'schneider');
-  }, [playerSchneiderCounts, sessionsInSelectedYear, selectedYear]);
+    return aggregatePlayerEventCountsForYear(rawYearSessions || [], 'schneider');
+  }, [playerSchneiderCounts, rawYearSessions, selectedYear]);
 
   const displayTeamEventCountsMap = useMemo(() => {
     if (selectedYear === 'gesamt') return teamEventCountsMap;
-    return aggregateTeamEventCountsForYear(sessionsInSelectedYear || [], playerDisplayNamesMap);
-  }, [teamEventCountsMap, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
+    return aggregateTeamEventCountsForYear(rawYearSessions || [], playerDisplayNamesMap);
+  }, [teamEventCountsMap, rawYearSessions, selectedYear, playerDisplayNamesMap]);
 
   // 🗓️ Year-Filter: Elo-Rangliste = Year-End-Snapshot der Spieler, die im Jahr
   //    tatsächlich gespielt haben. Wir laden direkt aus Sessions (playerFinalRatings),
@@ -2828,13 +2848,14 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               <div className={`flex justify-between items-center ${layout.listItemPadding} hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">
                                   <span className={`${layout.smallTextSize} text-gray-400 min-w-5 mr-2`}>{player.rank}.</span>
-                                  <ProfileImage 
-                                    src={player.playerData?.photoURL} 
-                                    alt={player.playerName} 
+                                  <ProfileImage
+                                    src={player.playerData?.photoURL}
+                                    alt={player.playerName}
                                     size={layout.profileImageListSize}
                                     className={`mr-2 ${theme.profileImage}`}
                                     fallbackClassName={`bg-gray-700 text-gray-300 ${layout.bodySize}`}
                                     fallbackText={player.playerName ? player.playerName.charAt(0).toUpperCase() : '?'}
+                                    context="list"
                                   />
                                   <span className={`${layout.bodySize} text-gray-300`}>{player.playerName}</span>
                                 </div>

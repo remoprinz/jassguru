@@ -653,6 +653,40 @@ export async function getYearPlayerWinRates(
 }
 
 /**
+ * 🗓️ Rohe jassGameSummary-Docs eines Jahres als Plain-Objects.
+ *
+ * Genau das, was die client-seitigen Aggregatoren brauchen:
+ *   - `gameResults[]` (für Turniere mit wechselnden Teams)
+ *   - `teams`, `finalStriche`, `finalScores`, `eventCounts` (Regular Sessions)
+ *
+ * SessionSummary (aus fetchAllGroupSessions) hat das alles NICHT, deshalb
+ * versagen aggregatePlayerStrichePointsForYear & Co. bei Turnieren.
+ */
+export async function getYearRawSessions(
+  groupId: string,
+  year: number,
+): Promise<any[]> {
+  const out: any[] = [];
+  try {
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const status = d.status;
+      if (status !== 'completed' && status !== 'completed_empty') return;
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+      out.push(d);
+    });
+  } catch (error) {
+    console.warn('[getYearRawSessions] Fehler:', error);
+  }
+  return out;
+}
+
+/**
  * 🚀 Lade Strichdifferenz-Chart aus aggregated/chartData_striche
  */
 export async function getOptimizedStricheChart(
