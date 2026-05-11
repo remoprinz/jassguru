@@ -51,11 +51,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
   import PieChart from '@/components/charts/PieChart';
   import WinRateChart from '@/components/charts/WinRateChart';
   import { getGlobalPlayerRatingTimeSeries } from '@/services/globalRatingHistoryService'; // 🎯 GLOBALE Spieler-Chart-Daten (über alle Gruppen)
-import { getGlobalPlayerStricheTimeSeries } from '@/services/globalStricheHistoryService'; // 🎯 STRICH-DIFFERENZ Chart
-import { getGlobalPlayerPointsTimeSeries } from '@/services/globalPointsHistoryService'; // 🎯 PUNKT-DIFFERENZ Chart
-import { getGlobalPlayerMatschTimeSeries } from '@/services/globalMatschHistoryService'; // 🎯 MATSCH-BILANZ Chart
-import { getGlobalPlayerSchneiderTimeSeries } from '@/services/globalSchneiderHistoryService'; // 🎯 SCHNEIDER-BILANZ Chart
-  import { getGlobalPlayerKontermatschTimeSeries } from '@/services/globalKontermatschHistoryService'; // 🎯 KONTERMATSCH-BILANZ Chart
+  import { getGlobalPlayerScoresCharts } from '@/services/globalScoresHistoryService'; // ⚡ COMBINED Loader (5-in-1): Striche/Points/Matsch/Schneider/Kontermatsch
   import { getGlobalPlayerWeisTimeSeries } from '@/services/globalWeisHistoryService'; // 🎯 WEIS-PUNKTE Chart (3 Kurven!)
   import { getTrumpfDistributionChartData } from '@/services/chartDataService'; // 🎯 TRUMPFVERTEILUNG CHART
   import { CARD_SYMBOL_MAPPINGS } from '@/config/CardStyles';
@@ -891,115 +887,49 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return () => { cancelled = true; };
   }, [viewPlayerId, profileTheme]);
 
-  // 🆕 STRICH-DIFFERENZ CHART
+  // ⚡ COMBINED LOADER: lädt scoresHistory einmal und berechnet daraus
+  //   Striche / Points / Matsch / Schneider / Kontermatsch.
+  //   Ersetzt 5 separate Firestore-Reads durch einen einzigen.
   React.useEffect(() => {
     if (!viewPlayerId) return;
     if (activeMainTab && activeMainTab !== 'stats') return;
 
     let cancelled = false;
     setStricheChartLoading(true);
-    getGlobalPlayerStricheTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-      .then((data) => {
-        if (!cancelled) setStricheChartData(data);
-      })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Strich-Chart-Daten:', error);
-        if (!cancelled) setStricheChartData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setStricheChartLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [viewPlayerId, profileTheme]);
-
-  // 🆕 PUNKT-DIFFERENZ CHART
-  React.useEffect(() => {
-    if (!viewPlayerId) return;
-    if (activeMainTab && activeMainTab !== 'stats') return;
-
-    let cancelled = false;
     setPointsChartLoading(true);
-    getGlobalPlayerPointsTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-      .then((data) => {
-        if (!cancelled) setPointsChartData(data);
-      })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Punkte-Chart-Daten:', error);
-        if (!cancelled) setPointsChartData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setPointsChartLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [viewPlayerId, profileTheme]);
-
-  // 🆕 MATSCH-BILANZ CHART
-  React.useEffect(() => {
-    if (!viewPlayerId) return;
-    if (activeMainTab && activeMainTab !== 'stats') return;
-
-    let cancelled = false;
     setMatschChartLoading(true);
-    getGlobalPlayerMatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-      .then((data) => {
-        if (!cancelled) setMatschChartData(data);
-      })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Matsch-Chart-Daten:', error);
-        if (!cancelled) setMatschChartData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setMatschChartLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [viewPlayerId]);
-
-  // 🆕 SCHNEIDER-BILANZ CHART
-  React.useEffect(() => {
-    if (!viewPlayerId) return;
-    if (activeMainTab && activeMainTab !== 'stats') return;
-
-    let cancelled = false;
     setSchneiderChartLoading(true);
-    getGlobalPlayerSchneiderTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-      .then((data) => {
-        if (!cancelled) setSchneiderChartData(data);
-      })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Schneider-Chart-Daten:', error);
-        if (!cancelled) setSchneiderChartData(null);
-      })
-      .finally(() => {
-        if (!cancelled) setSchneiderChartLoading(false);
-      });
-
-    return () => { cancelled = true; };
-  }, [viewPlayerId]);
-
-  // 🆕 KONTERMATSCH-BILANZ CHART
-  React.useEffect(() => {
-    if (!viewPlayerId) return;
-    if (activeMainTab && activeMainTab !== 'stats') return;
-
-    let cancelled = false;
     setKontermatschChartLoading(true);
-    getGlobalPlayerKontermatschTimeSeries(viewPlayerId, 9999, profileTheme || 'blue') // ✅ Unbegrenzt
-      .then((data) => {
-        if (!cancelled) setKontermatschChartData(data);
+
+    getGlobalPlayerScoresCharts(viewPlayerId, 9999, profileTheme || 'blue')
+      .then((charts) => {
+        if (cancelled) return;
+        setStricheChartData(charts.striche);
+        setPointsChartData(charts.points);
+        setMatschChartData(charts.matsch);
+        setSchneiderChartData(charts.schneider);
+        setKontermatschChartData(charts.kontermatsch);
       })
-      .catch(error => {
-        console.warn('Fehler beim Laden der Kontermatsch-Chart-Daten:', error);
-        if (!cancelled) setKontermatschChartData(null);
+      .catch((error) => {
+        console.warn('Fehler beim Laden der Score-Charts:', error);
+        if (cancelled) return;
+        setStricheChartData(null);
+        setPointsChartData(null);
+        setMatschChartData(null);
+        setSchneiderChartData(null);
+        setKontermatschChartData(null);
       })
       .finally(() => {
-        if (!cancelled) setKontermatschChartLoading(false);
+        if (cancelled) return;
+        setStricheChartLoading(false);
+        setPointsChartLoading(false);
+        setMatschChartLoading(false);
+        setSchneiderChartLoading(false);
+        setKontermatschChartLoading(false);
       });
 
     return () => { cancelled = true; };
-  }, [viewPlayerId]);
+  }, [viewPlayerId, profileTheme, activeMainTab]);
 
   // 🆕 WEIS-PUNKTE CHART (3 KURVEN!)
   React.useEffect(() => {
