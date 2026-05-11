@@ -60,6 +60,7 @@ import {
   getYearEndPlayerRatings,
   getYearTrumpfStats,
   getYearPlayerRoundTimes,
+  getYearGroupStats,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -1142,8 +1143,46 @@ export const GroupView: React.FC<GroupViewProps> = ({
 
   const activeRoundTimes = useMemo(() => {
     if (selectedYear === 'gesamt') return groupStats?.playerAllRoundTimes || [];
-    return yearRoundTimes || [];
-  }, [selectedYear, groupStats, yearRoundTimes]);
+    if (!yearRoundTimes) return [];
+    // Namen aus playerDisplayNamesMap auflösen — die Session-Daten enthalten die
+    // playerId, aber playerNames hat nicht immer ein flaches { id: name } Mapping.
+    return yearRoundTimes.map(rt => ({
+      ...rt,
+      playerName: playerDisplayNamesMap.get(rt.playerId) || rt.playerName,
+    }));
+  }, [selectedYear, groupStats, yearRoundTimes, playerDisplayNamesMap]);
+
+  // 🗓️ Year-Filter: Durchschnittswerte & Gruppenübersicht.
+  const [yearGroupStats, setYearGroupStats] = React.useState<Awaited<ReturnType<typeof getYearGroupStats>>>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearGroupStats(null);
+      return;
+    }
+    let cancelled = false;
+    getYearGroupStats(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearGroupStats(res); })
+      .catch(err => console.warn('[GroupView] getYearGroupStats:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  // Pro-Feld-Override: im Year-Mode aus yearGroupStats, sonst aus groupStats.
+  // memberCount im Gesamt-Mode bleibt die strukturelle Gruppen-Member-Zahl;
+  // im Year-Mode = aktive Spieler im Jahr.
+  const ag = yearGroupStats; // alias für Kürze
+  const activeAvgSessionDuration = selectedYear === 'gesamt' ? (groupStats?.avgSessionDuration || '-') : (ag?.avgSessionDuration || '-');
+  const activeAvgGameDuration    = selectedYear === 'gesamt' ? (groupStats?.avgGameDuration || '-')    : (ag?.avgGameDuration || '-');
+  const activeAvgGamesPerSession = selectedYear === 'gesamt' ? groupStats?.avgGamesPerSession           : ag?.avgGamesPerSession;
+  const activeAvgRoundsPerGame   = selectedYear === 'gesamt' ? groupStats?.avgRoundsPerGame             : ag?.avgRoundsPerGame;
+  const activeAvgMatschPerGame   = selectedYear === 'gesamt' ? groupStats?.avgMatschPerGame             : ag?.avgMatschPerGame;
+  const activeAvgRoundDuration   = selectedYear === 'gesamt' ? (groupStats?.avgRoundDuration || '-')   : (ag?.avgRoundDuration || '-');
+  const activeSessionCount       = selectedYear === 'gesamt' ? (groupStats?.sessionCount || 0)         : (ag?.sessionCount ?? 0);
+  const activeTournamentCount    = selectedYear === 'gesamt' ? (groupStats?.tournamentCount || 0)      : (ag?.tournamentCount ?? 0);
+  const activeGameCount          = selectedYear === 'gesamt' ? (groupStats?.gameCount || 0)            : (ag?.gameCount ?? 0);
+  const activeTotalPlayTime      = selectedYear === 'gesamt' ? (groupStats?.totalPlayTime || '-')      : (ag?.totalPlayTime || '-');
+  const activeFirstJassDate      = selectedYear === 'gesamt' ? (groupStats?.firstJassDate || '-')      : (ag?.firstJassDate || '-');
+  const activeLastJassDate       = selectedYear === 'gesamt' ? (groupStats?.lastJassDate || '-')       : (ag?.lastJassDate || '-');
+  const activeMemberCount        = selectedYear === 'gesamt' ? (groupStats?.memberCount || 0)          : (ag?.memberCount ?? 0);
 
   const displayPlayerRatings = useMemo(() => {
     if (selectedYear === 'gesamt') return playerRatings;
@@ -2582,27 +2621,27 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       <div className={`${layout.cardPadding} space-y-0`}>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Dauer pro Partie:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgSessionDuration || '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeAvgSessionDuration}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Dauer pro Spiel:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgGameDuration || '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeAvgGameDuration}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Spiele pro Partie:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgGamesPerSession ? groupStats.avgGamesPerSession.toFixed(1) : '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeAvgGamesPerSession ? activeAvgGamesPerSession.toFixed(1) : '-'}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Runden pro Spiel:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgRoundsPerGame ? groupStats.avgRoundsPerGame.toFixed(1) : '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeAvgRoundsPerGame ? activeAvgRoundsPerGame.toFixed(1) : '-'}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Matsch pro Spiel:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgMatschPerGame ? groupStats.avgMatschPerGame.toFixed(2) : '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeAvgMatschPerGame ? activeAvgMatschPerGame.toFixed(2) : '-'}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Ø Rundentempo:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.avgRoundDuration || '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeAvgRoundDuration}</span>
                         </div>
                       </div>
                     </div>
@@ -2615,32 +2654,32 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div className={`${layout.cardPadding} space-y-0`}>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
-                          <span className={`${layout.labelSize} font-medium text-gray-300`}>Mitglieder:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.memberCount || 0}</span>
+                          <span className={`${layout.labelSize} font-medium text-gray-300`}>{selectedYear === 'gesamt' ? 'Mitglieder:' : 'Aktive Mitglieder:'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeMemberCount}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Partien:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.sessionCount || 0}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeSessionCount}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Turniere:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.tournamentCount || 0}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeTournamentCount}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Anzahl Spiele:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.gameCount || 0}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeGameCount}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Gesamte Jass-Zeit:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.totalPlayTime || '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeTotalPlayTime}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Erster Jass:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.firstJassDate || '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeFirstJassDate}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Letzter Jass:</span>
-                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{groupStats?.lastJassDate || '-'}</span>
+                          <span className={`${layout.valueSize} text-gray-100 font-medium`}>{activeLastJassDate}</span>
                         </div>
                         <div className={`flex justify-between ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0`}>
                           <span className={`${layout.labelSize} font-medium text-gray-300`}>Hauptspielort:</span>

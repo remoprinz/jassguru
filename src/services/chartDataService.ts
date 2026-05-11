@@ -2,6 +2,7 @@ import { db } from '@/services/firebaseInit';
 import { doc, getDoc, collection, getDocs, query, where, orderBy, FieldPath } from 'firebase/firestore';
 import { getRankingColor } from '../config/chartColors';
 import { getGroupSessionsSnapshot, getGroupPlayersSnapshot } from '@/services/groupQueryDeduperService';
+import { formatDuration } from '@/utils/formatUtils';
 
 /**
  * Helper: Lädt lastJassTimestamp für alle Spieler (1-Jahr-Inaktivitätsfilter)
@@ -430,6 +431,152 @@ export async function getYearPlayerRoundTimes(
   });
   result.sort((a, b) => a.value - b.value);
   return result;
+}
+
+/**
+ * 🗓️ Year-aware Aggregat für „Durchschnittswerte & Details" + „Gruppenübersicht".
+ *
+ * Wird im Year-Mode statt der precomputed groupStats verwendet. Alle Felder
+ * sind bereits formatiert (Strings für Zeitwerte, Zahlen für Zähler), damit
+ * die JSX 1:1 austauschbar bleibt.
+ *
+ * memberCount = Anzahl Spieler mit mind. 1 Session im Jahr (Aktive).
+ */
+export async function getYearGroupStats(
+  groupId: string,
+  year: number,
+): Promise<{
+  avgSessionDuration: string;
+  avgGameDuration: string;
+  avgGamesPerSession: number;
+  avgRoundsPerGame: number;
+  avgMatschPerGame: number;
+  avgRoundDuration: string;
+  sessionCount: number;
+  tournamentCount: number;
+  gameCount: number;
+  totalPlayTime: string;
+  firstJassDate: string | null;
+  lastJassDate: string | null;
+  memberCount: number;
+} | null> {
+  try {
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    if (summariesSnap.empty) return null;
+
+    let totalPlayTimeMillis = 0;
+    let regularSessionPlayTimeMillis = 0;
+    let sessionCount = 0;       // nur Regular Sessions (für Ø Dauer pro Partie)
+    let tournamentCount = 0;
+    let gameCount = 0;
+    let totalRounds = 0;
+    let totalMatsch = 0;
+    let roundDurationSumMillis = 0;
+    let roundDurationCount = 0;
+    let firstMs: number | null = null;
+    let lastMs: number | null = null;
+    const activePlayerIds = new Set<string>();
+
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const isTournament = !!d.isTournamentSession || !!d.tournamentId;
+      const durationMs = typeof d.durationSeconds === 'number' ? d.durationSeconds * 1000 : 0;
+      totalPlayTimeMillis += durationMs;
+
+      const games = (typeof d.gamesPlayed === 'number' && d.gamesPlayed > 0)
+        ? d.gamesPlayed
+        : (Array.isArray(d.gameResults) ? d.gameResults.length : 0);
+      gameCount += games;
+
+      if (isTournament) {
+        tournamentCount++;
+      } else {
+        sessionCount++;
+        regularSessionPlayTimeMillis += durationMs;
+      }
+
+      if (typeof d.totalRounds === 'number') totalRounds += d.totalRounds;
+
+      const ec = d.eventCounts || {};
+      const m = (ec.top?.matsch || 0) + (ec.bottom?.matsch || 0);
+      totalMatsch += m;
+
+      const per = d.aggregatedRoundDurationsByPlayer;
+      if (per && typeof per === 'object') {
+        // Pro Session ein „Tisch" pro Spieler — Summe über Spieler hinweg bringt das
+        // Total ÜBER alle Tische in Millisekunden. Da alle 4 Spieler dieselben Runden
+        // erleben, repräsentiert ein einzelner Spielereintrag das tatsächliche
+        // Rundentotal der Session. → Nimm den MAX-totalDuration/roundCount in der Session.
+        let sessionRoundDur = 0;
+        let sessionRoundCount = 0;
+        Object.values(per).forEach((raw: any) => {
+          if (!raw || typeof raw !== 'object') return;
+          if (typeof raw.totalDuration === 'number' && raw.totalDuration > sessionRoundDur) {
+            sessionRoundDur = raw.totalDuration;
+          }
+          if (typeof raw.roundCount === 'number' && raw.roundCount > sessionRoundCount) {
+            sessionRoundCount = raw.roundCount;
+          }
+        });
+        roundDurationSumMillis += sessionRoundDur;
+        roundDurationCount += sessionRoundCount;
+      }
+
+      if (firstMs === null || ts < firstMs) firstMs = ts;
+      if (lastMs === null || ts > lastMs) lastMs = ts;
+
+      // Aktive Spieler: aus playerFinalRatings (zuverlässigste Quelle), Fallback teams
+      const pfr = d.playerFinalRatings;
+      if (pfr && typeof pfr === 'object') {
+        Object.keys(pfr).forEach(id => activePlayerIds.add(id));
+      } else {
+        const teams = d.teams || {};
+        ['top', 'bottom'].forEach(k => {
+          (teams[k]?.players || []).forEach((p: any) => {
+            if (p?.playerId) activePlayerIds.add(p.playerId);
+          });
+        });
+      }
+    });
+
+    const fmtDateMs = (ms: number | null): string | null => {
+      if (ms === null) return null;
+      const d = new Date(ms);
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${dd}.${mm}.${yyyy}`;
+    };
+
+    const avgSessionDurMs = sessionCount > 0 ? regularSessionPlayTimeMillis / sessionCount : 0;
+    const avgGameDurMs = gameCount > 0 ? totalPlayTimeMillis / gameCount : 0;
+    const avgRoundDurMs = roundDurationCount > 0 ? roundDurationSumMillis / roundDurationCount : 0;
+
+    return {
+      avgSessionDuration: avgSessionDurMs > 0 ? formatDuration(Math.round(avgSessionDurMs / 1000)) : '-',
+      avgGameDuration: avgGameDurMs > 0 ? formatDuration(Math.round(avgGameDurMs / 1000)) : '-',
+      avgGamesPerSession: sessionCount > 0 ? gameCount / sessionCount : 0,
+      avgRoundsPerGame: gameCount > 0 ? totalRounds / gameCount : 0,
+      avgMatschPerGame: gameCount > 0 ? totalMatsch / gameCount : 0,
+      avgRoundDuration: avgRoundDurMs > 0 ? formatDuration(Math.round(avgRoundDurMs / 1000)) : '-',
+      sessionCount,
+      tournamentCount,
+      gameCount,
+      totalPlayTime: totalPlayTimeMillis > 0 ? formatDuration(Math.round(totalPlayTimeMillis / 1000)) : '-',
+      firstJassDate: fmtDateMs(firstMs),
+      lastJassDate: fmtDateMs(lastMs),
+      memberCount: activePlayerIds.size,
+    };
+  } catch (error) {
+    console.warn('[getYearGroupStats] Fehler:', error);
+    return null;
+  }
 }
 
 /**
