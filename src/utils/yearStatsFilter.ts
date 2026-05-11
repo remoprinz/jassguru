@@ -131,7 +131,10 @@ export function filterTimeSeriesByYear(
       return n - baseValue;
     });
     return { ...ds, data: newData };
-  });
+  })
+  // Spieler/Teams ohne einen einzigen Datenpunkt im Zieljahr ganz weglassen,
+  // sonst tauchen sie mit Wert 0 in der Rangliste auf.
+  .filter(ds => Array.isArray(ds.data) && ds.data.some(v => v !== null && v !== undefined));
 
   return { labels: newLabels, datasets: newDatasets };
 }
