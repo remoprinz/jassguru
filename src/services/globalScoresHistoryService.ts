@@ -2,6 +2,7 @@ import { db } from '@/services/firebaseInit';
 import { collection, getDocs } from 'firebase/firestore';
 import { getGlobalPlayerStricheTimeSeries } from '@/services/globalStricheHistoryService';
 import { getGlobalPlayerPointsTimeSeries } from '@/services/globalPointsHistoryService';
+import { persistToStorage, loadFromStorage, removeFromStorage } from '@/services/persistentCacheHelper';
 
 /**
  * 🌍 COMBINED Stat-Charts Loader (5-in-1)
@@ -52,14 +53,29 @@ const emptyChart: ChartData = { labels: [], datasets: [] };
  * geleert wird (typischerweise nach Session-Abschluss).
  */
 const scoresCache = new Map<string, ScoresCharts>();
+const SCORES_STORAGE_KEYS_TRACKED = new Set<string>();
+
+function scoresStorageKey(cacheKey: string): string {
+  return `scores:${cacheKey}`;
+}
+
+function hydrateScoresFromStorage(cacheKey: string): ScoresCharts | null {
+  const raw = loadFromStorage<ScoresCharts>(scoresStorageKey(cacheKey));
+  if (!raw) return null;
+  scoresCache.set(cacheKey, raw);
+  SCORES_STORAGE_KEYS_TRACKED.add(cacheKey);
+  return raw;
+}
 
 export function invalidateScoresHistoryCache(): void {
   scoresCache.clear();
+  SCORES_STORAGE_KEYS_TRACKED.forEach(k => removeFromStorage(scoresStorageKey(k)));
+  SCORES_STORAGE_KEYS_TRACKED.clear();
 }
 
 /**
  * Synchroner Cache-Lookup für getGlobalPlayerScoresCharts.
- * Gibt das gecachte ScoresCharts-Objekt zurück oder null.
+ * Greift auf RAM-Cache zu, fällt zurück auf localStorage (überlebt iOS-PWA-Kill).
  */
 export function getGlobalPlayerScoresChartsSync(
   playerId: string,
@@ -67,7 +83,11 @@ export function getGlobalPlayerScoresChartsSync(
   profileTheme: string = 'blue',
 ): ScoresCharts | null {
   const key = `${playerId}::${limitCount}::${profileTheme}`;
-  return scoresCache.get(key) || null;
+  // 1. RAM
+  const cached = scoresCache.get(key);
+  if (cached) return cached;
+  // 2. localStorage (für iOS PWA nach Prozess-Kill)
+  return hydrateScoresFromStorage(key);
 }
 
 function getColors(theme: string) {
@@ -95,8 +115,12 @@ export async function getGlobalPlayerScoresCharts(
 
   // ⚡ Cache-Hit? Sofort zurückgeben.
   const cacheKey = `${playerId}::${limitCount}::${profileTheme}`;
+  // 1. RAM
   const cached = scoresCache.get(cacheKey);
   if (cached) return cached;
+  // 2. localStorage (überlebt iOS-PWA-Kill)
+  const fromStorage = hydrateScoresFromStorage(cacheKey);
+  if (fromStorage) return fromStorage;
 
   try {
     const snap = await getDocs(collection(db, 'players', playerId, 'scoresHistory'));
@@ -116,6 +140,8 @@ export async function getGlobalPlayerScoresCharts(
         kontermatsch: emptyChart,
       };
       scoresCache.set(cacheKey, result);
+      persistToStorage(scoresStorageKey(cacheKey), result);
+      SCORES_STORAGE_KEYS_TRACKED.add(cacheKey);
       return result;
     }
 
@@ -253,6 +279,8 @@ export async function getGlobalPlayerScoresCharts(
 
     const result: ScoresCharts = { striche, points, matsch, schneider, kontermatsch };
     scoresCache.set(cacheKey, result);
+    persistToStorage(scoresStorageKey(cacheKey), result);
+    SCORES_STORAGE_KEYS_TRACKED.add(cacheKey);
     return result;
   } catch (error) {
     console.error('[getGlobalPlayerScoresCharts] Fehler:', error);

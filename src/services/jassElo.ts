@@ -1,6 +1,7 @@
-import { getFirestore, collection, query, where, getDocs, documentId, orderBy, limit, limitToLast } from 'firebase/firestore';  
+import { getFirestore, collection, query, where, getDocs, documentId, orderBy, limit, limitToLast } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
 import { getRatingTier } from '@/shared/rating-tiers';
+import { persistToStorage, loadFromStorage, removeFromStorage } from '@/services/persistentCacheHelper';
 
 export const JASS_ELO_CONFIG = {
   DEFAULT_RATING: 100,
@@ -18,20 +19,39 @@ export const JASS_ELO_CONFIG = {
  * ersten Mal NULL Firestore-Reads.
  */
 const ratingsCache = new Map<string, Map<string, PlayerRatingWithTier>>();
+const RATINGS_STORAGE_KEYS_TRACKED = new Set<string>();
 
 function makeRatingsCacheKey(playerIds: string[], computeSessionDeltas: boolean): string {
   return `${computeSessionDeltas ? '1' : '0'}::${[...playerIds].sort().join(',')}`;
 }
 
+function ratingsStorageKey(cacheKey: string): string {
+  return `ratings:${cacheKey}`;
+}
+
+function hydrateRatingsFromStorage(cacheKey: string): Map<string, PlayerRatingWithTier> | null {
+  const raw = loadFromStorage<Array<[string, PlayerRatingWithTier]>>(ratingsStorageKey(cacheKey));
+  if (!raw || !Array.isArray(raw)) return null;
+  try {
+    const map = new Map(raw);
+    ratingsCache.set(cacheKey, map);
+    RATINGS_STORAGE_KEYS_TRACKED.add(cacheKey);
+    return new Map(map);
+  } catch {
+    return null;
+  }
+}
+
 export function invalidatePlayerRatingsCache(): void {
   ratingsCache.clear();
+  RATINGS_STORAGE_KEYS_TRACKED.forEach(k => removeFromStorage(ratingsStorageKey(k)));
+  RATINGS_STORAGE_KEYS_TRACKED.clear();
 }
 
 /**
  * Synchroner Cache-Lookup für loadPlayerRatings.
  * Gibt die gecachte Map zurück oder null, wenn nichts im Cache ist.
- * Aufrufer können damit verhindern, dass ein Loading-Spinner aufblitzt,
- * obwohl die Daten direkt aus dem RAM kämen.
+ * Greift auf RAM-Cache zu, fällt zurück auf localStorage (überlebt iOS-PWA-Kill).
  */
 export function loadPlayerRatingsSync(
   playerIds: string[],
@@ -39,8 +59,13 @@ export function loadPlayerRatingsSync(
 ): Map<string, PlayerRatingWithTier> | null {
   if (playerIds.length === 0) return new Map();
   const key = makeRatingsCacheKey(playerIds, computeSessionDeltas);
+
+  // 1. RAM
   const cached = ratingsCache.get(key);
-  return cached ? new Map(cached) : null;
+  if (cached) return new Map(cached);
+
+  // 2. localStorage (für iOS PWA nach Prozess-Kill)
+  return hydrateRatingsFromStorage(key);
 }
 
 export interface PlayerRating {
@@ -228,10 +253,17 @@ export async function loadPlayerRatings(
 
   // ⚡ Cache-Hit? Sofort zurückgeben (kein Firestore-Roundtrip).
   const cacheKey = makeRatingsCacheKey(playerIds, computeSessionDeltas);
+
+  // 1. RAM-Cache
   const cached = ratingsCache.get(cacheKey);
   if (cached) {
-    // Defensive Copy, damit Aufrufer-Mutationen den Cache nicht verschmutzen
     return new Map(cached);
+  }
+
+  // 2. localStorage-Cache (überlebt iOS-PWA-Kill)
+  const fromStorage = hydrateRatingsFromStorage(cacheKey);
+  if (fromStorage) {
+    return fromStorage;
   }
   
   try {
@@ -290,6 +322,10 @@ export async function loadPlayerRatings(
 
     // ⚡ Cache füllen — defensive Copy, damit Aufrufer-Mutationen den Cache nicht verschmutzen
     ratingsCache.set(cacheKey, new Map(ratings));
+
+    // 💾 Auch in localStorage persistieren (überlebt iOS-PWA-Kill)
+    persistToStorage(ratingsStorageKey(cacheKey), Array.from(ratings.entries()));
+    RATINGS_STORAGE_KEYS_TRACKED.add(cacheKey);
 
   } catch (error) {
     console.warn('Fehler beim Laden der Elo-Ratings:', error);
