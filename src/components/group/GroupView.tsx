@@ -3111,6 +3111,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   hideLegend={true}
                                   minSessions={2}
                                   totalSessionsInGroup={groupStats?.sessionCount}
+                                  disableIntelligentFiltering={selectedYear !== 'gesamt'}
                                 />
                               );
                             }
@@ -3215,6 +3216,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   hideLegend={true}
                                   minSessions={2}
                                   totalSessionsInGroup={groupStats?.sessionCount}
+                                  disableIntelligentFiltering={selectedYear !== 'gesamt'}
                                   isGameWinRate={true}
                                 />
                               );
@@ -3739,6 +3741,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   hideLegend={true}
                                   minSessions={2}
                                   totalSessionsInGroup={groupStats?.sessionCount}
+                                  disableIntelligentFiltering={selectedYear !== 'gesamt'}
                                 />
                               );
                             }
@@ -3842,6 +3845,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
                                   hideLegend={true}
                                   minSessions={2}
                                   totalSessionsInGroup={groupStats?.sessionCount}
+                                  disableIntelligentFiltering={selectedYear !== 'gesamt'}
                                   isGameWinRate={true}
                                 />
                               );
