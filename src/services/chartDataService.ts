@@ -368,6 +368,71 @@ export async function getYearTrumpfStats(
 }
 
 /**
+ * 🗓️ Rundentempo pro Spieler für ein bestimmtes Jahr.
+ *
+ * Liest `aggregatedRoundDurationsByPlayer` aus den jassGameSummaries im Jahr,
+ * concat-et die `roundDurations[]` pro Spieler und berechnet den Median.
+ *
+ * Resultat-Form ist identisch zu `groupStats.playerAllRoundTimes`:
+ *   { playerId, playerName, value }  — `value` = Median in Millisekunden.
+ *
+ * Sortiert aufsteigend (schnellster Spieler zuerst).
+ */
+export async function getYearPlayerRoundTimes(
+  groupId: string,
+  year: number,
+): Promise<Array<{ playerId: string; playerName: string; value: number }>> {
+  const perPlayerRounds = new Map<string, { name: string; durations: number[] }>();
+  try {
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const per = d.aggregatedRoundDurationsByPlayer;
+      if (!per || typeof per !== 'object') return;
+
+      const playerNamesFromSession = d.playerNames || {};
+      Object.entries(per).forEach(([playerId, raw]: [string, any]) => {
+        if (!raw || typeof raw !== 'object') return;
+        const arr = Array.isArray(raw.roundDurations) ? raw.roundDurations : null;
+        if (!arr || arr.length === 0) return;
+        if (!perPlayerRounds.has(playerId)) {
+          perPlayerRounds.set(playerId, {
+            name: playerNamesFromSession[playerId] || raw.displayName || playerId,
+            durations: [],
+          });
+        }
+        const entry = perPlayerRounds.get(playerId)!;
+        for (const v of arr) {
+          if (typeof v === 'number' && Number.isFinite(v) && v > 0) entry.durations.push(v);
+        }
+        // Falls Name in dieser Session frisch ist, übernehmen
+        if (playerNamesFromSession[playerId]) entry.name = playerNamesFromSession[playerId];
+      });
+    });
+  } catch (error) {
+    console.warn('[getYearPlayerRoundTimes] Fehler:', error);
+    return [];
+  }
+
+  const result: Array<{ playerId: string; playerName: string; value: number }> = [];
+  perPlayerRounds.forEach((v, playerId) => {
+    if (v.durations.length === 0) return;
+    const sorted = [...v.durations].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    result.push({ playerId, playerName: v.name, value: median });
+  });
+  result.sort((a, b) => a.value - b.value);
+  return result;
+}
+
+/**
  * 🚀 Lade Strichdifferenz-Chart aus aggregated/chartData_striche
  */
 export async function getOptimizedStricheChart(

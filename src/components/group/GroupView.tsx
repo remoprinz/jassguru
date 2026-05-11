@@ -59,6 +59,7 @@ import {
   getOptimizedRatingChart,
   getYearEndPlayerRatings,
   getYearTrumpfStats,
+  getYearPlayerRoundTimes,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -1124,6 +1125,25 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .catch(err => console.warn('[GroupView] getYearTrumpfStats:', err));
     return () => { cancelled = true; };
   }, [currentGroup?.id, selectedYear]);
+
+  // 🗓️ Year-Filter: Rundentempo (Median pro Spieler) aus Sessions im Zieljahr.
+  const [yearRoundTimes, setYearRoundTimes] = React.useState<Array<{ playerId: string; playerName: string; value: number }> | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearRoundTimes(null);
+      return;
+    }
+    let cancelled = false;
+    getYearPlayerRoundTimes(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearRoundTimes(res); })
+      .catch(err => console.warn('[GroupView] getYearPlayerRoundTimes:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  const activeRoundTimes = useMemo(() => {
+    if (selectedYear === 'gesamt') return groupStats?.playerAllRoundTimes || [];
+    return yearRoundTimes || [];
+  }, [selectedYear, groupStats, yearRoundTimes]);
 
   const displayPlayerRatings = useMemo(() => {
     if (selectedYear === 'gesamt') return playerRatings;
@@ -2515,9 +2535,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div ref={playerRoundTimeRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {(() => {
-                          if (groupStats?.playerAllRoundTimes && groupStats.playerAllRoundTimes.length > 0) {
+                          if (activeRoundTimes && activeRoundTimes.length > 0) {
                             // Filter: Nur Spieler mit gültigen Rundendaten anzeigen
-                            const playersWithRoundTimes = groupStats.playerAllRoundTimes.filter(player => 
+                            const playersWithRoundTimes = activeRoundTimes.filter(player =>
                               player.value && player.value > 0
                             );
                             return playersWithRoundTimes.map((playerStat, index) => {
