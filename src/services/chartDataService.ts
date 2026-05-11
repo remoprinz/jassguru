@@ -582,6 +582,77 @@ export async function getYearGroupStats(
 }
 
 /**
+ * 🗓️ Siegquoten pro Spieler im Zieljahr.
+ *
+ * Liest `winnerTeamKey` (Session-Level) und `gameResults[].winnerTeam` (Spiel-Level)
+ * aus den jassGameSummaries. Turniere zählen NICHT für Session-Quoten (Turnier ist
+ * keine Partie), die Spiele aus Turnieren zählen aber für die Spiel-Quote.
+ *
+ * Resultat: Map<playerId, {sessionWins, sessionLosses, sessionDraws, gameWins, gameLosses}>
+ */
+export async function getYearPlayerWinRates(
+  groupId: string,
+  year: number,
+): Promise<Map<string, { sessionWins: number; sessionLosses: number; sessionDraws: number; gameWins: number; gameLosses: number }>> {
+  const result = new Map<string, { sessionWins: number; sessionLosses: number; sessionDraws: number; gameWins: number; gameLosses: number }>();
+  const bump = (playerId: string) => {
+    if (!result.has(playerId)) {
+      result.set(playerId, { sessionWins: 0, sessionLosses: 0, sessionDraws: 0, gameWins: 0, gameLosses: 0 });
+    }
+    return result.get(playerId)!;
+  };
+
+  try {
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const isTournament = !!d.isTournamentSession || !!d.tournamentId;
+
+      // Session-Quote: Turniere überspringen
+      if (!isTournament) {
+        const winnerTeamKey: 'top' | 'bottom' | 'draw' | undefined = d.winnerTeamKey;
+        const teams = d.teams || {};
+        const topIds: string[] = (teams.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const bottomIds: string[] = (teams.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+
+        if (winnerTeamKey === 'draw') {
+          [...topIds, ...bottomIds].forEach(id => { bump(id).sessionDraws++; });
+        } else if (winnerTeamKey === 'top' || winnerTeamKey === 'bottom') {
+          const winners = winnerTeamKey === 'top' ? topIds : bottomIds;
+          const losers = winnerTeamKey === 'top' ? bottomIds : topIds;
+          winners.forEach(id => { bump(id).sessionWins++; });
+          losers.forEach(id => { bump(id).sessionLosses++; });
+        }
+      }
+
+      // Spiel-Quote: ALLE Spiele (auch in Turnieren) zählen
+      const games: any[] = Array.isArray(d.gameResults) && d.gameResults.length > 0
+        ? d.gameResults
+        : [];
+      games.forEach(g => {
+        const wt: 'top' | 'bottom' | undefined = g.winnerTeam;
+        if (!wt) return;
+        const gTopIds: string[] = (g.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const gBottomIds: string[] = (g.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const winners = wt === 'top' ? gTopIds : gBottomIds;
+        const losers = wt === 'top' ? gBottomIds : gTopIds;
+        winners.forEach(id => { bump(id).gameWins++; });
+        losers.forEach(id => { bump(id).gameLosses++; });
+      });
+    });
+  } catch (error) {
+    console.warn('[getYearPlayerWinRates] Fehler:', error);
+  }
+  return result;
+}
+
+/**
  * 🚀 Lade Strichdifferenz-Chart aus aggregated/chartData_striche
  */
 export async function getOptimizedStricheChart(

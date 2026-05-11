@@ -61,6 +61,7 @@ import {
   getYearTrumpfStats,
   getYearPlayerRoundTimes,
   getYearGroupStats,
+  getYearPlayerWinRates,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -919,13 +920,37 @@ export const GroupView: React.FC<GroupViewProps> = ({
   }, [currentGroup?.id, members]);
   
 
-  // ✅ NEU: Session Win Rate Ranking aus playerStats (globalStats.current)
+  // ✅ Session Win Rate Ranking — im Gesamt-Mode aus playerStats (globalStats.current),
+  //    im Year-Mode aus yearWinRates (year-aware Aggregation aus jassGameSummaries).
   const sessionWinRateRanking = useMemo(() => {
-    if (Object.keys(playerStats || {}).length === 0 || !members) {
-      return [];
+    if (!members) return [];
+
+    if (selectedYear !== 'gesamt') {
+      if (!yearWinRates) return [];
+      return members
+        .map(m => {
+          const playerId = m.id || m.userId;
+          const wr = yearWinRates.get(playerId);
+          if (!wr) return null;
+          const totalSessions = wr.sessionWins + wr.sessionLosses;
+          if (totalSessions === 0 && wr.sessionDraws === 0) return null;
+          return {
+            playerId,
+            playerName: m.displayName,
+            playerData: m,
+            wins: wr.sessionWins,
+            losses: wr.sessionLosses,
+            draws: wr.sessionDraws,
+            totalSessions,
+            winRate: totalSessions > 0 ? wr.sessionWins / totalSessions : 0,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => (b as any).winRate - (a as any).winRate) as any[];
     }
 
-    const ranking = members
+    if (Object.keys(playerStats || {}).length === 0) return [];
+    return members
       .filter(m => {
         const playerId = m.id || m.userId;
         return playerStats[playerId] && playerStats[playerId].sessionStats;
@@ -934,7 +959,6 @@ export const GroupView: React.FC<GroupViewProps> = ({
         const playerId = m.id || m.userId;
         const stats = playerStats[playerId].sessionStats;
         const totalSessions = stats.wins + stats.losses;
-        
         return {
           playerId,
           playerName: m.displayName,
@@ -943,21 +967,41 @@ export const GroupView: React.FC<GroupViewProps> = ({
           losses: stats.losses,
           draws: stats.draws,
           totalSessions,
-          winRate: totalSessions > 0 ? stats.wins / totalSessions : 0
+          winRate: totalSessions > 0 ? stats.wins / totalSessions : 0,
         };
       })
-      .sort((a, b) => b.winRate - a.winRate); // Sort by win rate descending
+      .sort((a, b) => b.winRate - a.winRate);
+  }, [members, playerStats, selectedYear, yearWinRates]);
 
-    return ranking;
-  }, [members, playerStats]);
-
-  // ✅ NEU: Game Win Rate Ranking aus globalStats.current (gamesWon/gamesLost)
+  // ✅ Game Win Rate Ranking — gleiche Pattern: year-aware vs. all-time.
   const gameWinRateRanking = useMemo(() => {
-    if (Object.keys(playerStats || {}).length === 0 || !members) {
-      return [];
+    if (!members) return [];
+
+    if (selectedYear !== 'gesamt') {
+      if (!yearWinRates) return [];
+      return members
+        .map(m => {
+          const playerId = m.id || m.userId;
+          const wr = yearWinRates.get(playerId);
+          if (!wr) return null;
+          const totalGames = wr.gameWins + wr.gameLosses;
+          if (totalGames === 0) return null;
+          return {
+            playerId,
+            playerName: m.displayName,
+            playerData: m,
+            wins: wr.gameWins,
+            losses: wr.gameLosses,
+            totalGames,
+            winRate: totalGames > 0 ? wr.gameWins / totalGames : 0,
+          };
+        })
+        .filter(Boolean)
+        .sort((a, b) => (b as any).winRate - (a as any).winRate) as any[];
     }
 
-    const ranking = members
+    if (Object.keys(playerStats || {}).length === 0) return [];
+    return members
       .filter(m => {
         const playerId = m.id || m.userId;
         return playerStats[playerId] && playerStats[playerId].gameStats;
@@ -965,8 +1009,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .map(m => {
         const playerId = m.id || m.userId;
         const stats = playerStats[playerId].gameStats;
-        const totalGames = stats.wins + stats.losses; // Nur entschiedene Spiele
-        
+        const totalGames = stats.wins + stats.losses;
         return {
           playerId,
           playerName: m.displayName,
@@ -974,14 +1017,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
           wins: stats.wins,
           losses: stats.losses,
           totalGames,
-          winRate: totalGames > 0 ? stats.wins / totalGames : 0
+          winRate: totalGames > 0 ? stats.wins / totalGames : 0,
         };
       })
-      .filter(Boolean) // Remove null entries
-      .sort((a, b) => b.winRate - a.winRate); // Sort by win rate descending
-
-    return ranking;
-  }, [members, playerStats]);
+      .filter(Boolean)
+      .sort((a, b) => b.winRate - a.winRate);
+  }, [members, playerStats, selectedYear, yearWinRates]);
 
   // 🗓️ Year-Filter: DisplayMap mit Member-DisplayNames für Team-Aggregations
   const playerDisplayNamesMap = useMemo(() => {
@@ -1152,6 +1193,20 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }));
   }, [selectedYear, groupStats, yearRoundTimes, playerDisplayNamesMap]);
 
+  // 🗓️ Year-Filter: Siegquoten (Partien + Spiele) pro Spieler.
+  const [yearWinRates, setYearWinRates] = React.useState<Map<string, { sessionWins: number; sessionLosses: number; sessionDraws: number; gameWins: number; gameLosses: number }> | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearWinRates(null);
+      return;
+    }
+    let cancelled = false;
+    getYearPlayerWinRates(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearWinRates(res); })
+      .catch(err => console.warn('[GroupView] getYearPlayerWinRates:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
   // 🗓️ Year-Filter: Durchschnittswerte & Gruppenübersicht.
   const [yearGroupStats, setYearGroupStats] = React.useState<Awaited<ReturnType<typeof getYearGroupStats>>>(null);
   React.useEffect(() => {
@@ -1172,7 +1227,17 @@ export const GroupView: React.FC<GroupViewProps> = ({
   const ag = yearGroupStats; // alias für Kürze
   const activeAvgSessionDuration = selectedYear === 'gesamt' ? (groupStats?.avgSessionDuration || '-') : (ag?.avgSessionDuration || '-');
   const activeAvgGameDuration    = selectedYear === 'gesamt' ? (groupStats?.avgGameDuration || '-')    : (ag?.avgGameDuration || '-');
-  const activeAvgGamesPerSession = selectedYear === 'gesamt' ? groupStats?.avgGamesPerSession           : ag?.avgGamesPerSession;
+  // Ø Spiele pro Partie: IMMER aus completedSessions client-seitig berechnen — Turniere
+  //    sind keine Partien und dürfen weder im Zähler noch Nenner auftauchen. Die precomputed
+  //    groupStats.avgGamesPerSession aus der Cloud Function kann hier falsch sein.
+  const activeAvgGamesPerSession = useMemo(() => {
+    if (selectedYear !== 'gesamt') return ag?.avgGamesPerSession;
+    const list = Array.isArray(completedSessions) ? completedSessions : [];
+    const regulars = list.filter(s => !s?.isTournamentSession);
+    if (regulars.length === 0) return 0;
+    const totalGames = regulars.reduce((sum, s) => sum + (s?.completedGamesCount || 0), 0);
+    return totalGames / regulars.length;
+  }, [selectedYear, ag, completedSessions]);
   const activeAvgRoundsPerGame   = selectedYear === 'gesamt' ? groupStats?.avgRoundsPerGame             : ag?.avgRoundsPerGame;
   const activeAvgMatschPerGame   = selectedYear === 'gesamt' ? groupStats?.avgMatschPerGame             : ag?.avgMatschPerGame;
   const activeAvgRoundDuration   = selectedYear === 'gesamt' ? (groupStats?.avgRoundDuration || '-')   : (ag?.avgRoundDuration || '-');
