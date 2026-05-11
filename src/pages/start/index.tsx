@@ -352,32 +352,38 @@ const StartPage = () => {
       if (currentGroup) {
         setSessionsLoading(true);
         setSessionsError(null);
-        try {
-          // NEU: Verwende fetchAllGroupSessions mit der ID der aktuellen Gruppe
-          const sessions = await fetchAllGroupSessions(currentGroup.id);
-          setCompletedSessions(sessions);
-        } catch (error) {
-          console.error("Fehler beim Laden der abgeschlossenen Gruppensessions:", error);
-          const message = error instanceof Error ? error.message : "Abgeschlossene Partien konnten nicht geladen werden.";
-          setSessionsError(message);
-        } finally {
-          setSessionsLoading(false);
-        }
-
-        // Turniere der Gruppe laden
         setTournamentsLoading(true);
         setTournamentsError(null);
-        try {
-          // ✅ TURNIERE WIEDER LADEN: Alle Turniere (inklusive unterbrochene)
-          const tournaments = await fetchTournamentInstancesForGroup(currentGroup.id);
-          setGroupTournaments(tournaments);
-        } catch (error) {
-          console.error("Fehler beim Laden der Gruppen-Turniere:", error);
-          const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
-          setTournamentsError(message);
-        } finally {
-          setTournamentsLoading(false);
-        }
+
+        // ⚡ Sessions + Turniere parallel laden — beide Roundtrips zeitgleich,
+        //    Total = max(t_sessions, t_tournaments) statt Summe.
+        const sessionsPromise = fetchAllGroupSessions(currentGroup.id)
+          .then(sessions => {
+            setCompletedSessions(sessions);
+          })
+          .catch(error => {
+            console.error("Fehler beim Laden der abgeschlossenen Gruppensessions:", error);
+            const message = error instanceof Error ? error.message : "Abgeschlossene Partien konnten nicht geladen werden.";
+            setSessionsError(message);
+          })
+          .finally(() => {
+            setSessionsLoading(false);
+          });
+
+        const tournamentsPromise = fetchTournamentInstancesForGroup(currentGroup.id)
+          .then(tournaments => {
+            setGroupTournaments(tournaments);
+          })
+          .catch(error => {
+            console.error("Fehler beim Laden der Gruppen-Turniere:", error);
+            const message = error instanceof Error ? error.message : "Turniere konnten nicht geladen werden.";
+            setTournamentsError(message);
+          })
+          .finally(() => {
+            setTournamentsLoading(false);
+          });
+
+        await Promise.all([sessionsPromise, tournamentsPromise]);
       } else {
         // Wenn keine Gruppe ausgewählt ist, leere die Listen
         setCompletedSessions([]);
