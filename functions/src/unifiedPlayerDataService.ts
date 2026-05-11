@@ -816,6 +816,27 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
         od.weisReceivedAgainst += gameWeisReceived;
       }
     }
+
+    // 🆕 Turnier = 1 Session-Datenpunkt pro Partner-/Gegner-Paar (das mindestens
+    //    1 Spiel zusammen hatte). Win/Loss/Draw basiert auf dem kumulativen
+    //    Striche-Diff dieses Paars im Turnier — analog zu wie GroupView Teams
+    //    die Bilanz berechnet.
+    for (const pd of delta.partnerDeltas.values()) {
+      if (pd.gamesPlayedWith > 0) {
+        pd.sessionsPlayedWith = 1;
+        if (pd.stricheDifferenceWith > 0) pd.sessionsWonWith = 1;
+        else if (pd.stricheDifferenceWith < 0) pd.sessionsLostWith = 1;
+        else pd.sessionsDrawWith = 1;
+      }
+    }
+    for (const od of delta.opponentDeltas.values()) {
+      if (od.gamesPlayedAgainst > 0) {
+        od.sessionsPlayedAgainst = 1;
+        if (od.stricheDifferenceAgainst > 0) od.sessionsWonAgainst = 1;
+        else if (od.stricheDifferenceAgainst < 0) od.sessionsLostAgainst = 1;
+        else od.sessionsDrawAgainst = 1;
+      }
+    }
   } else {
     // Normale Session: festes Team. Jeder Partner/Gegner bekommt die Session-Total-Werte
     //                  (identisches Verhalten wie bisher, nur strukturiert über die neue Map).
