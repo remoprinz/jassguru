@@ -2429,14 +2429,18 @@ export const GroupView: React.FC<GroupViewProps> = ({
                   </TabsList>
                 </div>
 
-                {/* 🗓️ Jahres-Filter (gilt für alle Sub-Tabs der Statistik) */}
-                <div className="flex justify-center mt-3 mb-1">
-                  <YearFilter
-                    availableYears={availableYears}
-                    selectedYear={selectedYear}
-                    onChange={setSelectedYear}
-                  />
-                </div>
+                {/* 🗓️ Jahres-Filter — nur wenn die Gruppe Sessions in mehreren Jahren hat.
+                    availableYears enthält IMMER das aktuelle Jahr (Default), also reicht
+                    length > 1 als Indikator dass mindestens ein zweites Jahr existiert. */}
+                {availableYears.length > 1 && (
+                  <div className="flex justify-center mt-3 mb-1">
+                    <YearFilter
+                      availableYears={availableYears}
+                      selectedYear={selectedYear}
+                      onChange={setSelectedYear}
+                    />
+                  </div>
+                )}
 
                 {/* ÜBERSICHT TAB - MIT ECHTEN INHALTEN UND REFS */}
                 <TabsContent
