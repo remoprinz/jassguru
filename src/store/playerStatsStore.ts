@@ -1,9 +1,30 @@
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { getFirestore, doc, collection, getDocs, Timestamp, getDoc } from 'firebase/firestore';
-import { firebaseApp } from '@/services/firebaseInit'; 
+import { firebaseApp } from '@/services/firebaseInit';
 import type { FrontendPlayerComputedStats, FrontendStatHighlight, FrontendStatStreak, FrontendTournamentPlacement } from '@/types/computedStats';
 import { initialFrontendPlayerComputedStats } from '@/types/computedStats';
+import { persistToStorage, loadFromStorage } from '@/services/persistentCacheHelper';
+
+// 🚀 INSTANT-Cache helpers — Stats per playerId in localStorage spiegeln.
+//    Date-Objekte werden via JSON.stringify zu ISO-Strings; reviveDates
+//    konvertiert sie beim Lesen zurück.
+const STATS_CACHE_KEY = (pid: string) => `player-stats:${pid}`;
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+function reviveDates<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    return (ISO_DATE_RE.test(obj) ? (new Date(obj) as any) : obj) as any;
+  }
+  if (Array.isArray(obj)) return obj.map(reviveDates) as any;
+  if (typeof obj === 'object') {
+    const out: any = {};
+    for (const k in obj) out[k] = reviveDates((obj as any)[k]);
+    return out;
+  }
+  return obj;
+}
 
 interface PlayerStatsState {
   stats: FrontendPlayerComputedStats | null;
@@ -61,11 +82,24 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
         currentUnsubscribe();
       }
 
-      set((state) => {
-        state.isLoading = true;
-        state.error = null;
-        state.stats = null;
-      });
+      // 🚀 INSTANT-Cache-Check: wenn wir Stats für diesen Spieler in localStorage haben,
+      //    setzen wir sie sofort und skippen den Lade-Spinner. Die frischen Daten
+      //    werden trotzdem im Hintergrund geladen und überschreiben den Cache.
+      const cachedRaw = loadFromStorage<FrontendPlayerComputedStats>(STATS_CACHE_KEY(playerId));
+      const cached = cachedRaw ? reviveDates(cachedRaw) : null;
+      if (cached) {
+        set((state) => {
+          state.stats = cached;
+          state.isLoading = false; // KEIN Spinner
+          state.error = null;
+        });
+      } else {
+        set((state) => {
+          state.isLoading = true;
+          state.error = null;
+          state.stats = null;
+        });
+      }
 
       const db = getFirestore(firebaseApp);
       
@@ -265,13 +299,18 @@ export const usePlayerStatsStore = create<PlayerStatsState & PlayerStatsActions>
           state.isLoading = false;
           state.error = null;
         });
-        
+
+        // 💾 Cache für nächsten Mount (überlebt iOS-PWA-Kill via localStorage)
+        persistToStorage(STATS_CACHE_KEY(playerId), combinedStats);
+
       } catch (err: any) {
         console.error(`[PlayerStatsStore] Error loading stats for ${playerId}:`, err);
+        // ⚠️ Fehler beim Fetch: wenn wir cached Stats haben, BEHALTEN wir sie statt
+        //    den Spieler mit leerem Profil zu konfrontieren. Sonst leeren wir.
         set((state) => {
           state.error = "Spielerstatistiken konnten nicht geladen werden.";
           state.isLoading = false;
-          state.stats = null;
+          if (!state.stats) state.stats = null;
         });
       }
     },
