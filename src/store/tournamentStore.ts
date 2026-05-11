@@ -37,6 +37,27 @@ import { DEFAULT_STROKE_SETTINGS } from '@/config/GameSettings';
 import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { useGameStore } from '@/store/gameStore';
 
+import { persistToStorage, loadFromStorage } from '@/services/persistentCacheHelper';
+
+// 🚀 INSTANT-Cache helpers für die Turnier-Liste
+const TOURNAMENTS_BY_USER_KEY = (pid: string) => `tournaments-by-user:${pid}`;
+const TOURNAMENTS_BY_GROUP_KEY = (gid: string) => `tournaments-by-group:${gid}`;
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+function reviveDates<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'string') {
+    return (ISO_DATE_RE.test(obj) ? (new Date(obj) as any) : obj) as any;
+  }
+  if (Array.isArray(obj)) return obj.map(reviveDates) as any;
+  if (typeof obj === 'object') {
+    const out: any = {};
+    for (const k in obj) out[k] = reviveDates((obj as any)[k]);
+    return out;
+  }
+  return obj;
+}
+
 // Standardeinstellungen für Turniere
 const DEFAULT_TOURNAMENT_SETTINGS: TournamentSettings = {
   rankingMode: 'striche', // ✅ DEFAULT: Rangliste nach Strichen
@@ -246,11 +267,24 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
   },
 
   loadUserTournamentInstances: async (userIdOrPlayerId, groupId) => {
-    set({ status: 'loading-list', error: null });
+    // 🚀 INSTANT-Cache-Check: Wenn wir die Turnier-Liste schon mal geladen haben,
+    //    setzen wir sie sofort (kein Spinner) und refreshen im Hintergrund.
+    const cacheKey = groupId
+      ? TOURNAMENTS_BY_GROUP_KEY(groupId)
+      : TOURNAMENTS_BY_USER_KEY(userIdOrPlayerId);
+    const cachedRaw = loadFromStorage<TournamentInstanceType[]>(cacheKey);
+    const cached = cachedRaw ? reviveDates(cachedRaw) : null;
+    if (cached && Array.isArray(cached) && cached.length > 0) {
+      set({ userTournamentInstances: cached, status: 'success', error: null });
+    } else {
+      set({ status: 'loading-list', error: null });
+    }
+
     try {
       if (groupId) {
           const instances = await fetchTournamentInstancesForGroup(groupId);
           set({ userTournamentInstances: instances, status: 'success' });
+          persistToStorage(cacheKey, instances);
       } else {
           // 🔧 FIX: Konvertiere UID zu playerId falls nötig
           let playerId = userIdOrPlayerId;
@@ -281,11 +315,18 @@ export const useTournamentStore = create<TournamentState & TournamentActions>((s
           
           const instances = await fetchTournamentsForUser(playerId);
           set({ userTournamentInstances: instances, status: 'success' });
+          persistToStorage(cacheKey, instances);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Fehler beim Laden der Turnier-Instanzen.';
       console.error('[TournamentStore] Error loading tournament instances:', error);
-      set({ status: 'error', error: message });
+      // ⚠️ Wenn wir cached Daten haben, behalten wir sie (kein leerer Bildschirm).
+      const currentInstances = get().userTournamentInstances;
+      if (currentInstances && currentInstances.length > 0) {
+        set({ status: 'success', error: null });
+      } else {
+        set({ status: 'error', error: message });
+      }
     }
   },
 
