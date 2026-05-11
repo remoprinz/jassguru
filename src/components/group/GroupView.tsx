@@ -64,6 +64,9 @@ import {
   getYearPlayerWinRates,
   getYearRawSessions,
   getYearTeamRoundTimes,
+  getYearPlayerWeis,
+  getYearTeamWeis,
+  getYearTeamWinRates,
   getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
@@ -1218,6 +1221,86 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .catch(err => console.warn('[GroupView] getYearPlayerRoundTimes:', err));
     return () => { cancelled = true; };
   }, [currentGroup?.id, selectedYear]);
+
+  // 🗓️ Year-Filter: Player-Weisdifferenz aus Sessions im Zieljahr.
+  const [yearPlayerWeis, setYearPlayerWeis] = React.useState<Array<{ playerId: string; playerName: string; eventsMade: number; eventsReceived: number; value: number }> | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearPlayerWeis(null);
+      return;
+    }
+    let cancelled = false;
+    getYearPlayerWeis(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearPlayerWeis(res); })
+      .catch(err => console.warn('[GroupView] getYearPlayerWeis:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  // 🗓️ Year-Filter: Team-Weisdifferenz.
+  const [yearTeamWeis, setYearTeamWeis] = React.useState<Array<{ names: string[]; playerIds: string[]; eventsMade: number; eventsReceived: number; value: number }> | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearTeamWeis(null);
+      return;
+    }
+    let cancelled = false;
+    getYearTeamWeis(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearTeamWeis(res); })
+      .catch(err => console.warn('[GroupView] getYearTeamWeis:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  // 🗓️ Year-Filter: Team-Siegquoten (Partien + Spiele).
+  const [yearTeamWinRates, setYearTeamWinRates] = React.useState<{ session: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }>; game: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> } | null>(null);
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearTeamWinRates(null);
+      return;
+    }
+    let cancelled = false;
+    getYearTeamWinRates(currentGroup.id, selectedYear)
+      .then(res => { if (!cancelled) setYearTeamWinRates(res); })
+      .catch(err => console.warn('[GroupView] getYearTeamWinRates:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
+  // Active-Sources (Gesamt = groupStats, Year = year-aware).
+  const activePlayerWeisDifference = useMemo(() => {
+    if (selectedYear === 'gesamt') return groupStats?.playerWithHighestWeisDifference || [];
+    return yearPlayerWeis || [];
+  }, [selectedYear, groupStats, yearPlayerWeis]);
+
+  const activeTeamWeisDifference = useMemo(() => {
+    if (selectedYear === 'gesamt') return groupStats?.teamWithMostWeisPointsAvg || [];
+    return yearTeamWeis || [];
+  }, [selectedYear, groupStats, yearTeamWeis]);
+
+  const activeTeamWinRateSession = useMemo(() => {
+    if (selectedYear === 'gesamt') return groupStats?.teamWithHighestWinRateSession || [];
+    return yearTeamWinRates?.session || [];
+  }, [selectedYear, groupStats, yearTeamWinRates]);
+
+  const activeTeamWinRateGame = useMemo(() => {
+    if (selectedYear === 'gesamt') return groupStats?.teamWithHighestWinRateGame || [];
+    return yearTeamWinRates?.game || [];
+  }, [selectedYear, groupStats, yearTeamWinRates]);
+
+  // Team-Schneider-Bilanz: Im Year-Mode bauen wir aus displayTeamEventCountsMap
+  // (bereits year-aware) ein Array mit der gleichen Shape wie groupStats.
+  const activeTeamSchneiderBilanz = useMemo(() => {
+    if (selectedYear === 'gesamt') {
+      return groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate || [];
+    }
+    const arr: Array<{ names: string[]; eventsMade: number; eventsReceived: number; value: number }> = [];
+    displayTeamEventCountsMap.forEach((counts, teamName) => {
+      const made = counts.schneiderMade || 0;
+      const received = counts.schneiderReceived || 0;
+      if (made === 0 && received === 0) return;
+      arr.push({ names: teamName.split(' & '), eventsMade: made, eventsReceived: received, value: made - received });
+    });
+    arr.sort((a, b) => b.value - a.value);
+    return arr;
+  }, [selectedYear, groupStats, displayTeamEventCountsMap]);
 
   // 🗓️ Year-Filter: Team-Rundentempo (Median pro Team) aus Sessions im Zieljahr.
   const [yearTeamRoundTimes, setYearTeamRoundTimes] = React.useState<Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> | null>(null);
@@ -3385,10 +3468,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
                        </div>
                        <div ref={playerWeisAvgRef} className={`${layout.cardPadding} space-y-0 pr-2`}>
                         {(() => {
-                          if (groupStats?.playerWithHighestWeisDifference && groupStats.playerWithHighestWeisDifference.length > 0) {
+                          if (activePlayerWeisDifference && activePlayerWeisDifference.length > 0) {
                             // Filter: Nur Spieler mit Weis-Erfahrung anzeigen
-                            const playersWithWeisExperience = groupStats.playerWithHighestWeisDifference.filter(player => 
-                              (player.eventsMade && player.eventsMade > 0) || 
+                            const playersWithWeisExperience = activePlayerWeisDifference.filter(player =>
+                              (player.eventsMade && player.eventsMade > 0) ||
                               (player.eventsReceived && player.eventsReceived > 0)
                             );
                             return playersWithWeisExperience.map((playerStat, index) => {
@@ -3633,8 +3716,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
-                          if (groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0) {
-                            const teamsWithSessions = groupStats.teamWithHighestWinRateSession.filter(team => team.eventsPlayed && team.eventsPlayed > 0);
+                          if (activeTeamWinRateSession && activeTeamWinRateSession.length > 0) {
+                            const teamsWithSessions = activeTeamWinRateSession.filter(team => team.eventsPlayed && team.eventsPlayed > 0);
                             const chartData = teamsWithSessions.map(team => ({
                               label: team.names.join(' & '),
                               winRate: Number(team.value),
@@ -3677,9 +3760,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Partien Rangliste</h3>
                       </div>
                       <div ref={teamWinRateSessionRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {groupStats?.teamWithHighestWinRateSession && groupStats.teamWithHighestWinRateSession.length > 0 ? (
-                          groupStats.teamWithHighestWinRateSession
-                            .filter(team => 
+                        {activeTeamWinRateSession && activeTeamWinRateSession.length > 0 ? (
+                          activeTeamWinRateSession
+                            .filter(team =>
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
@@ -3736,8 +3819,8 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div className={`${layout.isDesktop ? 'px-2 py-4' : 'px-1 py-3'}`}>
                         {(() => {
-                          if (groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0) {
-                            const teamsWithGames = groupStats.teamWithHighestWinRateGame.filter(team => team.eventsPlayed && team.eventsPlayed > 0);
+                          if (activeTeamWinRateGame && activeTeamWinRateGame.length > 0) {
+                            const teamsWithGames = activeTeamWinRateGame.filter(team => team.eventsPlayed && team.eventsPlayed > 0);
                             const chartData = teamsWithGames.map(team => ({
                               label: team.names.join(' & '),
                               winRate: Number(team.value),
@@ -3781,9 +3864,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                         <h3 className={`${layout.headingSize} font-bold font-headline text-white`}>🏆 Siegquote Spiele Rangliste</h3>
                       </div>
                       <div ref={teamWinRateGameRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
-                        {groupStats?.teamWithHighestWinRateGame && groupStats.teamWithHighestWinRateGame.length > 0 ? (
-                          groupStats.teamWithHighestWinRateGame
-                            .filter(team => 
+                        {activeTeamWinRateGame && activeTeamWinRateGame.length > 0 ? (
+                          activeTeamWinRateGame
+                            .filter(team =>
                               team.eventsPlayed && team.eventsPlayed > 0
                             )
                             .map((team, index) => (
@@ -3949,12 +4032,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
                       </div>
                       <div ref={teamSchneiderRateRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
-                          // ✅ KORRIGIERT: Verwende teamWithHighestSchneiderBilanz statt teamWithHighestSchneiderRate
-                          const teamSchneiderData = groupStats?.teamWithHighestSchneiderBilanz || groupStats?.teamWithHighestSchneiderRate;
+                          // Year-aware: aus activeTeamSchneiderBilanz (Gesamt = groupStats, Year = displayTeamEventCountsMap)
+                          const teamSchneiderData = activeTeamSchneiderBilanz;
                           if (teamSchneiderData && teamSchneiderData.length > 0) {
                             // Filter: Nur Teams mit Schneider-Erfahrung anzeigen
-                            const teamsWithSchneiderEvents = teamSchneiderData.filter(team => 
-                              (team.eventsMade && team.eventsMade > 0) || 
+                            const teamsWithSchneiderEvents = teamSchneiderData.filter(team =>
+                              (team.eventsMade && team.eventsMade > 0) ||
                               (team.eventsReceived && team.eventsReceived > 0) ||
                               (team.value && team.value !== 0)
                             );
@@ -4011,17 +4094,30 @@ export const GroupView: React.FC<GroupViewProps> = ({
                        </div>
                        <div ref={teamWeisAvgRef} className={`${layout.cardPadding} space-y-0 max-h-[calc(13.5*2.5rem)] overflow-y-auto pr-2`}>
                         {(() => {
-                          // ✅ DIREKT aus teamWeisPointsTotals: Zeigt ALLE Teams, nicht nur 12!
-                          const allTeamsRanking = Array.from(teamWeisPointsTotals.entries())
-                            .map(([teamName, totals]) => ({
-                              teamName,
-                              differenz: totals.made - totals.received,
-                              made: totals.made,
-                              received: totals.received
-                            }))
-                            .filter(team => team.made > 0 || team.received > 0)
-                            .sort((a, b) => b.differenz - a.differenz);
-                          
+                          // Year-aware: Gesamt → teamWeisPointsTotals, Year → activeTeamWeisDifference
+                          let allTeamsRanking: Array<{ teamName: string; names: string[]; differenz: number; made: number; received: number }>;
+                          if (selectedYear === 'gesamt') {
+                            allTeamsRanking = Array.from(teamWeisPointsTotals.entries())
+                              .map(([teamName, totals]) => ({
+                                teamName,
+                                names: teamName.split(' & '),
+                                differenz: totals.made - totals.received,
+                                made: totals.made,
+                                received: totals.received,
+                              }))
+                              .filter(team => team.made > 0 || team.received > 0)
+                              .sort((a, b) => b.differenz - a.differenz);
+                          } else {
+                            allTeamsRanking = (activeTeamWeisDifference || [])
+                              .map(t => ({
+                                teamName: t.names.join(' & '),
+                                names: t.names,
+                                differenz: t.value,
+                                made: t.eventsMade,
+                                received: t.eventsReceived,
+                              }));
+                          }
+
                           if (allTeamsRanking.length === 0) {
                             return (
                               <div className={`${layout.bodySize} text-gray-400 text-center py-2`}>
@@ -4029,9 +4125,9 @@ export const GroupView: React.FC<GroupViewProps> = ({
                               </div>
                             );
                           }
-                          
+
                           return allTeamsRanking.map((team, index) => {
-                            const names = team.teamName.split(' & ');
+                            const names = team.names;
                             return (
                               <div key={`team-${team.teamName}`} className={`flex justify-between items-center ${layout.listItemPadding} border-b border-gray-500/40 last:border-b-0 hover:bg-white/10 transition-colors`}>
                                 <div className="flex items-center">

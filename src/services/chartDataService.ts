@@ -653,6 +653,222 @@ export async function getYearPlayerWinRates(
 }
 
 /**
+ * 🗓️ Weisdifferenz pro Spieler (Punkte) im Zieljahr.
+ * Form passt zu groupStats.playerWithHighestWeisDifference:
+ *   { playerId, playerName, eventsMade, eventsReceived, value }
+ *   eventsMade/eventsReceived = aufaddierte Weis-Punkte des Spieler-Teams bzw. Gegners.
+ *   value = eventsMade - eventsReceived
+ */
+export async function getYearPlayerWeis(
+  groupId: string,
+  year: number,
+): Promise<Array<{ playerId: string; playerName: string; eventsMade: number; eventsReceived: number; value: number }>> {
+  const totals = new Map<string, { name: string; made: number; received: number }>();
+  const playerDisplayNames = new Map<string, string>();
+  try {
+    try {
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
+      playersSnap.forEach(doc => {
+        const d = doc.data();
+        if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
+      });
+    } catch { /* */ }
+
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const w = d.sessionTotalWeisPoints;
+      if (!w || typeof w !== 'object') return;
+      const topWeis = typeof w.top === 'number' ? w.top : 0;
+      const bottomWeis = typeof w.bottom === 'number' ? w.bottom : 0;
+      const topIds: string[] = (d.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+      const bottomIds: string[] = (d.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+
+      const add = (id: string, made: number, received: number) => {
+        if (!totals.has(id)) totals.set(id, { name: playerDisplayNames.get(id) || id, made: 0, received: 0 });
+        const t = totals.get(id)!;
+        t.made += made;
+        t.received += received;
+      };
+      topIds.forEach(id => add(id, topWeis, bottomWeis));
+      bottomIds.forEach(id => add(id, bottomWeis, topWeis));
+    });
+  } catch (error) {
+    console.warn('[getYearPlayerWeis] Fehler:', error);
+  }
+
+  const result: Array<{ playerId: string; playerName: string; eventsMade: number; eventsReceived: number; value: number }> = [];
+  totals.forEach((v, playerId) => {
+    if (v.made === 0 && v.received === 0) return;
+    result.push({ playerId, playerName: v.name, eventsMade: v.made, eventsReceived: v.received, value: v.made - v.received });
+  });
+  result.sort((a, b) => b.value - a.value);
+  return result;
+}
+
+/**
+ * 🗓️ Weisdifferenz pro Team (Punkte) im Zieljahr.
+ * Form: { names: [n1, n2], playerIds: [id1, id2], eventsMade, eventsReceived, value }
+ */
+export async function getYearTeamWeis(
+  groupId: string,
+  year: number,
+): Promise<Array<{ names: string[]; playerIds: string[]; eventsMade: number; eventsReceived: number; value: number }>> {
+  const totals = new Map<string, { playerIds: string[]; made: number; received: number }>();
+  const playerDisplayNames = new Map<string, string>();
+  try {
+    try {
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
+      playersSnap.forEach(doc => {
+        const d = doc.data();
+        if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
+      });
+    } catch { /* */ }
+
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const w = d.sessionTotalWeisPoints;
+      if (!w || typeof w !== 'object') return;
+      const topWeis = typeof w.top === 'number' ? w.top : 0;
+      const bottomWeis = typeof w.bottom === 'number' ? w.bottom : 0;
+
+      const topIds: string[] = (d.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+      const bottomIds: string[] = (d.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+      if (topIds.length !== 2 || bottomIds.length !== 2) return;
+
+      const addTeam = (ids: string[], made: number, received: number) => {
+        const sorted = [...ids].sort();
+        const key = sorted.join('-');
+        if (!totals.has(key)) totals.set(key, { playerIds: sorted, made: 0, received: 0 });
+        const t = totals.get(key)!;
+        t.made += made;
+        t.received += received;
+      };
+      addTeam(topIds, topWeis, bottomWeis);
+      addTeam(bottomIds, bottomWeis, topWeis);
+    });
+  } catch (error) {
+    console.warn('[getYearTeamWeis] Fehler:', error);
+  }
+
+  const result: Array<{ names: string[]; playerIds: string[]; eventsMade: number; eventsReceived: number; value: number }> = [];
+  totals.forEach(v => {
+    if (v.made === 0 && v.received === 0) return;
+    const names = v.playerIds.map(id => playerDisplayNames.get(id) || id);
+    result.push({ names, playerIds: v.playerIds, eventsMade: v.made, eventsReceived: v.received, value: v.made - v.received });
+  });
+  result.sort((a, b) => b.value - a.value);
+  return result;
+}
+
+/**
+ * 🗓️ Team-Siegquoten (Partien + Spiele) im Zieljahr.
+ * Form passt zu groupStats.teamWithHighestWinRateSession / WinRateGame:
+ *   { names: [n1, n2], playerIds: [id1, id2], value: winRate (0..1), eventsPlayed }
+ * Returns separate arrays für session/game.
+ */
+export async function getYearTeamWinRates(
+  groupId: string,
+  year: number,
+): Promise<{
+  session: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }>;
+  game: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }>;
+}> {
+  type Stats = { playerIds: string[]; sWins: number; sLosses: number; gWins: number; gLosses: number };
+  const teams = new Map<string, Stats>();
+  const playerDisplayNames = new Map<string, string>();
+  try {
+    try {
+      const playersSnap = await getGroupPlayersSnapshot(groupId);
+      playersSnap.forEach(doc => {
+        const d = doc.data();
+        if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
+      });
+    } catch { /* */ }
+
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+
+    const getBucket = (ids: string[]): { key: string; bucket: Stats } | null => {
+      if (ids.length !== 2) return null;
+      const sorted = [...ids].sort();
+      const key = sorted.join('-');
+      if (!teams.has(key)) teams.set(key, { playerIds: sorted, sWins: 0, sLosses: 0, gWins: 0, gLosses: 0 });
+      return { key, bucket: teams.get(key)! };
+    };
+
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+
+      const isTournament = !!d.isTournamentSession || !!d.tournamentId;
+
+      // Session-Level: nur Regular-Sessions
+      if (!isTournament) {
+        const wtk: 'top' | 'bottom' | 'draw' | undefined = d.winnerTeamKey;
+        const topIds: string[] = (d.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const bottomIds: string[] = (d.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        if (wtk === 'top' || wtk === 'bottom') {
+          const t = getBucket(topIds);
+          const b = getBucket(bottomIds);
+          if (t) (wtk === 'top' ? t.bucket.sWins++ : t.bucket.sLosses++);
+          if (b) (wtk === 'bottom' ? b.bucket.sWins++ : b.bucket.sLosses++);
+        }
+        // draw: nicht in entschiedenen Sessions zählen
+      }
+
+      // Game-Level: alle Games (inkl. Turnier-Games)
+      const games: any[] = Array.isArray(d.gameResults) ? d.gameResults : [];
+      games.forEach(g => {
+        const wt: 'top' | 'bottom' | undefined = g.winnerTeam;
+        if (!wt) return;
+        const gTop: string[] = (g.teams?.top?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const gBot: string[] = (g.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
+        const t = getBucket(gTop);
+        const b = getBucket(gBot);
+        if (t) (wt === 'top' ? t.bucket.gWins++ : t.bucket.gLosses++);
+        if (b) (wt === 'bottom' ? b.bucket.gWins++ : b.bucket.gLosses++);
+      });
+    });
+  } catch (error) {
+    console.warn('[getYearTeamWinRates] Fehler:', error);
+  }
+
+  const sessionList: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> = [];
+  const gameList: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> = [];
+  teams.forEach(s => {
+    const names = s.playerIds.map(id => playerDisplayNames.get(id) || id);
+    const sTotal = s.sWins + s.sLosses;
+    if (sTotal > 0) {
+      sessionList.push({ names, playerIds: s.playerIds, value: s.sWins / sTotal, eventsPlayed: sTotal });
+    }
+    const gTotal = s.gWins + s.gLosses;
+    if (gTotal > 0) {
+      gameList.push({ names, playerIds: s.playerIds, value: s.gWins / gTotal, eventsPlayed: gTotal });
+    }
+  });
+  sessionList.sort((a, b) => b.value - a.value);
+  gameList.sort((a, b) => b.value - a.value);
+  return { session: sessionList, game: gameList };
+}
+
+/**
  * 🗓️ Rundentempo pro Team für ein bestimmtes Jahr.
  *
  * Logik analog zur Cloud Function: für jede Session/jedes Tournament-Game in der
