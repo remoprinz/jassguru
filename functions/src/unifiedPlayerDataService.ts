@@ -258,54 +258,155 @@ interface SessionDelta {
   sessionsWon: number;
   sessionsLost: number;
   sessionsDraw: number;
-  
+
   // GAMES
   gamesPlayed: number;
   gamesWon: number;
   gamesLost: number;
   gamesDraw: number;
-  
+
   // SCORES
   pointsMade: number;
   pointsReceived: number;
   pointsDifference: number;
-  
+
   stricheMade: number;
   stricheReceived: number;
   stricheDifference: number;
-  
+
   // WEIS
   weisPoints: number;
   weisReceived: number;
   weisDifference: number;
-  
+
   // EVENTS
   matschEventsMade: number;
   matschEventsReceived: number;
   matschBilanz: number;
-  
+
   schneiderEventsMade: number;
   schneiderEventsReceived: number;
   schneiderBilanz: number;
-  
+
   kontermatschEventsMade: number;
   kontermatschEventsReceived: number;
   kontermatschBilanz: number;
-  
+
   // TRUMPF
   trumpfStatistik: { [farbe: string]: number };
-  
+
   // ZEIT
   playTimeSeconds: number;
-  
+
   // PARTNER/OPPONENT IDs für weitere Updates
   partnerIds: string[];
   partnerNames: { [id: string]: string };
   opponentIds: string[];
   opponentNames: { [id: string]: string };
-  
+
+  // 🆕 KORREKT-Fix für Turniere: per-Partner / per-Gegner Deltas.
+  //    Bei normalen Sessions enthält jeder Eintrag die Session-Total-Werte
+  //    (alle Partner sind dieselben über die ganze Session).
+  //    Bei Turnieren werden die Werte PRO SPIEL aggregiert, damit jeder Partner
+  //    nur die Spiele bekommt, in denen er tatsächlich mit dem Spieler war.
+  partnerDeltas: Map<string, PartnerDelta>;
+  opponentDeltas: Map<string, OpponentDelta>;
+
   // Player Team
   playerTeam: 'top' | 'bottom' | null;
+}
+
+// 🆕 Per-Partner Delta: was zu partnerStats.{partnerId} addiert wird
+interface PartnerDelta {
+  partnerId: string;
+  partnerDisplayName: string;
+  sessionsPlayedWith: number;
+  sessionsWonWith: number;
+  sessionsLostWith: number;
+  sessionsDrawWith: number;
+  gamesPlayedWith: number;
+  gamesWonWith: number;
+  gamesLostWith: number;
+  stricheDifferenceWith: number;
+  pointsDifferenceWith: number;
+  matschEventsMadeWith: number;
+  matschEventsReceivedWith: number;
+  schneiderEventsMadeWith: number;
+  schneiderEventsReceivedWith: number;
+  kontermatschEventsMadeWith: number;
+  kontermatschEventsReceivedWith: number;
+  weisPointsWith: number;
+  weisReceivedWith: number;
+}
+
+interface OpponentDelta {
+  opponentId: string;
+  opponentDisplayName: string;
+  sessionsPlayedAgainst: number;
+  sessionsWonAgainst: number;
+  sessionsLostAgainst: number;
+  sessionsDrawAgainst: number;
+  gamesPlayedAgainst: number;
+  gamesWonAgainst: number;
+  gamesLostAgainst: number;
+  stricheDifferenceAgainst: number;
+  pointsDifferenceAgainst: number;
+  matschEventsMadeAgainst: number;
+  matschEventsReceivedAgainst: number;
+  schneiderEventsMadeAgainst: number;
+  schneiderEventsReceivedAgainst: number;
+  kontermatschEventsMadeAgainst: number;
+  kontermatschEventsReceivedAgainst: number;
+  weisPointsAgainst: number;
+  weisReceivedAgainst: number;
+}
+
+function createEmptyPartnerDelta(partnerId: string, displayName: string): PartnerDelta {
+  return {
+    partnerId,
+    partnerDisplayName: displayName,
+    sessionsPlayedWith: 0,
+    sessionsWonWith: 0,
+    sessionsLostWith: 0,
+    sessionsDrawWith: 0,
+    gamesPlayedWith: 0,
+    gamesWonWith: 0,
+    gamesLostWith: 0,
+    stricheDifferenceWith: 0,
+    pointsDifferenceWith: 0,
+    matschEventsMadeWith: 0,
+    matschEventsReceivedWith: 0,
+    schneiderEventsMadeWith: 0,
+    schneiderEventsReceivedWith: 0,
+    kontermatschEventsMadeWith: 0,
+    kontermatschEventsReceivedWith: 0,
+    weisPointsWith: 0,
+    weisReceivedWith: 0,
+  };
+}
+
+function createEmptyOpponentDelta(opponentId: string, displayName: string): OpponentDelta {
+  return {
+    opponentId,
+    opponentDisplayName: displayName,
+    sessionsPlayedAgainst: 0,
+    sessionsWonAgainst: 0,
+    sessionsLostAgainst: 0,
+    sessionsDrawAgainst: 0,
+    gamesPlayedAgainst: 0,
+    gamesWonAgainst: 0,
+    gamesLostAgainst: 0,
+    stricheDifferenceAgainst: 0,
+    pointsDifferenceAgainst: 0,
+    matschEventsMadeAgainst: 0,
+    matschEventsReceivedAgainst: 0,
+    schneiderEventsMadeAgainst: 0,
+    schneiderEventsReceivedAgainst: 0,
+    kontermatschEventsMadeAgainst: 0,
+    kontermatschEventsReceivedAgainst: 0,
+    weisPointsAgainst: 0,
+    weisReceivedAgainst: 0,
+  };
 }
 
 /**
@@ -345,6 +446,8 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
     partnerNames: {},
     opponentIds: [],
     opponentNames: {},
+    partnerDeltas: new Map<string, PartnerDelta>(),
+    opponentDeltas: new Map<string, OpponentDelta>(),
     playerTeam: null,
   };
   
@@ -613,12 +716,154 @@ function calculateSessionDelta(playerId: string, sessionData: any): SessionDelta
       delta.partnerNames[p.playerId] = p.displayName || 'Unbekannt';
     }
   });
-  
+
   opponentPlayers.forEach((p: any) => {
     delta.opponentIds.push(p.playerId);
     delta.opponentNames[p.playerId] = p.displayName || 'Unbekannt';
   });
-  
+
+  // 🆕 KORREKT-FIX: Per-Partner und Per-Gegner Deltas aufbauen.
+  //    Normale Session (festes Team) → alle Partner/Gegner bekommen die Session-Totals.
+  //    Turnier (rotierende Teams)    → pro Spiel aggregieren, damit jeder Partner/Gegner
+  //                                    nur die Werte aus SEINEN Spielen mit dem Spieler bekommt.
+  if (isTournament && sessionData.gameResults && Array.isArray(sessionData.gameResults)) {
+    for (const game of sessionData.gameResults) {
+      const topPlayersInGame = game.teams?.top?.players || [];
+      const bottomPlayersInGame = game.teams?.bottom?.players || [];
+
+      const playerInTopGame = topPlayersInGame.some((p: any) => p.playerId === playerId);
+      const playerInBottomGame = bottomPlayersInGame.some((p: any) => p.playerId === playerId);
+      if (!playerInTopGame && !playerInBottomGame) continue;
+
+      const gamePlayerTeamKey: 'top' | 'bottom' = playerInTopGame ? 'top' : 'bottom';
+      const gameOpponentTeamKey: 'top' | 'bottom' = playerInTopGame ? 'bottom' : 'top';
+      const gamePartners = playerInTopGame ? topPlayersInGame : bottomPlayersInGame;
+      const gameOpponents = playerInTopGame ? bottomPlayersInGame : topPlayersInGame;
+
+      // Per-Spiel-Werte aus Sicht des Spielers
+      const gameStricheMade = sumStriche(game.finalStriche?.[gamePlayerTeamKey]);
+      const gameStricheReceived = sumStriche(game.finalStriche?.[gameOpponentTeamKey]);
+      const gameStricheDiff = gameStricheMade - gameStricheReceived;
+
+      const gamePointsMade = gamePlayerTeamKey === 'top' ? (game.topScore || 0) : (game.bottomScore || 0);
+      const gamePointsReceived = gamePlayerTeamKey === 'top' ? (game.bottomScore || 0) : (game.topScore || 0);
+      const gamePointsDiff = gamePointsMade - gamePointsReceived;
+
+      // Spiel-Gewinner-Status
+      const gameWinner = game.winnerTeam || game.winnerTeamKey;
+      const playerWon = gameWinner === gamePlayerTeamKey;
+      const playerLost = gameWinner && gameWinner !== 'draw' && gameWinner !== gamePlayerTeamKey;
+
+      // Events pro Spiel
+      const gameEventCounts = game.eventCounts || {};
+      const teamEvents = gameEventCounts[gamePlayerTeamKey] || {};
+      const opponentEvents = gameEventCounts[gameOpponentTeamKey] || {};
+      const gameMatschMade = teamEvents.matsch || 0;
+      const gameMatschReceived = opponentEvents.matsch || 0;
+      const gameSchneiderMade = teamEvents.schneider || 0;
+      const gameSchneiderReceived = opponentEvents.schneider || 0;
+      const gameKontermatschMade = teamEvents.kontermatsch || 0;
+      const gameKontermatschReceived = opponentEvents.kontermatsch || 0;
+
+      // Weis pro Spiel (falls vorhanden) — sonst 0 (Tournament-Weis ist meist session-level
+      // und kann hier nicht sauber per Partner verteilt werden)
+      const gameWeisPoints = game.weisPoints?.[gamePlayerTeamKey] || game.sessionTotalWeisPoints?.[gamePlayerTeamKey] || 0;
+      const gameWeisReceived = game.weisPoints?.[gameOpponentTeamKey] || game.sessionTotalWeisPoints?.[gameOpponentTeamKey] || 0;
+
+      // Pro Partner in DIESEM Spiel: Werte addieren
+      for (const p of gamePartners) {
+        if (!p.playerId || p.playerId === playerId) continue;
+        let pd = delta.partnerDeltas.get(p.playerId);
+        if (!pd) {
+          pd = createEmptyPartnerDelta(p.playerId, p.displayName || 'Unbekannt');
+          delta.partnerDeltas.set(p.playerId, pd);
+        }
+        pd.gamesPlayedWith += 1;
+        if (playerWon) pd.gamesWonWith += 1;
+        else if (playerLost) pd.gamesLostWith += 1;
+        pd.stricheDifferenceWith += gameStricheDiff;
+        pd.pointsDifferenceWith += gamePointsDiff;
+        pd.matschEventsMadeWith += gameMatschMade;
+        pd.matschEventsReceivedWith += gameMatschReceived;
+        pd.schneiderEventsMadeWith += gameSchneiderMade;
+        pd.schneiderEventsReceivedWith += gameSchneiderReceived;
+        pd.kontermatschEventsMadeWith += gameKontermatschMade;
+        pd.kontermatschEventsReceivedWith += gameKontermatschReceived;
+        pd.weisPointsWith += gameWeisPoints;
+        pd.weisReceivedWith += gameWeisReceived;
+      }
+
+      // Pro Gegner in DIESEM Spiel: Werte addieren
+      for (const o of gameOpponents) {
+        if (!o.playerId) continue;
+        let od = delta.opponentDeltas.get(o.playerId);
+        if (!od) {
+          od = createEmptyOpponentDelta(o.playerId, o.displayName || 'Unbekannt');
+          delta.opponentDeltas.set(o.playerId, od);
+        }
+        od.gamesPlayedAgainst += 1;
+        if (playerWon) od.gamesWonAgainst += 1;
+        else if (playerLost) od.gamesLostAgainst += 1;
+        od.stricheDifferenceAgainst += gameStricheDiff;
+        od.pointsDifferenceAgainst += gamePointsDiff;
+        od.matschEventsMadeAgainst += gameMatschMade;
+        od.matschEventsReceivedAgainst += gameMatschReceived;
+        od.schneiderEventsMadeAgainst += gameSchneiderMade;
+        od.schneiderEventsReceivedAgainst += gameSchneiderReceived;
+        od.kontermatschEventsMadeAgainst += gameKontermatschMade;
+        od.kontermatschEventsReceivedAgainst += gameKontermatschReceived;
+        od.weisPointsAgainst += gameWeisPoints;
+        od.weisReceivedAgainst += gameWeisReceived;
+      }
+    }
+  } else {
+    // Normale Session: festes Team. Jeder Partner/Gegner bekommt die Session-Total-Werte
+    //                  (identisches Verhalten wie bisher, nur strukturiert über die neue Map).
+    delta.partnerIds.forEach(pid => {
+      const pd = createEmptyPartnerDelta(pid, delta.partnerNames[pid] || 'Unbekannt');
+      pd.sessionsPlayedWith = delta.sessionsPlayed;
+      pd.sessionsWonWith = delta.sessionsWon;
+      pd.sessionsLostWith = delta.sessionsLost;
+      pd.sessionsDrawWith = delta.sessionsDraw;
+      pd.gamesPlayedWith = delta.gamesPlayed;
+      pd.gamesWonWith = delta.gamesWon;
+      pd.gamesLostWith = delta.gamesLost;
+      pd.stricheDifferenceWith = delta.stricheDifference;
+      pd.pointsDifferenceWith = delta.pointsDifference;
+      pd.matschEventsMadeWith = delta.matschEventsMade;
+      pd.matschEventsReceivedWith = delta.matschEventsReceived;
+      pd.schneiderEventsMadeWith = delta.schneiderEventsMade;
+      pd.schneiderEventsReceivedWith = delta.schneiderEventsReceived;
+      pd.kontermatschEventsMadeWith = delta.kontermatschEventsMade;
+      pd.kontermatschEventsReceivedWith = delta.kontermatschEventsReceived;
+      pd.weisPointsWith = delta.weisPoints;
+      pd.weisReceivedWith = delta.weisReceived;
+      delta.partnerDeltas.set(pid, pd);
+    });
+
+    delta.opponentIds.forEach(oid => {
+      const od = createEmptyOpponentDelta(oid, delta.opponentNames[oid] || 'Unbekannt');
+      od.sessionsPlayedAgainst = delta.sessionsPlayed;
+      od.sessionsWonAgainst = delta.sessionsWon;
+      od.sessionsLostAgainst = delta.sessionsLost;
+      od.sessionsDrawAgainst = delta.sessionsDraw;
+      od.gamesPlayedAgainst = delta.gamesPlayed;
+      od.gamesWonAgainst = delta.gamesWon;
+      od.gamesLostAgainst = delta.gamesLost;
+      od.stricheDifferenceAgainst = delta.stricheDifference;
+      od.pointsDifferenceAgainst = delta.pointsDifference;
+      od.matschEventsMadeAgainst = delta.matschEventsMade;
+      od.matschEventsReceivedAgainst = delta.matschEventsReceived;
+      od.schneiderEventsMadeAgainst = delta.schneiderEventsMade;
+      od.schneiderEventsReceivedAgainst = delta.schneiderEventsReceived;
+      od.kontermatschEventsMadeAgainst = delta.kontermatschEventsMade;
+      od.kontermatschEventsReceivedAgainst = delta.kontermatschEventsReceived;
+      od.weisPointsAgainst = delta.weisPoints;
+      od.weisReceivedAgainst = delta.weisReceived;
+      delta.opponentDeltas.set(oid, od);
+    });
+  }
+
   return delta;
 }
 
@@ -798,15 +1043,18 @@ async function updatePartnerStatsSubcollection(
   sessionData: any,
   delta: SessionDelta
 ): Promise<void> {
-  for (const partnerId of delta.partnerIds) {
+  // 🆕 KORREKT-Fix: Iteriert über delta.partnerDeltas (per-Partner-Werte). Bei Turnieren
+  //    enthält jeder Eintrag NUR die Spiele dieses Partners mit dem Spieler — kein
+  //    falsch-attributiertes Tournament-Total mehr.
+  for (const [partnerId, pd] of delta.partnerDeltas) {
     const partnerStatsRef = db.collection(`players/${playerId}/partnerStats`).doc(partnerId);
     const partnerStatsDoc = await partnerStatsRef.get();
-    
+
     const current: PartnerPlayerStats = partnerStatsDoc.exists
       ? partnerStatsDoc.data() as PartnerPlayerStats
       : {
           partnerId,
-          partnerDisplayName: delta.partnerNames[partnerId] || 'Unbekannt',
+          partnerDisplayName: pd.partnerDisplayName || 'Unbekannt',
           sessionsPlayedWith: 0,
           sessionsWonWith: 0,
           sessionsLostWith: 0,
@@ -827,79 +1075,64 @@ async function updatePartnerStatsSubcollection(
           kontermatschBilanzWith: 0,
           kontermatschEventsMadeWith: 0,
           kontermatschEventsReceivedWith: 0,
-      totalWeisPointsWith: 0,
-      totalWeisReceivedWith: 0,
-      weisDifferenceWith: 0,
-      totalRoundDurationWith: 0,
-      totalRoundsWith: 0,
-      avgRoundDurationWith: 0,
-      trumpfStatistikWith: {},
-      lastPlayedWithTimestamp: admin.firestore.Timestamp.now(),
-    };
-    
-      // 1. Berechne neue ABSOLUTE Summen für Partner (konsistente Differenzen)
-      const newTotalStricheDiff = (current.totalStricheDifferenceWith || 0) + delta.stricheDifference; // Striche haben keine Made/Received in PartnerStats, daher Inkrement (ok da keine Rohdaten gespeichert)
-      
-      // HINWEIS: PartnerStats speichern aktuell KEINE Made/Received Punkte, nur die Differenz.
-      // Deshalb müssen wir hier inkrementieren. Aber wir können es robuster machen:
-      // Wenn der aktuelle Wert undefined/null ist, starte bei 0.
-      const currentPointsDiff = current.totalPointsDifferenceWith || 0;
-      const newTotalPointsDiff = currentPointsDiff + delta.pointsDifference;
-      
-      const currentMatschMade = current.matschEventsMadeWith || 0;
-      const currentMatschReceived = current.matschEventsReceivedWith || 0;
-      const newMatschMade = currentMatschMade + delta.matschEventsMade;
-      const newMatschReceived = currentMatschReceived + delta.matschEventsReceived;
-      
-      const currentSchneiderMade = current.schneiderEventsMadeWith || 0;
-      const currentSchneiderReceived = current.schneiderEventsReceivedWith || 0;
-      const newSchneiderMade = currentSchneiderMade + delta.schneiderEventsMade;
-      const newSchneiderReceived = currentSchneiderReceived + delta.schneiderEventsReceived;
-      
-      const currentKontermatschMade = current.kontermatschEventsMadeWith || 0;
-      const currentKontermatschReceived = current.kontermatschEventsReceivedWith || 0;
-      const newKontermatschMade = currentKontermatschMade + delta.kontermatschEventsMade;
-      const newKontermatschReceived = currentKontermatschReceived + delta.kontermatschEventsReceived;
-      
-      const currentWeisMade = current.totalWeisPointsWith || 0;
-      const currentWeisReceived = current.totalWeisReceivedWith || 0;
-      const newWeisMade = currentWeisMade + delta.weisPoints;
-      const newWeisReceived = currentWeisReceived + delta.weisReceived;
-    
+          totalWeisPointsWith: 0,
+          totalWeisReceivedWith: 0,
+          weisDifferenceWith: 0,
+          totalRoundDurationWith: 0,
+          totalRoundsWith: 0,
+          avgRoundDurationWith: 0,
+          trumpfStatistikWith: {},
+          lastPlayedWithTimestamp: admin.firestore.Timestamp.now(),
+        };
+
+    // 1. Neue ABSOLUTE Summen — jetzt mit per-Partner-Werten (pd) statt Session-Total (delta)
+    const newTotalStricheDiff = (current.totalStricheDifferenceWith || 0) + pd.stricheDifferenceWith;
+    const newTotalPointsDiff = (current.totalPointsDifferenceWith || 0) + pd.pointsDifferenceWith;
+
+    const newMatschMade = (current.matschEventsMadeWith || 0) + pd.matschEventsMadeWith;
+    const newMatschReceived = (current.matschEventsReceivedWith || 0) + pd.matschEventsReceivedWith;
+
+    const newSchneiderMade = (current.schneiderEventsMadeWith || 0) + pd.schneiderEventsMadeWith;
+    const newSchneiderReceived = (current.schneiderEventsReceivedWith || 0) + pd.schneiderEventsReceivedWith;
+
+    const newKontermatschMade = (current.kontermatschEventsMadeWith || 0) + pd.kontermatschEventsMadeWith;
+    const newKontermatschReceived = (current.kontermatschEventsReceivedWith || 0) + pd.kontermatschEventsReceivedWith;
+
+    const newWeisMade = (current.totalWeisPointsWith || 0) + pd.weisPointsWith;
+    const newWeisReceived = (current.totalWeisReceivedWith || 0) + pd.weisReceivedWith;
+
     const updated: PartnerPlayerStats = {
       ...current,
-      partnerDisplayName: delta.partnerNames[partnerId] || current.partnerDisplayName, // Update name
-      
-      sessionsPlayedWith: current.sessionsPlayedWith + delta.sessionsPlayed,
-      sessionsWonWith: current.sessionsWonWith + delta.sessionsWon,
-      sessionsLostWith: current.sessionsLostWith + delta.sessionsLost,
-      sessionsDrawWith: current.sessionsDrawWith + delta.sessionsDraw,
-      
-      gamesPlayedWith: current.gamesPlayedWith + delta.gamesPlayed,
-      gamesWonWith: current.gamesWonWith + delta.gamesWon,
-      gamesLostWith: current.gamesLostWith + delta.gamesLost,
-      
+      partnerDisplayName: pd.partnerDisplayName || current.partnerDisplayName,
+
+      sessionsPlayedWith: current.sessionsPlayedWith + pd.sessionsPlayedWith,
+      sessionsWonWith: current.sessionsWonWith + pd.sessionsWonWith,
+      sessionsLostWith: current.sessionsLostWith + pd.sessionsLostWith,
+      sessionsDrawWith: current.sessionsDrawWith + pd.sessionsDrawWith,
+
+      gamesPlayedWith: current.gamesPlayedWith + pd.gamesPlayedWith,
+      gamesWonWith: current.gamesWonWith + pd.gamesWonWith,
+      gamesLostWith: current.gamesLostWith + pd.gamesLostWith,
+
       totalStricheDifferenceWith: newTotalStricheDiff,
       totalPointsDifferenceWith: newTotalPointsDiff,
-      
-      // EVENTS (Neu berechnet & Bilanz abgeleitet)
+
       matschEventsMadeWith: newMatschMade,
       matschEventsReceivedWith: newMatschReceived,
-      matschBilanzWith: newMatschMade - newMatschReceived, // ✅ STATELESS DERIVATION
-      
+      matschBilanzWith: newMatschMade - newMatschReceived,
+
       schneiderEventsMadeWith: newSchneiderMade,
       schneiderEventsReceivedWith: newSchneiderReceived,
-      schneiderBilanzWith: newSchneiderMade - newSchneiderReceived, // ✅ STATELESS DERIVATION
-      
+      schneiderBilanzWith: newSchneiderMade - newSchneiderReceived,
+
       kontermatschEventsMadeWith: newKontermatschMade,
       kontermatschEventsReceivedWith: newKontermatschReceived,
-      kontermatschBilanzWith: newKontermatschMade - newKontermatschReceived, // ✅ STATELESS DERIVATION
-      
-      // WEIS (Neu berechnet & Differenz abgeleitet)
+      kontermatschBilanzWith: newKontermatschMade - newKontermatschReceived,
+
       totalWeisPointsWith: newWeisMade,
       totalWeisReceivedWith: newWeisReceived,
-      weisDifferenceWith: newWeisMade - newWeisReceived, // ✅ STATELESS DERIVATION
-      
+      weisDifferenceWith: newWeisMade - newWeisReceived,
+
       lastPlayedWithTimestamp: sessionData.endedAt || admin.firestore.Timestamp.now(),
     };
     
@@ -949,7 +1182,7 @@ async function updatePartnerStatsSubcollection(
     await partnerStatsRef.set(updated);
   }
   
-  logger.info(`[updatePartnerStatsSubcollection] ✅ Partner Stats aktualisiert (${delta.partnerIds.length} Partner)`);
+  logger.info(`[updatePartnerStatsSubcollection] ✅ Partner Stats aktualisiert (${delta.partnerDeltas.size} Partner)`);
 }
 
 /**
@@ -960,15 +1193,16 @@ async function updateOpponentStatsSubcollection(
   sessionData: any,
   delta: SessionDelta
 ): Promise<void> {
-  for (const opponentId of delta.opponentIds) {
+  // 🆕 KORREKT-Fix: Iteriert über delta.opponentDeltas (per-Gegner-Werte).
+  for (const [opponentId, od] of delta.opponentDeltas) {
     const opponentStatsRef = db.collection(`players/${playerId}/opponentStats`).doc(opponentId);
     const opponentStatsDoc = await opponentStatsRef.get();
-    
+
     const current: OpponentPlayerStats = opponentStatsDoc.exists
       ? opponentStatsDoc.data() as OpponentPlayerStats
       : {
           opponentId,
-          opponentDisplayName: delta.opponentNames[opponentId] || 'Unbekannt',
+          opponentDisplayName: od.opponentDisplayName || 'Unbekannt',
           sessionsPlayedAgainst: 0,
           sessionsWonAgainst: 0,
           sessionsLostAgainst: 0,
@@ -998,65 +1232,55 @@ async function updateOpponentStatsSubcollection(
           trumpfStatistikAgainst: {},
           lastPlayedAgainstTimestamp: admin.firestore.Timestamp.now(),
         };
-    
-    // 1. Berechne neue ABSOLUTE Summen für Opponent (konsistente Differenzen)
-    const newTotalStricheDiff = (current.totalStricheDifferenceAgainst || 0) + delta.stricheDifference;
-    const newTotalPointsDiff = (current.totalPointsDifferenceAgainst || 0) + delta.pointsDifference;
-    
-    const currentMatschMade = current.matschEventsMadeAgainst || 0;
-    const currentMatschReceived = current.matschEventsReceivedAgainst || 0;
-    const newMatschMade = currentMatschMade + delta.matschEventsMade;
-    const newMatschReceived = currentMatschReceived + delta.matschEventsReceived;
-    
-    const currentSchneiderMade = current.schneiderEventsMadeAgainst || 0;
-    const currentSchneiderReceived = current.schneiderEventsReceivedAgainst || 0;
-    const newSchneiderMade = currentSchneiderMade + delta.schneiderEventsMade;
-    const newSchneiderReceived = currentSchneiderReceived + delta.schneiderEventsReceived;
-    
-    const currentKontermatschMade = current.kontermatschEventsMadeAgainst || 0;
-    const currentKontermatschReceived = current.kontermatschEventsReceivedAgainst || 0;
-    const newKontermatschMade = currentKontermatschMade + delta.kontermatschEventsMade;
-    const newKontermatschReceived = currentKontermatschReceived + delta.kontermatschEventsReceived;
-    
-    const currentWeisMade = current.totalWeisPointsAgainst || 0;
-    const currentWeisReceived = current.totalWeisReceivedAgainst || 0;
-    const newWeisMade = currentWeisMade + delta.weisPoints;
-    const newWeisReceived = currentWeisReceived + delta.weisReceived;
-    
+
+    // 1. Neue ABSOLUTE Summen — jetzt mit per-Gegner-Werten (od) statt Session-Total (delta)
+    const newTotalStricheDiff = (current.totalStricheDifferenceAgainst || 0) + od.stricheDifferenceAgainst;
+    const newTotalPointsDiff = (current.totalPointsDifferenceAgainst || 0) + od.pointsDifferenceAgainst;
+
+    const newMatschMade = (current.matschEventsMadeAgainst || 0) + od.matschEventsMadeAgainst;
+    const newMatschReceived = (current.matschEventsReceivedAgainst || 0) + od.matschEventsReceivedAgainst;
+
+    const newSchneiderMade = (current.schneiderEventsMadeAgainst || 0) + od.schneiderEventsMadeAgainst;
+    const newSchneiderReceived = (current.schneiderEventsReceivedAgainst || 0) + od.schneiderEventsReceivedAgainst;
+
+    const newKontermatschMade = (current.kontermatschEventsMadeAgainst || 0) + od.kontermatschEventsMadeAgainst;
+    const newKontermatschReceived = (current.kontermatschEventsReceivedAgainst || 0) + od.kontermatschEventsReceivedAgainst;
+
+    const newWeisMade = (current.totalWeisPointsAgainst || 0) + od.weisPointsAgainst;
+    const newWeisReceived = (current.totalWeisReceivedAgainst || 0) + od.weisReceivedAgainst;
+
     const updated: OpponentPlayerStats = {
       ...current,
-      opponentDisplayName: delta.opponentNames[opponentId] || current.opponentDisplayName, // Update name
-      
-      sessionsPlayedAgainst: current.sessionsPlayedAgainst + delta.sessionsPlayed,
-      sessionsWonAgainst: current.sessionsWonAgainst + delta.sessionsWon,
-      sessionsLostAgainst: current.sessionsLostAgainst + delta.sessionsLost,
-      sessionsDrawAgainst: current.sessionsDrawAgainst + delta.sessionsDraw,
-      
-      gamesPlayedAgainst: current.gamesPlayedAgainst + delta.gamesPlayed,
-      gamesWonAgainst: current.gamesWonAgainst + delta.gamesWon,
-      gamesLostAgainst: current.gamesLostAgainst + delta.gamesLost,
-      
+      opponentDisplayName: od.opponentDisplayName || current.opponentDisplayName,
+
+      sessionsPlayedAgainst: current.sessionsPlayedAgainst + od.sessionsPlayedAgainst,
+      sessionsWonAgainst: current.sessionsWonAgainst + od.sessionsWonAgainst,
+      sessionsLostAgainst: current.sessionsLostAgainst + od.sessionsLostAgainst,
+      sessionsDrawAgainst: current.sessionsDrawAgainst + od.sessionsDrawAgainst,
+
+      gamesPlayedAgainst: current.gamesPlayedAgainst + od.gamesPlayedAgainst,
+      gamesWonAgainst: current.gamesWonAgainst + od.gamesWonAgainst,
+      gamesLostAgainst: current.gamesLostAgainst + od.gamesLostAgainst,
+
       totalStricheDifferenceAgainst: newTotalStricheDiff,
       totalPointsDifferenceAgainst: newTotalPointsDiff,
-      
-      // EVENTS (Neu berechnet & Bilanz abgeleitet)
+
       matschEventsMadeAgainst: newMatschMade,
       matschEventsReceivedAgainst: newMatschReceived,
-      matschBilanzAgainst: newMatschMade - newMatschReceived, // ✅ STATELESS DERIVATION
-      
+      matschBilanzAgainst: newMatschMade - newMatschReceived,
+
       schneiderEventsMadeAgainst: newSchneiderMade,
       schneiderEventsReceivedAgainst: newSchneiderReceived,
-      schneiderBilanzAgainst: newSchneiderMade - newSchneiderReceived, // ✅ STATELESS DERIVATION
-      
+      schneiderBilanzAgainst: newSchneiderMade - newSchneiderReceived,
+
       kontermatschEventsMadeAgainst: newKontermatschMade,
       kontermatschEventsReceivedAgainst: newKontermatschReceived,
-      kontermatschBilanzAgainst: newKontermatschMade - newKontermatschReceived, // ✅ STATELESS DERIVATION
-      
-      // WEIS (Neu berechnet & Differenz abgeleitet)
+      kontermatschBilanzAgainst: newKontermatschMade - newKontermatschReceived,
+
       totalWeisPointsAgainst: newWeisMade,
       totalWeisReceivedAgainst: newWeisReceived,
-      weisDifferenceAgainst: newWeisMade - newWeisReceived, // ✅ STATELESS DERIVATION
-      
+      weisDifferenceAgainst: newWeisMade - newWeisReceived,
+
       lastPlayedAgainstTimestamp: sessionData.endedAt || admin.firestore.Timestamp.now(),
     };
     
@@ -1098,7 +1322,7 @@ async function updateOpponentStatsSubcollection(
     await opponentStatsRef.set(updated);
   }
   
-  logger.info(`[updateOpponentStatsSubcollection] ✅ Opponent Stats aktualisiert (${delta.opponentIds.length} Gegner)`);
+  logger.info(`[updateOpponentStatsSubcollection] ✅ Opponent Stats aktualisiert (${delta.opponentDeltas.size} Gegner)`);
 }
 
 /**
