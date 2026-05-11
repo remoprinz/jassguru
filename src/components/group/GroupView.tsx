@@ -1161,8 +1161,10 @@ export const GroupView: React.FC<GroupViewProps> = ({
     setEloRatingsLoading(true);
     
     // ✅ IMMER globale Ratings laden (über alle Gruppen hinweg)
+    // ⚡ computeSessionDeltas=false: GroupView nutzt playerDeltas (aus jassGameSummaries),
+    //    NICHT rating.lastSessionDelta — spart pro Spieler eine ratingHistory-Query.
     const playerIds = members.map(m => m.id || m.userId).filter(Boolean);
-    loadPlayerRatings(playerIds)
+    loadPlayerRatings(playerIds, false)
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);
       })
@@ -1241,10 +1243,11 @@ export const GroupView: React.FC<GroupViewProps> = ({
     if (!isPublicView && members && members.length > 0) return;
     
     // 🌍 Für öffentliche Ansicht: Lade Mitglieder und dann globale Ratings
+    // ⚡ computeSessionDeltas=false: identische Begründung wie oben.
     getDocs(collection(db, `groups/${groupId}/members`))
       .then((membersSnap) => {
         const playerIds = membersSnap.docs.map(doc => doc.id);
-        return loadPlayerRatings(playerIds);
+        return loadPlayerRatings(playerIds, false);
       })
       .then((ratingsMap) => {
         setPlayerRatings(ratingsMap);

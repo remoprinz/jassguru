@@ -175,11 +175,19 @@ export async function loadGroupLeaderboard(groupId: string): Promise<Map<string,
 }
 
 /**
- * 🆕 ERWEITERT: Lädt Elo-Ratings UND berechnet das Delta zwischen vorletzter und letzter Session
+ * 🆕 ERWEITERT: Lädt Elo-Ratings UND (optional) berechnet das Delta zwischen vorletzter und letzter Session
+ *
+ * @param computeSessionDeltas Wenn true (default), wird pro Spieler eine zusätzliche ratingHistory-Query
+ *   (30 docs) ausgeführt um lastSessionDelta live zu berechnen. Aufrufer, die diesen Wert nicht
+ *   benötigen (z.B. GroupView, das deltas aus playerDeltas-Map bezieht), sollten false übergeben
+ *   — spart bei n Spielern n × ratingHistory-Reads.
  */
-export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string, PlayerRatingWithTier>> {
+export async function loadPlayerRatings(
+  playerIds: string[],
+  computeSessionDeltas: boolean = true,
+): Promise<Map<string, PlayerRatingWithTier>> {
   const ratings = new Map<string, PlayerRatingWithTier>();
-  
+
   if (playerIds.length === 0) return ratings;
   
   try {
@@ -222,16 +230,19 @@ export async function loadPlayerRatings(playerIds: string[]): Promise<Map<string
       });
     });
     
-    // 🆕 NEU: Berechne live das Delta zwischen vorletzter und letzter Session
-    const deltaResults = await calculateLastSessionRatingDeltasBatch(playerIds);
-    
-    // Ersetze lastSessionDelta mit den berechneten Werten
-    deltaResults.forEach((delta, playerId) => {
-      const rating = ratings.get(playerId);
-      if (rating && delta !== null) {
-        rating.lastSessionDelta = delta;
-      }
-    });
+    // 🆕 Berechne (optional) live das Delta zwischen vorletzter und letzter Session
+    // — wird nur ausgeführt wenn der Aufrufer das wirklich braucht (siehe Param-Doc).
+    if (computeSessionDeltas) {
+      const deltaResults = await calculateLastSessionRatingDeltasBatch(playerIds);
+
+      // Ersetze lastSessionDelta mit den berechneten Werten
+      deltaResults.forEach((delta, playerId) => {
+        const rating = ratings.get(playerId);
+        if (rating && delta !== null) {
+          rating.lastSessionDelta = delta;
+        }
+      });
+    }
     
   } catch (error) {
     console.warn('Fehler beim Laden der Elo-Ratings:', error);
