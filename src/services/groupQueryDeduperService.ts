@@ -2,29 +2,31 @@ import { db } from '@/services/firebaseInit';
 import { collection, getDocs, query, where, orderBy, QuerySnapshot } from 'firebase/firestore';
 
 /**
- * ⚡ REQUEST-DEDUPER für GroupView-Charts.
+ * ⚡ CACHE für GroupView-Queries (Sessions + Players).
  *
  * Mehrere Charts auf GroupView (Elo-Verlauf, Team-Striche, Team-Points, Team-Matsch)
- * laden parallel beim Mount EXAKT dieselbe jassGameSummaries-Query und EXAKT dieselbe
- * players-Query. Dieser Deduper sorgt dafür, dass nur EIN Firestore-Roundtrip pro
- * Query passiert — alle Aufrufer teilen sich das in-flight Promise.
+ * laden EXAKT dieselbe jassGameSummaries-Query und dieselbe players-Query.
  *
- * KEIN persistenter Cache: das Promise wird sofort nach Resolve aus der Map entfernt,
- * sodass der nächste Aufruf nach erfolgreichem Resolve frische Daten holt. Damit
- * gibt es keinerlei Staleness-Risiko — der Deduper kollabiert nur konkurrierende
- * Anfragen, die sowieso identische Daten zurückgeben würden.
+ * Dieser Cache hält das Resultat dauerhaft (für die ganze Browser-Session), sodass
+ * Tab-Wechsel und Re-Mounts keine erneuten Roundtrips auslösen. Invalidiert wird
+ * explizit über `invalidateGroupQueries()` — typischerweise nach erfolgreichem
+ * Session-Abschluss (siehe ResultatKreidetafel.tsx).
+ *
+ * In-flight Promises werden weiterhin deduped, damit konkurrierende Aufrufer
+ * sich denselben Roundtrip teilen.
  */
 
+const sessionsCache = new Map<string, QuerySnapshot>();
+const playersCache = new Map<string, QuerySnapshot>();
 const sessionsInFlight = new Map<string, Promise<QuerySnapshot>>();
 const playersInFlight = new Map<string, Promise<QuerySnapshot>>();
 
-/**
- * Liefert alle completed jassGameSummaries einer Gruppe, sortiert chronologisch.
- * Konkurrierende Aufrufe teilen sich denselben Roundtrip.
- */
 export function getGroupSessionsSnapshot(groupId: string): Promise<QuerySnapshot> {
-  const existing = sessionsInFlight.get(groupId);
-  if (existing) return existing;
+  const cached = sessionsCache.get(groupId);
+  if (cached) return Promise.resolve(cached);
+
+  const inflight = sessionsInFlight.get(groupId);
+  if (inflight) return inflight;
 
   const promise = getDocs(
     query(
@@ -32,7 +34,10 @@ export function getGroupSessionsSnapshot(groupId: string): Promise<QuerySnapshot
       where('status', '==', 'completed'),
       orderBy('completedAt', 'asc'),
     ),
-  ).finally(() => {
+  ).then(snap => {
+    sessionsCache.set(groupId, snap);
+    return snap;
+  }).finally(() => {
     sessionsInFlight.delete(groupId);
   });
 
@@ -40,20 +45,40 @@ export function getGroupSessionsSnapshot(groupId: string): Promise<QuerySnapshot
   return promise;
 }
 
-/**
- * Liefert alle Player-Docs einer Gruppe (für DisplayName-Auflösung in Team-Charts).
- * Konkurrierende Aufrufe teilen sich denselben Roundtrip.
- */
 export function getGroupPlayersSnapshot(groupId: string): Promise<QuerySnapshot> {
-  const existing = playersInFlight.get(groupId);
-  if (existing) return existing;
+  const cached = playersCache.get(groupId);
+  if (cached) return Promise.resolve(cached);
+
+  const inflight = playersInFlight.get(groupId);
+  if (inflight) return inflight;
 
   const promise = getDocs(
     query(collection(db, 'players'), where('groupIds', 'array-contains', groupId)),
-  ).finally(() => {
+  ).then(snap => {
+    playersCache.set(groupId, snap);
+    return snap;
+  }).finally(() => {
     playersInFlight.delete(groupId);
   });
 
   playersInFlight.set(groupId, promise);
   return promise;
+}
+
+/**
+ * Leert die Group-Query-Caches. Wenn groupId gegeben → nur diese Gruppe, sonst alle.
+ * Wird typischerweise nach Session-Abschluss aufgerufen.
+ */
+export function invalidateGroupQueries(groupId?: string): void {
+  if (groupId) {
+    sessionsCache.delete(groupId);
+    playersCache.delete(groupId);
+    sessionsInFlight.delete(groupId);
+    playersInFlight.delete(groupId);
+  } else {
+    sessionsCache.clear();
+    playersCache.clear();
+    sessionsInFlight.clear();
+    playersInFlight.clear();
+  }
 }

@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
+import { invalidateAllSessionCaches } from '@/services/sessionCacheInvalidation';
 import { useUIStore, UIStore } from '@/store/uiStore';
 import { useGameStore } from '@/store/gameStore';
 import { FiX, FiSkipBack, FiLoader } from 'react-icons/fi';
@@ -1126,11 +1127,14 @@ const ResultatKreidetafel = ({
                 pairingIdentifiers: sessionTeamsData.pairingIdentifiers
               };
               
-              const result = await finalizeFunction({ 
-                sessionId: currentSessionIdLocal, // Jetzt garantiert string 
+              const result = await finalizeFunction({
+                sessionId: currentSessionIdLocal, // Jetzt garantiert string
                 expectedGameNumber: currentGameNumberLocal,
-                initialSessionData: initialSessionData 
+                initialSessionData: initialSessionData
               });
+
+              // ⚡ Frische Daten: Caches nach erfolgreichem Session-Abschluss leeren.
+              invalidateAllSessionCaches();
           } catch (error) {
               console.error("[ResultatKreidetafel] Error calling finalizeSession (Real Online Session):", error);
               uiStore.showNotification({type: "error", message: "Fehler beim Finalisieren der Session-Statistik."});
@@ -2138,6 +2142,8 @@ const ResultatKreidetafel = ({
                           initialSessionData: initialPayloadData
                         });
 
+                        // ⚡ Frische Daten: Caches nach erfolgreichem Session-Abschluss leeren.
+                        invalidateAllSessionCaches();
 
                         break;
                       } catch (error: any) {

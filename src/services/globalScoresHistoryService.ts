@@ -44,6 +44,19 @@ const THEME_COLORS: Record<string, { border: string; background: string }> = {
 
 const emptyChart: ChartData = { labels: [], datasets: [] };
 
+/**
+ * ⚡ CACHE für ProfileView-Stats-Charts.
+ *
+ * Key = playerId + limitCount + profileTheme. Hält das fertige ScoresCharts-
+ * Objekt im Speicher, bis es explizit über invalidateScoresHistoryCache()
+ * geleert wird (typischerweise nach Session-Abschluss).
+ */
+const scoresCache = new Map<string, ScoresCharts>();
+
+export function invalidateScoresHistoryCache(): void {
+  scoresCache.clear();
+}
+
 function getColors(theme: string) {
   return THEME_COLORS[theme] || THEME_COLORS.blue;
 }
@@ -67,6 +80,11 @@ export async function getGlobalPlayerScoresCharts(
 ): Promise<ScoresCharts> {
   const colors = getColors(profileTheme);
 
+  // ⚡ Cache-Hit? Sofort zurückgeben.
+  const cacheKey = `${playerId}::${limitCount}::${profileTheme}`;
+  const cached = scoresCache.get(cacheKey);
+  if (cached) return cached;
+
   try {
     const snap = await getDocs(collection(db, 'players', playerId, 'scoresHistory'));
 
@@ -77,13 +95,15 @@ export async function getGlobalPlayerScoresCharts(
         getGlobalPlayerStricheTimeSeries(playerId, limitCount, profileTheme),
         getGlobalPlayerPointsTimeSeries(playerId, limitCount, profileTheme),
       ]);
-      return {
+      const result: ScoresCharts = {
         striche,
         points,
         matsch: emptyChart,
         schneider: emptyChart,
         kontermatsch: emptyChart,
       };
+      scoresCache.set(cacheKey, result);
+      return result;
     }
 
     // Einmal sortieren, dann 5× draus rechnen
@@ -218,7 +238,9 @@ export async function getGlobalPlayerScoresCharts(
       }],
     };
 
-    return { striche, points, matsch, schneider, kontermatsch };
+    const result: ScoresCharts = { striche, points, matsch, schneider, kontermatsch };
+    scoresCache.set(cacheKey, result);
+    return result;
   } catch (error) {
     console.error('[getGlobalPlayerScoresCharts] Fehler:', error);
     return {

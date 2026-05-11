@@ -7,6 +7,26 @@ export const JASS_ELO_CONFIG = {
   ELO_SCALE: 1000,
 };
 
+/**
+ * ⚡ CACHE für loadPlayerRatings-Resultate.
+ *
+ * Key = sortierte playerIds + computeSessionDeltas-Flag. Hält die fertige Map
+ * im Speicher, bis sie explizit über invalidatePlayerRatingsCache() geleert
+ * wird (typischerweise nach Session-Abschluss).
+ *
+ * Damit kostet der Login + jeder Tab-Wechsel auf die Elo-Rangliste nach dem
+ * ersten Mal NULL Firestore-Reads.
+ */
+const ratingsCache = new Map<string, Map<string, PlayerRatingWithTier>>();
+
+function makeRatingsCacheKey(playerIds: string[], computeSessionDeltas: boolean): string {
+  return `${computeSessionDeltas ? '1' : '0'}::${[...playerIds].sort().join(',')}`;
+}
+
+export function invalidatePlayerRatingsCache(): void {
+  ratingsCache.clear();
+}
+
 export interface PlayerRating {
   rating: number;
   gamesPlayed: number;
@@ -189,6 +209,14 @@ export async function loadPlayerRatings(
   const ratings = new Map<string, PlayerRatingWithTier>();
 
   if (playerIds.length === 0) return ratings;
+
+  // ⚡ Cache-Hit? Sofort zurückgeben (kein Firestore-Roundtrip).
+  const cacheKey = makeRatingsCacheKey(playerIds, computeSessionDeltas);
+  const cached = ratingsCache.get(cacheKey);
+  if (cached) {
+    // Defensive Copy, damit Aufrufer-Mutationen den Cache nicht verschmutzen
+    return new Map(cached);
+  }
   
   try {
     // Batch-Load in Gruppen von 10 (Firestore 'in' limit)
@@ -243,10 +271,13 @@ export async function loadPlayerRatings(
         }
       });
     }
-    
+
+    // ⚡ Cache füllen — defensive Copy, damit Aufrufer-Mutationen den Cache nicht verschmutzen
+    ratingsCache.set(cacheKey, new Map(ratings));
+
   } catch (error) {
     console.warn('Fehler beim Laden der Elo-Ratings:', error);
   }
-  
+
   return ratings;
 }
