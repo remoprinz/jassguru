@@ -469,6 +469,7 @@ export async function getYearGroupStats(
     let sessionCount = 0;       // nur Regular Sessions (für Ø Dauer pro Partie)
     let tournamentCount = 0;
     let gameCount = 0;
+    let regularSessionGameCount = 0; // Spiele NUR in Regular Sessions (für Ø Spiele/Partie)
     let totalRounds = 0;
     let totalMatsch = 0;
     let roundDurationSumMillis = 0;
@@ -499,6 +500,7 @@ export async function getYearGroupStats(
       } else {
         sessionCount++;
         regularSessionPlayTimeMillis += durationMs;
+        regularSessionGameCount += games;
       }
 
       if (typeof d.totalRounds === 'number') totalRounds += d.totalRounds;
@@ -561,7 +563,7 @@ export async function getYearGroupStats(
     return {
       avgSessionDuration: avgSessionDurMs > 0 ? formatDuration(Math.round(avgSessionDurMs / 1000)) : '-',
       avgGameDuration: avgGameDurMs > 0 ? formatDuration(Math.round(avgGameDurMs / 1000)) : '-',
-      avgGamesPerSession: sessionCount > 0 ? gameCount / sessionCount : 0,
+      avgGamesPerSession: sessionCount > 0 ? regularSessionGameCount / sessionCount : 0,
       avgRoundsPerGame: gameCount > 0 ? totalRounds / gameCount : 0,
       avgMatschPerGame: gameCount > 0 ? totalMatsch / gameCount : 0,
       avgRoundDuration: avgRoundDurMs > 0 ? formatDuration(Math.round(avgRoundDurMs / 1000)) : '-',
