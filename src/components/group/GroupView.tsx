@@ -34,6 +34,7 @@ import { generateBlurPlaceholder } from '@/utils/imageOptimization';
 import { Skeleton } from '@/components/ui/skeleton';
 // NEU: Jass-Elo Service
 import { loadPlayerRatings, loadPlayerRatingsSync, type PlayerRatingWithTier } from '@/services/jassElo';
+import { getRatingTier } from '@/shared/rating-tiers';
 import { getRanglisteFromCache, setRanglisteCache, getGroupEloVerlaufFromCache, setGroupEloVerlaufCache } from '@/services/eloInstantCache';
 import { YearFilter } from '@/components/group/YearFilter';
 import {
@@ -45,7 +46,6 @@ import {
   aggregateTeamStrichePointsForYear,
   aggregatePlayerEventCountsForYear,
   aggregateTeamEventCountsForYear,
-  deriveYearEndRatingsFromChart,
 } from '@/utils/yearStatsFilter';
 import { collection, getDocs, query, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
@@ -55,9 +55,10 @@ import PieChart from '@/components/charts/PieChart';
 import WinRateChart from '@/components/charts/WinRateChart';
 
   // 🚀 OPTIMIERTE CHART-SERVICES: Backfill-Daten mit Fallback
-import { 
-  getOptimizedRatingChart, 
-  getOptimizedStricheChart, 
+import {
+  getOptimizedRatingChart,
+  getYearEndPlayerRatings,
+  getOptimizedStricheChart,
   getOptimizedPointsChart,
   getOptimizedMatschChart,
   getOptimizedSchneiderChart,
@@ -1065,15 +1066,45 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return aggregateTeamEventCountsForYear(sessionsInSelectedYear || [], playerDisplayNamesMap);
   }, [teamEventCountsMap, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
 
-  // 🗓️ Year-Filter: Elo-Rangliste = Snapshot am Jahresende.
-  //    Wir nehmen den UNGEFILTERTEN Elo-Chart und greifen für jeden Spieler den
-  //    letzten Wert, dessen Datum noch im Zieljahr oder davor liegt. So tauchen
-  //    auch Spieler auf, die im Zieljahr selbst nicht gespielt haben (Rating
-  //    wird vom Vorjahr eingefroren).
+  // 🗓️ Year-Filter: Elo-Rangliste = Year-End-Snapshot der Spieler, die im Jahr
+  //    tatsächlich gespielt haben. Wir laden direkt aus Sessions (playerFinalRatings),
+  //    nicht aus dem Elo-Chart — der hat Display-Filter (1-Jahr-Inaktivität, ≥2 Sessions),
+  //    die historische Ranglisten zerstückeln.
+  const [yearEndRatingsMap, setYearEndRatingsMap] = React.useState<Map<string, PlayerRatingWithTier>>(new Map());
+  React.useEffect(() => {
+    if (selectedYear === 'gesamt' || !currentGroup?.id) {
+      setYearEndRatingsMap(new Map());
+      return;
+    }
+    let cancelled = false;
+    getYearEndPlayerRatings(currentGroup.id, selectedYear)
+      .then(raw => {
+        if (cancelled) return;
+        const out = new Map<string, PlayerRatingWithTier>();
+        raw.forEach((v, k) => {
+          const tier = getRatingTier(v.rating);
+          out.set(k, {
+            id: v.id,
+            rating: v.rating,
+            gamesPlayed: 0,
+            lastUpdated: Date.now(),
+            displayName: v.displayName,
+            tier: tier.name,
+            tierEmoji: tier.emoji,
+            lastDelta: 0,
+            lastSessionDelta: v.lastDelta,
+          });
+        });
+        setYearEndRatingsMap(out);
+      })
+      .catch(err => console.warn('[GroupView] getYearEndPlayerRatings:', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id, selectedYear]);
+
   const displayPlayerRatings = useMemo(() => {
     if (selectedYear === 'gesamt') return playerRatings;
-    return deriveYearEndRatingsFromChart(chartData, selectedYear);
-  }, [playerRatings, chartData, selectedYear]);
+    return yearEndRatingsMap;
+  }, [playerRatings, yearEndRatingsMap, selectedYear]);
 
   // ✅ NEU: Ranglisten aus Backfill-Daten (statt groupStats)
   const stricheRanking = useMemo(() => {

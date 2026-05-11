@@ -274,6 +274,59 @@ export async function getOptimizedRatingChart(
 }
 
 /**
+ * 🗓️ Year-End-Rating-Snapshot pro Spieler.
+ *
+ * Liest direkt aus den Session-Dokumenten (`playerFinalRatings` pro Session)
+ * und umgeht damit die Display-Filter aus `getOptimizedRatingChart`
+ * (1-Jahr-Inaktivität + minDataPoints ≥ 2), die für Year-Filter nicht passen.
+ *
+ * Logik: Sessions chronologisch ASC durchgehen, nur die im Zieljahr behalten.
+ * Für jeden Spieler die Rating-Zahl aus der LETZTEN gespielten Session im Jahr
+ * speichern. Wer im Jahr nicht gespielt hat, taucht NICHT auf.
+ */
+export async function getYearEndPlayerRatings(
+  groupId: string,
+  year: number,
+): Promise<Map<string, { id: string; rating: number; displayName: string; lastDelta: number }>> {
+  const result = new Map<string, { id: string; rating: number; displayName: string; lastDelta: number }>();
+  try {
+    const summariesSnap = await getGroupSessionsSnapshot(groupId);
+    if (summariesSnap.empty) return result;
+
+    type Row = { ts: number; data: any };
+    const rows: Row[] = [];
+    summariesSnap.docs.forEach(docSnap => {
+      const d = docSnap.data();
+      if (!d.playerFinalRatings) return;
+      const c = d.completedAt;
+      if (!c) return;
+      const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
+      if (!ts) return;
+      if (new Date(ts).getFullYear() !== year) return;
+      rows.push({ ts, data: d });
+    });
+    rows.sort((a, b) => a.ts - b.ts);
+
+    for (const row of rows) {
+      const pfr = row.data.playerFinalRatings || {};
+      for (const playerId of Object.keys(pfr)) {
+        const r = pfr[playerId];
+        if (!r || typeof r.rating !== 'number') continue;
+        result.set(playerId, {
+          id: playerId,
+          rating: r.rating,
+          displayName: r.displayName || playerId,
+          lastDelta: typeof r.ratingDelta === 'number' ? r.ratingDelta : 0,
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('[getYearEndPlayerRatings] Fehler:', error);
+  }
+  return result;
+}
+
+/**
  * 🚀 Lade Strichdifferenz-Chart aus aggregated/chartData_striche
  */
 export async function getOptimizedStricheChart(
