@@ -684,7 +684,7 @@ export async function getOptimizedTeamMatschChart(
       if (!completedAt) return;
       
       const timestamp = completedAt.toDate ? completedAt.toDate() : new Date(completedAt._seconds * 1000);
-      const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
       labels.push(label);
       
       const sessionId = summaryDoc.id;
@@ -1509,7 +1509,7 @@ export async function getOptimizedTeamStricheChart(
       if (!completedAt) return;
       
       const timestamp = completedAt.toDate ? completedAt.toDate() : new Date(completedAt._seconds * 1000);
-      const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
       labels.push(label);
       
       const sessionId = summaryDoc.id;
@@ -1782,7 +1782,7 @@ export async function getOptimizedTeamPointsChart(
       if (!completedAt) return;
       
       const timestamp = completedAt.toDate ? completedAt.toDate() : new Date(completedAt._seconds * 1000);
-      const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+      const label = timestamp.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' });
       labels.push(label);
       
       const sessionId = summaryDoc.id;

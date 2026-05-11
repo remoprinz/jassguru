@@ -45,7 +45,7 @@ import {
   aggregateTeamStrichePointsForYear,
   aggregatePlayerEventCountsForYear,
   aggregateTeamEventCountsForYear,
-  derivePlayerRatingsFromChart,
+  deriveYearEndRatingsFromChart,
 } from '@/utils/yearStatsFilter';
 import { collection, getDocs, query, where, orderBy, limit, getDoc, doc } from 'firebase/firestore';
 import { db } from '@/services/firebaseInit';
@@ -1065,11 +1065,15 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return aggregateTeamEventCountsForYear(sessionsInSelectedYear || [], playerDisplayNamesMap);
   }, [teamEventCountsMap, sessionsInSelectedYear, selectedYear, playerDisplayNamesMap]);
 
-  // 🗓️ Year-Filter: Elo-Rangliste = letzter Datenpunkt pro Spieler im Jahr (Snapshot)
+  // 🗓️ Year-Filter: Elo-Rangliste = Snapshot am Jahresende.
+  //    Wir nehmen den UNGEFILTERTEN Elo-Chart und greifen für jeden Spieler den
+  //    letzten Wert, dessen Datum noch im Zieljahr oder davor liegt. So tauchen
+  //    auch Spieler auf, die im Zieljahr selbst nicht gespielt haben (Rating
+  //    wird vom Vorjahr eingefroren).
   const displayPlayerRatings = useMemo(() => {
     if (selectedYear === 'gesamt') return playerRatings;
-    return derivePlayerRatingsFromChart(displayChartData);
-  }, [playerRatings, displayChartData, selectedYear]);
+    return deriveYearEndRatingsFromChart(chartData, selectedYear);
+  }, [playerRatings, chartData, selectedYear]);
 
   // ✅ NEU: Ranglisten aus Backfill-Daten (statt groupStats)
   const stricheRanking = useMemo(() => {

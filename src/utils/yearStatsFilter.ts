@@ -407,27 +407,79 @@ import type { PlayerRatingWithTier } from '@/services/jassElo';
 import { getRatingTier } from '@/shared/rating-tiers';
 
 /**
- * Aus den gefilterten Elo-Chart-Daten (= ein bestimmtes Jahr) das Year-End-Rating
- * pro Spieler ableiten (Snapshot-Logik: letzter Wert im Jahr).
+ * Year-End-Rating-Snapshot pro Spieler.
  *
- * Spieler ohne Datenpunkt im Jahr: nicht enthalten in der Map.
+ * Liest den UNGEFILTERTEN Elo-Chart und liefert für jeden Spieler den letzten
+ * gültigen Rating-Wert mit Label-Datum AM ODER VOR Jahresende des Zieljahres.
+ *
+ * Damit erscheinen auch Spieler, die im Zieljahr selbst nicht gespielt haben,
+ * mit ihrem zuletzt bekannten Rating (z.B. ein 2025er-Wert wird für „2026"
+ * eingefroren, wenn der Spieler 2026 nicht aktiv war).
+ *
+ * Spieler ohne einen einzigen Datenpunkt vor/im Zieljahr: nicht enthalten.
+ */
+export function deriveYearEndRatingsFromChart(
+  chartData: ChartData | null,
+  year: number,
+): Map<string, PlayerRatingWithTier> {
+  const result = new Map<string, PlayerRatingWithTier>();
+  if (!chartData || !Array.isArray(chartData.datasets) || !Array.isArray(chartData.labels)) {
+    return result;
+  }
+
+  // Höchster Label-Index, dessen Datum noch im Zieljahr oder davor liegt.
+  let lastIdxInOrBefore = -1;
+  for (let i = 0; i < chartData.labels.length; i++) {
+    const d = parseGermanDate(chartData.labels[i]);
+    if (!d) continue;
+    if (d.getFullYear() <= year) lastIdxInOrBefore = i;
+  }
+  if (lastIdxInOrBefore < 0) return result;
+
+  for (const ds of chartData.datasets) {
+    if (!ds.playerId || !Array.isArray(ds.data)) continue;
+    let lastVal: number | null = null;
+    const startIdx = Math.min(lastIdxInOrBefore, ds.data.length - 1);
+    for (let i = startIdx; i >= 0; i--) {
+      const v = ds.data[i];
+      if (v === null || v === undefined) continue;
+      const n = Number(v);
+      if (Number.isFinite(n)) { lastVal = n; break; }
+    }
+    if (lastVal === null) continue;
+    const tier = getRatingTier(lastVal);
+    result.set(ds.playerId, {
+      id: ds.playerId,
+      rating: lastVal,
+      gamesPlayed: 0,
+      lastUpdated: Date.now(),
+      displayName: ds.label || ds.displayName || ds.playerId,
+      tier: tier.name,
+      tierEmoji: tier.emoji,
+      lastDelta: 0,
+      lastSessionDelta: 0,
+    });
+  }
+  return result;
+}
+
+/**
+ * @deprecated Verwende `deriveYearEndRatingsFromChart(originalChart, year)` —
+ * gibt den vorherigen Wert für Spieler ohne Session im Jahr zurück.
  */
 export function derivePlayerRatingsFromChart(
   filteredEloChart: ChartData | null,
 ): Map<string, PlayerRatingWithTier> {
   const result = new Map<string, PlayerRatingWithTier>();
   if (!filteredEloChart || !Array.isArray(filteredEloChart.datasets)) return result;
-
   for (const ds of filteredEloChart.datasets) {
     if (!ds.playerId || !Array.isArray(ds.data)) continue;
-    // Finde letzten gültigen Datenpunkt (Number)
     let lastVal: number | null = null;
     for (let i = ds.data.length - 1; i >= 0; i--) {
-      const v = Number(ds.data[i]);
-      if (Number.isFinite(v)) {
-        lastVal = v;
-        break;
-      }
+      const v = ds.data[i];
+      if (v === null || v === undefined) continue;
+      const n = Number(v);
+      if (Number.isFinite(n)) { lastVal = n; break; }
     }
     if (lastVal === null) continue;
     const tier = getRatingTier(lastVal);
