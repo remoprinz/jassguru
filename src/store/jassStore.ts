@@ -688,22 +688,24 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
         // ✅ REAKTIVIERT: Client-seitiger Schreibzugriff auf jassGameSummaries
         // Firestore Rules erlauben jetzt authentifizierten Teilnehmern das Schreiben
         try {
-          // 🚨 FIX: Bestimme Rosen10player für das erste Spiel der Session
+          // 🚨 FIX: Bestimme Rosen10player für das erste Spiel der Session.
+          //    Rosen10 = wer Rosen-10 hatte = STARTSPIELER der ersten Runde.
+          //    Wir nutzen startingPlayer (round.startingPlayer), NICHT currentPlayer —
+          //    letzterer ist der Trumpf-Ansager und weicht beim Schieben ab.
           let rosen10PlayerForGame: string | null = null;
           if (currentGame && typeof currentGame.id === 'number' && currentGame.id === 1) {
-            // Erstes Spiel der Session - finde den ersten Trumpf-Ansager
             // ✅ KRITISCHER FIX: Verwende updatedGame.roundHistory statt gameStore.roundHistory
-            const firstJassRound = updatedGame.roundHistory.find(round => 
+            const firstJassRound = updatedGame.roundHistory.find(round =>
               round.actionType === 'jass' && 'farbe' in round && round.farbe
             );
-            if (firstJassRound && 'currentPlayer' in firstJassRound) {
-              const playerNumber = firstJassRound.currentPlayer;
+            if (firstJassRound && 'startingPlayer' in firstJassRound) {
+              const playerNumber = firstJassRound.startingPlayer;
               const playerIndex = playerNumber - 1; // PlayerNumber ist 1-basiert, Array ist 0-basiert
               const participantPlayerIds = state.currentSession?.participantPlayerIds || [];
               if (participantPlayerIds[playerIndex]) {
                 rosen10PlayerForGame = participantPlayerIds[playerIndex];
                 if (process.env.NODE_ENV === 'development') {
-                  console.log(`[JassStore.finalizeGame] Rosen10player für Spiel 1: Player ${playerNumber} -> ID ${rosen10PlayerForGame}`);
+                  console.log(`[JassStore.finalizeGame] Rosen10player für Spiel 1: startingPlayer ${playerNumber} -> ID ${rosen10PlayerForGame}`);
                 }
               }
             }
