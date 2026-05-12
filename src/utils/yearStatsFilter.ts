@@ -330,9 +330,13 @@ export function aggregatePlayerEventCountsForYear(
     for (const game of gameResults) {
       const topPlayers = game.teams?.top?.players || [];
       const bottomPlayers = game.teams?.bottom?.players || [];
+      // 🔧 KRITISCH (matched Cloud-Function-Logik in chartDataUpdater.ts:391):
+      //    finalStriche enthält matsch/schneider/kontermatsch als Counts und ist
+      //    bei Turnieren zuverlässig — eventCounts kann dort falsch geschrieben sein.
+      const fs = game.finalStriche || game.teamStrichePasse || {};
       const ec = game.eventCounts || {};
-      const topVal = ec.top?.[eventType] || 0;
-      const bottomVal = ec.bottom?.[eventType] || 0;
+      const topVal = (typeof fs.top?.[eventType] === 'number' ? fs.top[eventType] : ec.top?.[eventType]) || 0;
+      const bottomVal = (typeof fs.bottom?.[eventType] === 'number' ? fs.bottom[eventType] : ec.bottom?.[eventType]) || 0;
       topPlayers.forEach((p: any) => addToPlayer(p.playerId, topVal, bottomVal));
       bottomPlayers.forEach((p: any) => addToPlayer(p.playerId, bottomVal, topVal));
     }
@@ -386,15 +390,25 @@ export function aggregateTeamEventCountsForYear(
   for (const s of sessionsInYear) {
     const gameResults: any[] = Array.isArray(s.gameResults) && s.gameResults.length > 0
       ? s.gameResults
-      : [{ teams: s.teams, eventCounts: s.eventCounts }];
+      : [{ teams: s.teams, eventCounts: s.eventCounts, finalStriche: s.finalStriche }];
 
     for (const game of gameResults) {
       const topPlayers = game.teams?.top?.players || [];
       const bottomPlayers = game.teams?.bottom?.players || [];
       if (topPlayers.length !== 2 || bottomPlayers.length !== 2) continue;
+      // 🔧 KRITISCH (matched Cloud-Function-Logik): finalStriche statt eventCounts —
+      //    eventCounts ist in manchen Turnieren falsch geschrieben.
+      const fs = game.finalStriche || game.teamStrichePasse || {};
       const ec = game.eventCounts || {};
-      const topEv = ec.top || {};
-      const bottomEv = ec.bottom || {};
+      const pickEvents = (teamKey: 'top' | 'bottom') => {
+        const fsT = fs[teamKey];
+        const ecT = ec[teamKey] || {};
+        const get = (k: 'matsch' | 'schneider' | 'kontermatsch') =>
+          (typeof fsT?.[k] === 'number' ? fsT[k] : ecT[k]) || 0;
+        return { matsch: get('matsch'), schneider: get('schneider'), kontermatsch: get('kontermatsch') };
+      };
+      const topEv = pickEvents('top');
+      const bottomEv = pickEvents('bottom');
       addToTeam(getTeamName(topPlayers), topEv, bottomEv);
       addToTeam(getTeamName(bottomPlayers), bottomEv, topEv);
     }

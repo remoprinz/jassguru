@@ -1638,26 +1638,32 @@ export async function getTeamEventCounts(
                            sessionId === '6eNr8fnsTO06jgCqjelt';
       
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
-        // ✅ TURNIER: Aggregiere Event-Counts pro Game
+        // ✅ TURNIER: Aggregiere Event-Counts pro Game.
+        //    🔧 KRITISCH (matched Cloud-Function-Logik): finalStriche statt eventCounts —
+        //    eventCounts ist in manchen Turnieren falsch geschrieben.
         const gameResults = data.gameResults;
-        
+
         gameResults.forEach((game: any) => {
+          const gameFinalStriche = game.finalStriche || game.teamStrichePasse || {};
           const gameEventCounts = game.eventCounts || {};
           const gameTeams = game.teams || {};
-          
+
           ['top', 'bottom'].forEach(teamKey => {
             const teamPlayers = gameTeams[teamKey]?.players || [];
             if (teamPlayers.length !== 2) return;
-            
+
             const teamId = getTeamId(teamPlayers);
             const teamName = getTeamName(teamPlayers);
-            
-            // Team-Level Event-Counts aus diesem Game
-            const teamEvents = gameEventCounts[teamKey] || {};
-            const opponentTeamEvents = gameEventCounts[teamKey === 'top' ? 'bottom' : 'top'] || {};
-            
-            const teamMade = teamEvents.matsch || 0;
-            const teamReceived = opponentTeamEvents.matsch || 0;
+
+            const oppKey = teamKey === 'top' ? 'bottom' : 'top';
+            const teamFs = gameFinalStriche[teamKey] || {};
+            const oppFs = gameFinalStriche[oppKey] || {};
+            const teamEc = gameEventCounts[teamKey] || {};
+            const oppEc = gameEventCounts[oppKey] || {};
+
+            // Prefer finalStriche; falls leer → fallback eventCounts.
+            const teamMade = (typeof teamFs.matsch === 'number' ? teamFs.matsch : teamEc.matsch) || 0;
+            const teamReceived = (typeof oppFs.matsch === 'number' ? oppFs.matsch : oppEc.matsch) || 0;
             
             // Aggregiere für dieses Team
             if (!teamEventCountsMap.has(teamName)) {
@@ -1728,28 +1734,34 @@ export async function getPlayerEventCounts(
       const isTournament = data.isTournamentSession || !!data.tournamentId;
       
       if (isTournament && data.gameResults && Array.isArray(data.gameResults)) {
-        // ✅ TURNIER: Aggregiere Event-Counts pro Game pro Spieler
+        // ✅ TURNIER: Aggregiere Event-Counts pro Game pro Spieler.
+        //    🔧 KRITISCH (matched Cloud-Function-Logik in chartDataUpdater.ts:391):
+        //    Wir lesen finalStriche statt eventCounts — eventCounts ist in manchen
+        //    Turnieren falsch geschrieben, finalStriche ist immer korrekt.
         const gameResults = data.gameResults;
-        
+
         gameResults.forEach((game: any) => {
+          const gameFinalStriche = game.finalStriche || game.teamStrichePasse || {};
           const gameEventCounts = game.eventCounts || {};
           const gameTeams = game.teams || {};
-          
+
           ['top', 'bottom'].forEach(teamKey => {
             const teamPlayers = gameTeams[teamKey]?.players || [];
             const opponentKey = teamKey === 'top' ? 'bottom' : 'top';
-            
+
             teamPlayers.forEach((player: any) => {
               const playerId = player.playerId;
               if (!playerId) return;
-              
-              // Event-Counts für diesen Spieler in diesem Game
-              const teamEvents = gameEventCounts[teamKey] || {};
-              const opponentEvents = gameEventCounts[opponentKey] || {};
-              
-              const made = teamEvents[eventType] || 0;
-              const received = opponentEvents[eventType] || 0;
-              
+
+              const teamFs = gameFinalStriche[teamKey] || {};
+              const oppFs = gameFinalStriche[opponentKey] || {};
+              const teamEc = gameEventCounts[teamKey] || {};
+              const oppEc = gameEventCounts[opponentKey] || {};
+
+              // Prefer finalStriche; falls leer/undefined → fallback eventCounts.
+              const made = (typeof teamFs[eventType] === 'number' ? teamFs[eventType] : teamEc[eventType]) || 0;
+              const received = (typeof oppFs[eventType] === 'number' ? oppFs[eventType] : oppEc[eventType]) || 0;
+
               if (!playerEventCountsMap.has(playerId)) {
                 playerEventCountsMap.set(playerId, { eventsMade: 0, eventsReceived: 0 });
               }
