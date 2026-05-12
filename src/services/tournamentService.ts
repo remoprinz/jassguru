@@ -1770,7 +1770,16 @@ export const markTournamentAsCompletedService = async (
       // Nicht werfen, da das Turnier bereits als completed markiert ist
       // Der Admin kann später manuell finalizeTournament aufrufen
     }
-    
+
+    // 🔄 Cache leeren — sonst sehen GroupView-Aggregatoren (z.B. Year-Mode-Klammern)
+    //    das neue jassGameSummary erst nach Reload.
+    try {
+      const { invalidateAllSessionCaches } = await import('@/services/sessionCacheInvalidation');
+      invalidateAllSessionCaches();
+    } catch (cacheError) {
+      console.warn('[tournamentService] Cache-Invalidierung nach Turnier-Abschluss fehlgeschlagen:', cacheError);
+    }
+
   } catch (error) {
     console.error(`[tournamentService] Error marking tournament ${instanceId} as completed:`, error);
     throw new Error("Turnier konnte nicht als abgeschlossen markiert werden.");
@@ -1907,7 +1916,15 @@ export const pauseTournamentService = async (instanceId: string): Promise<void> 
       });
       throw new Error(`Fehler beim Finalisieren: ${finalizeError instanceof Error ? finalizeError.message : String(finalizeError)}`);
     }
-    
+
+    // 🔄 Cache leeren (siehe Begründung in markTournamentInstanceCompleted).
+    try {
+      const { invalidateAllSessionCaches } = await import('@/services/sessionCacheInvalidation');
+      invalidateAllSessionCaches();
+    } catch (cacheError) {
+      console.warn('[tournamentService] Cache-Invalidierung nach Turnier-Pause fehlgeschlagen:', cacheError);
+    }
+
   } catch (error) {
     console.error(`[tournamentService] Error pausing tournament ${instanceId}:`, error);
     const message = error instanceof Error ? error.message : "Turnier konnte nicht unterbrochen werden.";
