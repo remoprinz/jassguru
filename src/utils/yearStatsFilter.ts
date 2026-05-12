@@ -322,21 +322,28 @@ export function aggregatePlayerEventCountsForYear(
     map.set(playerId, t);
   };
 
+  // 🔧 KRITISCH: Match Cloud-Function-Logik EXAKT:
+  //    - Regular Session → session-level eventCounts (schneider/kontermatsch sind dort
+  //      "1 pro Game falls Event", NICHT Stroke-Anzahl)
+  //    - Tournament       → pro Game finalStriche (eventCounts in Turnieren unzuverlässig)
   for (const s of sessionsInYear) {
-    const gameResults: any[] = Array.isArray(s.gameResults) && s.gameResults.length > 0
-      ? s.gameResults
-      : [{ teams: s.teams, eventCounts: s.eventCounts }];
-
-    for (const game of gameResults) {
-      const topPlayers = game.teams?.top?.players || [];
-      const bottomPlayers = game.teams?.bottom?.players || [];
-      // 🔧 KRITISCH (matched Cloud-Function-Logik in chartDataUpdater.ts:391):
-      //    finalStriche enthält matsch/schneider/kontermatsch als Counts und ist
-      //    bei Turnieren zuverlässig — eventCounts kann dort falsch geschrieben sein.
-      const fs = game.finalStriche || game.teamStrichePasse || {};
-      const ec = game.eventCounts || {};
-      const topVal = (typeof fs.top?.[eventType] === 'number' ? fs.top[eventType] : ec.top?.[eventType]) || 0;
-      const bottomVal = (typeof fs.bottom?.[eventType] === 'number' ? fs.bottom[eventType] : ec.bottom?.[eventType]) || 0;
+    const isTournament = !!s.isTournamentSession || !!s.tournamentId;
+    if (isTournament && Array.isArray(s.gameResults) && s.gameResults.length > 0) {
+      for (const game of s.gameResults) {
+        const topPlayers = game.teams?.top?.players || [];
+        const bottomPlayers = game.teams?.bottom?.players || [];
+        const fs = game.finalStriche || game.teamStrichePasse || {};
+        const topVal = fs.top?.[eventType] || 0;
+        const bottomVal = fs.bottom?.[eventType] || 0;
+        topPlayers.forEach((p: any) => addToPlayer(p.playerId, topVal, bottomVal));
+        bottomPlayers.forEach((p: any) => addToPlayer(p.playerId, bottomVal, topVal));
+      }
+    } else {
+      const topPlayers = s.teams?.top?.players || [];
+      const bottomPlayers = s.teams?.bottom?.players || [];
+      const ec = s.eventCounts || {};
+      const topVal = ec.top?.[eventType] || 0;
+      const bottomVal = ec.bottom?.[eventType] || 0;
       topPlayers.forEach((p: any) => addToPlayer(p.playerId, topVal, bottomVal));
       bottomPlayers.forEach((p: any) => addToPlayer(p.playerId, bottomVal, topVal));
     }
@@ -387,28 +394,44 @@ export function aggregateTeamEventCountsForYear(
     map.set(teamName, t);
   };
 
+  // 🔧 KRITISCH: Match Cloud-Function-Logik EXAKT (siehe player-Version).
   for (const s of sessionsInYear) {
-    const gameResults: any[] = Array.isArray(s.gameResults) && s.gameResults.length > 0
-      ? s.gameResults
-      : [{ teams: s.teams, eventCounts: s.eventCounts, finalStriche: s.finalStriche }];
+    const isTournament = !!s.isTournamentSession || !!s.tournamentId;
 
-    for (const game of gameResults) {
-      const topPlayers = game.teams?.top?.players || [];
-      const bottomPlayers = game.teams?.bottom?.players || [];
-      if (topPlayers.length !== 2 || bottomPlayers.length !== 2) continue;
-      // 🔧 KRITISCH (matched Cloud-Function-Logik): finalStriche statt eventCounts —
-      //    eventCounts ist in manchen Turnieren falsch geschrieben.
-      const fs = game.finalStriche || game.teamStrichePasse || {};
-      const ec = game.eventCounts || {};
-      const pickEvents = (teamKey: 'top' | 'bottom') => {
-        const fsT = fs[teamKey];
-        const ecT = ec[teamKey] || {};
-        const get = (k: 'matsch' | 'schneider' | 'kontermatsch') =>
-          (typeof fsT?.[k] === 'number' ? fsT[k] : ecT[k]) || 0;
-        return { matsch: get('matsch'), schneider: get('schneider'), kontermatsch: get('kontermatsch') };
+    const pickEventsFinalStriche = (game: any, teamKey: 'top' | 'bottom') => {
+      const fs = (game.finalStriche || game.teamStrichePasse || {})[teamKey] || {};
+      return {
+        matsch: fs.matsch || 0,
+        schneider: fs.schneider || 0,
+        kontermatsch: fs.kontermatsch || 0,
       };
-      const topEv = pickEvents('top');
-      const bottomEv = pickEvents('bottom');
+    };
+
+    const pickEventsSessionEC = (teamKey: 'top' | 'bottom') => {
+      const ec = (s.eventCounts || {})[teamKey] || {};
+      return {
+        matsch: ec.matsch || 0,
+        schneider: ec.schneider || 0,
+        kontermatsch: ec.kontermatsch || 0,
+      };
+    };
+
+    if (isTournament && Array.isArray(s.gameResults) && s.gameResults.length > 0) {
+      for (const game of s.gameResults) {
+        const topPlayers = game.teams?.top?.players || [];
+        const bottomPlayers = game.teams?.bottom?.players || [];
+        if (topPlayers.length !== 2 || bottomPlayers.length !== 2) continue;
+        const topEv = pickEventsFinalStriche(game, 'top');
+        const bottomEv = pickEventsFinalStriche(game, 'bottom');
+        addToTeam(getTeamName(topPlayers), topEv, bottomEv);
+        addToTeam(getTeamName(bottomPlayers), bottomEv, topEv);
+      }
+    } else {
+      const topPlayers = s.teams?.top?.players || [];
+      const bottomPlayers = s.teams?.bottom?.players || [];
+      if (topPlayers.length !== 2 || bottomPlayers.length !== 2) continue;
+      const topEv = pickEventsSessionEC('top');
+      const bottomEv = pickEventsSessionEC('bottom');
       addToTeam(getTeamName(topPlayers), topEv, bottomEv);
       addToTeam(getTeamName(bottomPlayers), bottomEv, topEv);
     }
