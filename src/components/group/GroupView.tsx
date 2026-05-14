@@ -1332,7 +1332,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }));
   }, [selectedYear, groupStats, yearRoundTimes, playerDisplayNamesMap]);
 
-  // 🗓️ Year-Filter: Durchschnittswerte & Gruppenübersicht.
+  // 🗓️ Year-Filter: Durchschnittswerte & Gruppenübersicht (year-spezifisch).
   const [yearGroupStats, setYearGroupStats] = React.useState<Awaited<ReturnType<typeof getYearGroupStats>>>(null);
   React.useEffect(() => {
     if (selectedYear === 'gesamt' || !currentGroup?.id) {
@@ -1346,35 +1346,43 @@ export const GroupView: React.FC<GroupViewProps> = ({
     return () => { cancelled = true; };
   }, [currentGroup?.id, selectedYear]);
 
-  // Pro-Feld-Override: im Year-Mode aus yearGroupStats, sonst aus groupStats.
-  // memberCount im Gesamt-Mode bleibt die strukturelle Gruppen-Member-Zahl;
-  // im Year-Mode = aktive Spieler im Jahr.
+  // 🌍 Gesamt-Modus: dieselbe Logik wie getYearGroupStats, aber ohne Year-Filter.
+  //    Damit sind Ø Dauer/Spiel, Ø Runden/Spiel, Ø Matsch/Spiel und Ø Rundentempo
+  //    auch im Gesamt-Mode TURNIERFREI — die precomputed groupStats aus der Cloud
+  //    Function zählen Turnier-Games mit (siehe groupStatsCalculator.ts).
+  const [allTimeRegularStats, setAllTimeRegularStats] = React.useState<Awaited<ReturnType<typeof getYearGroupStats>>>(null);
+  React.useEffect(() => {
+    if (!currentGroup?.id) {
+      setAllTimeRegularStats(null);
+      return;
+    }
+    let cancelled = false;
+    getYearGroupStats(currentGroup.id, 'all')
+      .then(res => { if (!cancelled) setAllTimeRegularStats(res); })
+      .catch(err => console.warn('[GroupView] getYearGroupStats(all):', err));
+    return () => { cancelled = true; };
+  }, [currentGroup?.id]);
+
+  // Pro-Feld-Override: im Year-Mode aus yearGroupStats, im Gesamt-Mode bevorzugt
+  // aus allTimeRegularStats (turnierfrei). Fallback auf groupStats (precomputed)
+  // bis allTimeRegularStats geladen ist, damit der Spinner nicht durchschlägt.
   const ag = yearGroupStats; // alias für Kürze
-  const activeAvgSessionDuration = selectedYear === 'gesamt' ? (groupStats?.avgSessionDuration || '-') : (ag?.avgSessionDuration || '-');
-  const activeAvgGameDuration    = selectedYear === 'gesamt' ? (groupStats?.avgGameDuration || '-')    : (ag?.avgGameDuration || '-');
-  // Ø Spiele pro Partie: IMMER aus completedSessions client-seitig berechnen — Turniere
-  //    sind keine Partien und dürfen weder im Zähler noch Nenner auftauchen. Die precomputed
-  //    groupStats.avgGamesPerSession aus der Cloud Function kann hier falsch sein.
-  //    🔧 FIX: Auch tournamentId checken — manche Turniere haben nur dieses Feld gesetzt,
-  //    nicht das isTournamentSession-Flag (legacy).
-  const activeAvgGamesPerSession = useMemo(() => {
-    if (selectedYear !== 'gesamt') return ag?.avgGamesPerSession;
-    const list = Array.isArray(completedSessions) ? completedSessions : [];
-    const regulars = list.filter(s => !s?.isTournamentSession && !s?.tournamentId);
-    if (regulars.length === 0) return 0;
-    const totalGames = regulars.reduce((sum, s) => sum + (s?.completedGamesCount || 0), 0);
-    return totalGames / regulars.length;
-  }, [selectedYear, ag, completedSessions]);
-  const activeAvgRoundsPerGame   = selectedYear === 'gesamt' ? groupStats?.avgRoundsPerGame             : ag?.avgRoundsPerGame;
-  const activeAvgMatschPerGame   = selectedYear === 'gesamt' ? groupStats?.avgMatschPerGame             : ag?.avgMatschPerGame;
-  const activeAvgRoundDuration   = selectedYear === 'gesamt' ? (groupStats?.avgRoundDuration || '-')   : (ag?.avgRoundDuration || '-');
-  const activeSessionCount       = selectedYear === 'gesamt' ? (groupStats?.sessionCount || 0)         : (ag?.sessionCount ?? 0);
-  const activeTournamentCount    = selectedYear === 'gesamt' ? (groupStats?.tournamentCount || 0)      : (ag?.tournamentCount ?? 0);
-  const activeGameCount          = selectedYear === 'gesamt' ? (groupStats?.gameCount || 0)            : (ag?.gameCount ?? 0);
-  const activeTotalPlayTime      = selectedYear === 'gesamt' ? (groupStats?.totalPlayTime || '-')      : (ag?.totalPlayTime || '-');
-  const activeFirstJassDate      = selectedYear === 'gesamt' ? (groupStats?.firstJassDate || '-')      : (ag?.firstJassDate || '-');
-  const activeLastJassDate       = selectedYear === 'gesamt' ? (groupStats?.lastJassDate || '-')       : (ag?.lastJassDate || '-');
-  const activeMemberCount        = selectedYear === 'gesamt' ? (groupStats?.memberCount || 0)          : (ag?.memberCount ?? 0);
+  const at = allTimeRegularStats;
+  const activeAvgSessionDuration = selectedYear === 'gesamt' ? (at?.avgSessionDuration || groupStats?.avgSessionDuration || '-') : (ag?.avgSessionDuration || '-');
+  const activeAvgGameDuration    = selectedYear === 'gesamt' ? (at?.avgGameDuration || groupStats?.avgGameDuration || '-')       : (ag?.avgGameDuration || '-');
+  const activeAvgGamesPerSession = selectedYear === 'gesamt' ? (at?.avgGamesPerSession ?? groupStats?.avgGamesPerSession)        : ag?.avgGamesPerSession;
+  const activeAvgRoundsPerGame   = selectedYear === 'gesamt' ? (at?.avgRoundsPerGame ?? groupStats?.avgRoundsPerGame)             : ag?.avgRoundsPerGame;
+  const activeAvgMatschPerGame   = selectedYear === 'gesamt' ? (at?.avgMatschPerGame ?? groupStats?.avgMatschPerGame)             : ag?.avgMatschPerGame;
+  const activeAvgRoundDuration   = selectedYear === 'gesamt' ? (at?.avgRoundDuration || groupStats?.avgRoundDuration || '-')      : (ag?.avgRoundDuration || '-');
+  const activeSessionCount       = selectedYear === 'gesamt' ? (at?.sessionCount ?? groupStats?.sessionCount ?? 0)                : (ag?.sessionCount ?? 0);
+  const activeTournamentCount    = selectedYear === 'gesamt' ? (at?.tournamentCount ?? groupStats?.tournamentCount ?? 0)           : (ag?.tournamentCount ?? 0);
+  const activeGameCount          = selectedYear === 'gesamt' ? (at?.gameCount ?? groupStats?.gameCount ?? 0)                       : (ag?.gameCount ?? 0);
+  const activeTotalPlayTime      = selectedYear === 'gesamt' ? (at?.totalPlayTime || groupStats?.totalPlayTime || '-')             : (ag?.totalPlayTime || '-');
+  const activeFirstJassDate      = selectedYear === 'gesamt' ? (at?.firstJassDate || groupStats?.firstJassDate || '-')             : (ag?.firstJassDate || '-');
+  const activeLastJassDate       = selectedYear === 'gesamt' ? (at?.lastJassDate || groupStats?.lastJassDate || '-')               : (ag?.lastJassDate || '-');
+  // Mitglieder: im Gesamt-Mode bleibt es die strukturelle Member-Zahl aus groupStats
+  //  (alle die je in der Gruppe waren). Im Year-Mode = aktive Spieler im Jahr.
+  const activeMemberCount        = selectedYear === 'gesamt' ? (groupStats?.memberCount || 0)                                      : (ag?.memberCount ?? 0);
 
   const displayPlayerRatings = useMemo(() => {
     if (selectedYear === 'gesamt') return playerRatings;

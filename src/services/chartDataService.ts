@@ -444,7 +444,7 @@ export async function getYearPlayerRoundTimes(
  */
 export async function getYearGroupStats(
   groupId: string,
-  year: number,
+  year: number | 'all',
 ): Promise<{
   avgSessionDuration: string;
   avgGameDuration: string;
@@ -487,7 +487,7 @@ export async function getYearGroupStats(
       if (!c) return;
       const ts = c.toDate ? c.toDate().getTime() : (c._seconds ? c._seconds * 1000 : null);
       if (!ts) return;
-      if (new Date(ts).getFullYear() !== year) return;
+      if (year !== 'all' && new Date(ts).getFullYear() !== year) return;
 
       const isTournament = !!d.isTournamentSession || !!d.tournamentId;
       const durationMs = typeof d.durationSeconds === 'number' ? d.durationSeconds * 1000 : 0;
