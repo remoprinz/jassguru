@@ -367,7 +367,9 @@ export const fetchAllGroupSessions = async (groupId: string): Promise<SessionSum
           pairingIdentifiers: sessionData.pairingIdentifiers || null,
           gruppeId: groupId, // ✅ FIX: Auch hier die groupId aus dem Parameter verwenden
           currentScoreLimit: sessionData.currentScoreLimit || 0,
-          completedGamesCount: sessionData.completedGamesCount || 0,
+          // 🔧 FIX: finalizeSession schreibt das Feld als `gamesPlayed`, nicht `completedGamesCount`.
+          //    Beide checken, damit die Klient-seitigen Aggregatoren (z.B. Ø Spiele/Partie) zählen.
+          completedGamesCount: sessionData.gamesPlayed ?? sessionData.completedGamesCount ?? 0,
           lastActivity: sessionData.lastActivity ? parseTimestampToMillis(sessionData.lastActivity) : null,
           isTournamentSession: sessionData.isTournamentSession || false,
           tournamentInstanceId: sessionData.tournamentInstanceId || null,
