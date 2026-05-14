@@ -1355,10 +1355,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
   // Ø Spiele pro Partie: IMMER aus completedSessions client-seitig berechnen — Turniere
   //    sind keine Partien und dürfen weder im Zähler noch Nenner auftauchen. Die precomputed
   //    groupStats.avgGamesPerSession aus der Cloud Function kann hier falsch sein.
+  //    🔧 FIX: Auch tournamentId checken — manche Turniere haben nur dieses Feld gesetzt,
+  //    nicht das isTournamentSession-Flag (legacy).
   const activeAvgGamesPerSession = useMemo(() => {
     if (selectedYear !== 'gesamt') return ag?.avgGamesPerSession;
     const list = Array.isArray(completedSessions) ? completedSessions : [];
-    const regulars = list.filter(s => !s?.isTournamentSession);
+    const regulars = list.filter(s => !s?.isTournamentSession && !s?.tournamentId);
     if (regulars.length === 0) return 0;
     const totalGames = regulars.reduce((sum, s) => sum + (s?.completedGamesCount || 0), 0);
     return totalGames / regulars.length;

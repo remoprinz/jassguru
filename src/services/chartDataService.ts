@@ -464,16 +464,19 @@ export async function getYearGroupStats(
     const summariesSnap = await getGroupSessionsSnapshot(groupId);
     if (summariesSnap.empty) return null;
 
-    let totalPlayTimeMillis = 0;
-    let regularSessionPlayTimeMillis = 0;
-    let sessionCount = 0;       // nur Regular Sessions (für Ø Dauer pro Partie)
+    let totalPlayTimeMillis = 0;        // alle Sessions (für totalPlayTime in Gruppenübersicht)
+    let regularSessionPlayTimeMillis = 0; // nur Regular Sessions
+    let sessionCount = 0;       // nur Regular Sessions
     let tournamentCount = 0;
-    let gameCount = 0;
-    let regularSessionGameCount = 0; // Spiele NUR in Regular Sessions (für Ø Spiele/Partie)
-    let totalRounds = 0;
-    let totalMatsch = 0;
-    let roundDurationSumMillis = 0;
-    let roundDurationCount = 0;
+    let gameCount = 0;          // alle Spiele (regulär + Turnier) — für "Anzahl Spiele"
+    // 🔧 Alle Durchschnittswerte rechnen NUR über regulär gespielte Sessions/Games:
+    //    Turnier-Games haben oft andere Charakteristik (Passe-Format, andere Score-Limits)
+    //    und verfälschen die Durchschnitte.
+    let regularSessionGameCount = 0;
+    let regularTotalRounds = 0;
+    let regularTotalMatsch = 0;
+    let regularRoundDurationSumMillis = 0;
+    let regularRoundDurationCount = 0;
     let firstMs: number | null = null;
     let lastMs: number | null = null;
     const activePlayerIds = new Set<string>();
@@ -501,33 +504,31 @@ export async function getYearGroupStats(
         sessionCount++;
         regularSessionPlayTimeMillis += durationMs;
         regularSessionGameCount += games;
-      }
 
-      if (typeof d.totalRounds === 'number') totalRounds += d.totalRounds;
+        if (typeof d.totalRounds === 'number') regularTotalRounds += d.totalRounds;
 
-      const ec = d.eventCounts || {};
-      const m = (ec.top?.matsch || 0) + (ec.bottom?.matsch || 0);
-      totalMatsch += m;
+        const ec = d.eventCounts || {};
+        const m = (ec.top?.matsch || 0) + (ec.bottom?.matsch || 0);
+        regularTotalMatsch += m;
 
-      const per = d.aggregatedRoundDurationsByPlayer;
-      if (per && typeof per === 'object') {
-        // Pro Session ein „Tisch" pro Spieler — Summe über Spieler hinweg bringt das
-        // Total ÜBER alle Tische in Millisekunden. Da alle 4 Spieler dieselben Runden
-        // erleben, repräsentiert ein einzelner Spielereintrag das tatsächliche
-        // Rundentotal der Session. → Nimm den MAX-totalDuration/roundCount in der Session.
-        let sessionRoundDur = 0;
-        let sessionRoundCount = 0;
-        Object.values(per).forEach((raw: any) => {
-          if (!raw || typeof raw !== 'object') return;
-          if (typeof raw.totalDuration === 'number' && raw.totalDuration > sessionRoundDur) {
-            sessionRoundDur = raw.totalDuration;
-          }
-          if (typeof raw.roundCount === 'number' && raw.roundCount > sessionRoundCount) {
-            sessionRoundCount = raw.roundCount;
-          }
-        });
-        roundDurationSumMillis += sessionRoundDur;
-        roundDurationCount += sessionRoundCount;
+        const per = d.aggregatedRoundDurationsByPlayer;
+        if (per && typeof per === 'object') {
+          // Pro Session ein „Tisch" pro Spieler — alle 4 Spieler erleben dieselben Runden,
+          // also nimm das MAX (= das echte Session-Total), nicht die Summe über alle.
+          let sessionRoundDur = 0;
+          let sessionRoundCount = 0;
+          Object.values(per).forEach((raw: any) => {
+            if (!raw || typeof raw !== 'object') return;
+            if (typeof raw.totalDuration === 'number' && raw.totalDuration > sessionRoundDur) {
+              sessionRoundDur = raw.totalDuration;
+            }
+            if (typeof raw.roundCount === 'number' && raw.roundCount > sessionRoundCount) {
+              sessionRoundCount = raw.roundCount;
+            }
+          });
+          regularRoundDurationSumMillis += sessionRoundDur;
+          regularRoundDurationCount += sessionRoundCount;
+        }
       }
 
       if (firstMs === null || ts < firstMs) firstMs = ts;
@@ -557,15 +558,15 @@ export async function getYearGroupStats(
     };
 
     const avgSessionDurMs = sessionCount > 0 ? regularSessionPlayTimeMillis / sessionCount : 0;
-    const avgGameDurMs = gameCount > 0 ? totalPlayTimeMillis / gameCount : 0;
-    const avgRoundDurMs = roundDurationCount > 0 ? roundDurationSumMillis / roundDurationCount : 0;
+    const avgGameDurMs = regularSessionGameCount > 0 ? regularSessionPlayTimeMillis / regularSessionGameCount : 0;
+    const avgRoundDurMs = regularRoundDurationCount > 0 ? regularRoundDurationSumMillis / regularRoundDurationCount : 0;
 
     return {
       avgSessionDuration: avgSessionDurMs > 0 ? formatDuration(Math.round(avgSessionDurMs / 1000)) : '-',
       avgGameDuration: avgGameDurMs > 0 ? formatDuration(Math.round(avgGameDurMs / 1000)) : '-',
       avgGamesPerSession: sessionCount > 0 ? regularSessionGameCount / sessionCount : 0,
-      avgRoundsPerGame: gameCount > 0 ? totalRounds / gameCount : 0,
-      avgMatschPerGame: gameCount > 0 ? totalMatsch / gameCount : 0,
+      avgRoundsPerGame: regularSessionGameCount > 0 ? regularTotalRounds / regularSessionGameCount : 0,
+      avgMatschPerGame: regularSessionGameCount > 0 ? regularTotalMatsch / regularSessionGameCount : 0,
       avgRoundDuration: avgRoundDurMs > 0 ? formatDuration(Math.round(avgRoundDurMs / 1000)) : '-',
       sessionCount,
       tournamentCount,
