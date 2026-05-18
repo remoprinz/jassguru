@@ -523,6 +523,42 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const photoURL = currentPlayer?.photoURL;
   const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
 
+  // Aktuelle Namen per Spieler-ID auflösen (gegen Stale-Snapshots in Partner/Gegner-Aggregaten).
+  // Quelle ist `members` (aus Firestore `players/`/Members-Subcollection), nicht die snapshots
+  // in `playerComputedStats` oder `jassGameSummaries`.
+  const memberNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    members?.forEach((m: any) => {
+      if (m?.id && m.displayName) map.set(m.id, m.displayName);
+      if (m?.userId && m.displayName) map.set(m.userId, m.displayName);
+    });
+    if (currentPlayer?.id && currentPlayer.displayName) {
+      map.set(currentPlayer.id, currentPlayer.displayName);
+    }
+    return map;
+  }, [members, currentPlayer]);
+
+  const resolvePartnerName = (id: string | undefined, fallback?: string) =>
+    (id && memberNameById.get(id)) || fallback || 'Unbekannt';
+
+  const resolvedPartnerAggregates = useMemo(() => {
+    if (!playerStats?.partnerAggregates) return undefined;
+    return playerStats.partnerAggregates.map((p: any) => ({
+      ...p,
+      partnerDisplayName: resolvePartnerName(p.partnerId, p.partnerDisplayName),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerStats?.partnerAggregates, memberNameById]);
+
+  const resolvedOpponentAggregates = useMemo(() => {
+    if (!playerStats?.opponentAggregates) return undefined;
+    return playerStats.opponentAggregates.map((o: any) => ({
+      ...o,
+      opponentDisplayName: resolvePartnerName(o.opponentId, o.opponentDisplayName),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerStats?.opponentAggregates, memberNameById]);
+
   // Reset Image Error State when photoURL changes
   useEffect(() => {
     setHasImageError(false);
@@ -559,18 +595,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
     const safeArray = <T extends { partnerId?: string; opponentId?: string; partnerDisplayName?: string; opponentDisplayName?: string; }>(arr?: T[]) => Array.isArray(arr) ? arr : [];
 
-    safeArray(playerStats?.partnerAggregates).forEach((partner) => {
+    safeArray(resolvedPartnerAggregates).forEach((partner) => {
       pushMemberPhotoById(partner.partnerId);
       pushMemberPhotoByName(partner.partnerDisplayName);
     });
 
-    safeArray(playerStats?.opponentAggregates).forEach((opponent) => {
+    safeArray(resolvedOpponentAggregates).forEach((opponent) => {
       pushMemberPhotoById(opponent.opponentId);
       pushMemberPhotoByName(opponent.opponentDisplayName);
     });
 
     return Array.from(new Set(urls.filter((url): url is string => typeof url === 'string' && url.trim() !== '')));
-  }, [members, currentPlayer, playerStats?.partnerAggregates, playerStats?.opponentAggregates]);
+  }, [members, currentPlayer, resolvedPartnerAggregates, resolvedOpponentAggregates]);
 
   // Einheitliche, autoritative Bestimmung der anzuzeigenden Spieler-ID
   const viewPlayerId = useMemo(() => {
@@ -636,14 +672,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   // ✅ FILTER: Partner/Opponent Stats ohne Turniere (nur normale Sessions)
   const filteredPartnerAggregates = useMemo(() => {
-    if (!playerStats?.partnerAggregates) {
+    if (!resolvedPartnerAggregates) {
       return [];
     }
 
     // ✅ WICHTIG: Wenn KEINE normalen Sessions vorhanden sind, setze alle Partien-Stats auf 0
     // Das verhindert, dass Turniere als "Partien" angezeigt werden
     if (normalSessionSummaries.length === 0) {
-      return playerStats.partnerAggregates.map((p: any) => ({
+      return resolvedPartnerAggregates.map((p: any) => ({
         ...p,
         sessionsPlayedWith: 0,
         sessionsWonWith: 0,
@@ -654,7 +690,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     if (!viewPlayerId) {
-      return playerStats?.partnerAggregates || [];
+      return resolvedPartnerAggregates || [];
     }
 
     // Berechne Partner-Stats neu aus normalen Sessions
@@ -698,8 +734,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const partnerId = partnerPlayer.playerId || partnerPlayer.userId;
         if (!partnerId || partnerId === viewPlayerId) continue;
 
-        const partnerName = partnerPlayer.displayName || summary.playerNames?.[partnerId] || 'Unbekannt';
-        
+        // Frischer Name via members-Lookup (sonst Snapshot aus jassGameSummaries)
+        const partnerName = resolvePartnerName(
+          partnerId,
+          partnerPlayer.displayName || summary.playerNames?.[partnerId]
+        );
+
         if (!partnerStatsMap.has(partnerId)) {
           partnerStatsMap.set(partnerId, {
             partnerId,
@@ -724,11 +764,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       const decided = stats.sessionsWonWith + stats.sessionsLostWith;
       const sessionWinRate = decided > 0 ? stats.sessionsWonWith / decided : 0;
       
+      // Original-Aggregat (resolved!) zuerst, damit dann unsere frischen Werte
+      // (inkl. partnerDisplayName) sauber überschreiben.
+      const original = resolvedPartnerAggregates?.find((p: any) => p.partnerId === stats.partnerId) || {};
       return {
+        ...original,
         ...stats,
         sessionWinRate,
-        // Behalte andere Felder aus original partnerAggregates (falls vorhanden)
-        ...(playerStats.partnerAggregates?.find((p: any) => p.partnerId === stats.partnerId) || {}),
         // Überschreibe mit gefilterten Werten
         sessionsWonWith: stats.sessionsWonWith,
         sessionsLostWith: stats.sessionsLostWith,
@@ -736,17 +778,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         sessionsPlayedWith: stats.sessionsPlayedWith,
       };
     });
-  }, [playerStats?.partnerAggregates, normalSessionSummaries, viewPlayerId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedPartnerAggregates, normalSessionSummaries, viewPlayerId]);
 
   const filteredOpponentAggregates = useMemo(() => {
-    if (!playerStats?.opponentAggregates) {
+    if (!resolvedOpponentAggregates) {
       return [];
     }
 
     // ✅ WICHTIG: Wenn KEINE normalen Sessions vorhanden sind, setze alle Partien-Stats auf 0
     // Das verhindert, dass Turniere als "Partien" angezeigt werden
     if (normalSessionSummaries.length === 0) {
-      return playerStats.opponentAggregates.map((o: any) => ({
+      return resolvedOpponentAggregates.map((o: any) => ({
         ...o,
         sessionsPlayedAgainst: 0,
         sessionsWonAgainst: 0,
@@ -757,7 +800,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
 
     if (!viewPlayerId) {
-      return playerStats?.opponentAggregates || [];
+      return resolvedOpponentAggregates || [];
     }
 
     // Berechne Opponent-Stats neu aus normalen Sessions
@@ -800,8 +843,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const opponentId = opponentPlayer.playerId || opponentPlayer.userId;
         if (!opponentId) continue;
 
-        const opponentName = opponentPlayer.displayName || summary.playerNames?.[opponentId] || 'Unbekannt';
-        
+        // Frischer Name via members-Lookup (sonst Snapshot aus jassGameSummaries)
+        const opponentName = resolvePartnerName(
+          opponentId,
+          opponentPlayer.displayName || summary.playerNames?.[opponentId]
+        );
+
         if (!opponentStatsMap.has(opponentId)) {
           opponentStatsMap.set(opponentId, {
             opponentId,
@@ -826,11 +873,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       const decided = stats.sessionsWonAgainst + stats.sessionsLostAgainst;
       const sessionWinRate = decided > 0 ? stats.sessionsWonAgainst / decided : 0;
       
+      // Original-Aggregat (resolved!) zuerst, damit dann unsere frischen Werte
+      // (inkl. opponentDisplayName) sauber überschreiben.
+      const original = resolvedOpponentAggregates?.find((o: any) => o.opponentId === stats.opponentId) || {};
       return {
+        ...original,
         ...stats,
         sessionWinRate,
-        // Behalte andere Felder aus original opponentAggregates (falls vorhanden)
-        ...(playerStats.opponentAggregates?.find((o: any) => o.opponentId === stats.opponentId) || {}),
         // Überschreibe mit gefilterten Werten
         sessionsWonAgainst: stats.sessionsWonAgainst,
         sessionsLostAgainst: stats.sessionsLostAgainst,
@@ -838,7 +887,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         sessionsPlayedAgainst: stats.sessionsPlayedAgainst,
       };
     });
-  }, [playerStats?.opponentAggregates, normalSessionSummaries, viewPlayerId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedOpponentAggregates, normalSessionSummaries, viewPlayerId]);
 
   // NEU: Lade Elo-Rating für aktuellen Spieler (einheitlich via loadPlayerRatings)
   React.useEffect(() => {
@@ -984,7 +1034,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   // NEU: Berechne Partner-Chart-Daten aus bereits geladenen normalSessionSummaries
   React.useEffect(() => {
-    if (!viewPlayerId || !playerStats?.partnerAggregates || playerStats.partnerAggregates.length === 0) {
+    if (!viewPlayerId || !resolvedPartnerAggregates || resolvedPartnerAggregates.length === 0) {
       return;
     }
     if (activeMainTab && activeMainTab !== 'stats') return;
@@ -1000,7 +1050,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const matschDataByPartner: Record<string, { labels: string[], data: number[] }> = {};
 
         // Für jeden Partner
-        for (const partner of playerStats.partnerAggregates) {
+        for (const partner of resolvedPartnerAggregates) {
           const partnerId = partner.partnerId;
           stricheDataByPartner[partnerId] = { labels: [], data: [] };
           pointsDataByPartner[partnerId] = { labels: [], data: [] };
@@ -1066,7 +1116,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             const gameMatschReceived = opponentEvents.matsch || 0;
 
             // Für jeden Partner: Prüfe ob Partner war
-            for (const partner of playerStats.partnerAggregates) {
+            for (const partner of resolvedPartnerAggregates) {
               const partnerId = partner.partnerId;
               const partnerInTop = game.teams.top.players.some((p: any) => p.playerId === partnerId);
               const partnerInBottom = game.teams.bottom.players.some((p: any) => p.playerId === partnerId);
@@ -1160,7 +1210,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const pointsDatasets: any[] = [];
         const matschDatasets: any[] = [];
 
-        for (const partner of playerStats.partnerAggregates) {
+        for (const partner of resolvedPartnerAggregates) {
           const partnerId = partner.partnerId;
           const stricheData = stricheDataByPartner[partnerId];
           const pointsData = pointsDataByPartner[partnerId];
@@ -1377,11 +1427,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     };
 
     loadPartnerChartsFromSummaries();
-  }, [viewPlayerId, playerStats?.partnerAggregates, normalSessionSummaries, activeMainTab]);
+  }, [viewPlayerId, resolvedPartnerAggregates, normalSessionSummaries, activeMainTab]);
 
   // NEU: Berechne Gegner-Chart-Daten aus bereits geladenen normalSessionSummaries
   React.useEffect(() => {
-    if (!viewPlayerId || !playerStats?.opponentAggregates || playerStats.opponentAggregates.length === 0) {
+    if (!viewPlayerId || !resolvedOpponentAggregates || resolvedOpponentAggregates.length === 0) {
       return;
     }
     if (activeMainTab && activeMainTab !== 'stats') return;
@@ -1397,7 +1447,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const matschDataByOpponent: Record<string, { labels: string[], data: number[] }> = {};
 
         // Für jeden Gegner
-        for (const opponent of playerStats.opponentAggregates) {
+        for (const opponent of resolvedOpponentAggregates) {
           const opponentId = opponent.opponentId;
           stricheDataByOpponent[opponentId] = { labels: [], data: [] };
           pointsDataByOpponent[opponentId] = { labels: [], data: [] };
@@ -1473,7 +1523,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             const gameMatschReceived = opponentEvents.matsch || 0;
 
             // Für jeden Gegner: Prüfe ob Gegner war (GEGNERISCHES Team!)
-            for (const opponent of playerStats.opponentAggregates) {
+            for (const opponent of resolvedOpponentAggregates) {
               const opponentId = opponent.opponentId;
               const opponentInTop = game.teams.top.players.some((p: any) => p.playerId === opponentId);
               const opponentInBottom = game.teams.bottom.players.some((p: any) => p.playerId === opponentId);
@@ -1573,7 +1623,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         const pointsDatasets: any[] = [];
         const matschDatasets: any[] = [];
 
-        for (const opponent of playerStats.opponentAggregates) {
+        for (const opponent of resolvedOpponentAggregates) {
           const opponentId = opponent.opponentId;
           const stricheData = stricheDataByOpponent[opponentId];
           const pointsData = pointsDataByOpponent[opponentId];
@@ -1797,7 +1847,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     };
 
     loadOpponentChartsFromSummaries();
-  }, [viewPlayerId, playerStats?.opponentAggregates, normalSessionSummaries, activeMainTab]);
+  }, [viewPlayerId, resolvedOpponentAggregates, normalSessionSummaries, activeMainTab]);
 
   // ===== LOKALE TAB-COLOR FUNKTION (IDENTISCH ZU GROUPVIEW) =====
   const getTabActiveColor = (themeKey: string): string => {

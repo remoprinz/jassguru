@@ -38,7 +38,7 @@ import {
 import {useGroupStore} from "@/store/groupStore"; // Importiere den GroupStore
 import {useAuthStore} from "@/store/authStore"; // Importiere den AuthStore
 import { addDoc, arrayUnion, arrayRemove, Timestamp, documentId, runTransaction } from "firebase/firestore"; // documentId hier hinzugefügt, arrayRemove und runTransaction importiert
-import { persistToStorage, loadFromStorage } from "@/services/persistentCacheHelper";
+import { persistToStorage, loadFromStorage, removeFromStorage } from "@/services/persistentCacheHelper";
 import { DEFAULT_FARBE_SETTINGS } from "@/config/FarbeSettings"; // Nur die Konstante von hier
 import { DEFAULT_SCORE_SETTINGS } from "@/config/ScoreSettings"; // Importiere DEFAULT_SCORE_SETTINGS
 import { DEFAULT_STROKE_SETTINGS } from "@/config/GameSettings"; // Importiere DEFAULT_STROKE_SETTINGS
@@ -468,6 +468,29 @@ function reviveMemberDates<T>(obj: T): T {
 // In-flight Promise-Deduper — falls die selbe Group-Members-Query parallel vom selben
 // Mount mehrfach gefeuert wird (z.B. /profile + /start parallel), teilen sie sich.
 const inflight = new Map<string, Promise<FirestorePlayer[]>>();
+
+/**
+ * Members-Cache invalidieren (z.B. nach Profil-Rename des eigenen Users, damit
+ * der Spieler-Name in GroupView nicht stale aus localStorage gerendert wird).
+ * Ohne `groupIds`: alle Members-Caches im localStorage werden entfernt.
+ */
+export const invalidateGroupMembersCache = (groupIds?: string[]): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (groupIds && groupIds.length > 0) {
+      groupIds.forEach((gid) => removeFromStorage(MEMBERS_CACHE_KEY(gid)));
+      return;
+    }
+    // Kein groupIds übergeben → alle members-by-group:* Keys räumen
+    const prefix = 'members-by-group:';
+    for (let i = window.localStorage.length - 1; i >= 0; i--) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(prefix)) window.localStorage.removeItem(k);
+    }
+  } catch (e) {
+    console.warn('[invalidateGroupMembersCache] Fehler beim Räumen:', e);
+  }
+};
 
 export const getGroupMembersOptimized = async (groupId: string): Promise<FirestorePlayer[]> => {
   if (!db) throw new Error("Firestore ist nicht initialisiert.");

@@ -23,6 +23,7 @@ import {useGroupStore} from "./groupStore";
 import {doc, onSnapshot, Unsubscribe, FirestoreError, getDoc, serverTimestamp, setDoc, updateDoc, collection, query, where, getDocs } from "firebase/firestore";
 import { PLAYERS_COLLECTION, USERS_COLLECTION } from "@/constants/firestore";
 import { getPlayerIdForUser, syncDisplayNameAcrossCollections } from "../services/playerService";
+import { invalidateGroupMembersCache } from "../services/groupService";
 import { checkJvsMembership, type JvsMembershipResult } from "../services/jvsMembershipService";
 import Router from 'next/router';
 import { THEME_COLORS } from '@/config/theme';
@@ -479,7 +480,17 @@ export const useAuthStore = create<AuthStore>()(
           if (updates.statusMessage !== undefined) updatedFields.statusMessage = updates.statusMessage;
           if (updates.profileTheme !== undefined) updatedFields.profileTheme = updates.profileTheme;
           if (updates.profileCardStyle !== undefined) updatedFields.profileCardStyle = updates.profileCardStyle;
-          
+
+          // Rename: localStorage members-Cache aller eigenen Gruppen invalidieren,
+          // damit GroupView nicht stale den alten Namen aus dem Cache rendert.
+          // (Die Cloud Function `syncUserProfileToPlayer` aktualisiert Firestore;
+          //  der nächste Fetch holt dann den frischen Namen — ohne diesen Cache-Bust
+          //  würde der instant-return aus localStorage den alten Wert zeigen.)
+          if (updates.displayName !== undefined) {
+            const groupIds = (currentUser as any)?.groupIds as string[] | undefined;
+            invalidateGroupMembersCache(groupIds && groupIds.length > 0 ? groupIds : undefined);
+          }
+
           set(state => ({
             user: state.user ? { ...state.user, ...updatedFields } : null,
             status: "authenticated", // Zurücksetzen auf authenticated, falls loading gesetzt war
