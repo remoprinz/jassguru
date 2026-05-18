@@ -9,17 +9,19 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 JASSTAFEL_ROOT="$PROJECT_ROOT"
+
+# Schwester-Repo nicht vorhanden? → freundlich überspringen (z. B. auf CI).
+# Vorhandene public/support-images/ bleibt unangetastet.
+if [ ! -d "$PROJECT_ROOT/../jassguru-support/public/screenshots" ]; then
+  echo "ℹ️  jassguru-support nicht gefunden — Support-Image-Sync übersprungen."
+  exit 0
+fi
+
 JASSTAFEL_SUPPORT_ROOT="$(cd "$PROJECT_ROOT/../jassguru-support" && pwd)"
 
 echo "🔄 Synchronisiere Support-Bilder..."
 echo "   Quelle: $JASSTAFEL_SUPPORT_ROOT/public/screenshots/"
 echo "   Ziel:   $JASSTAFEL_ROOT/public/support-images/"
-
-# Prüfe ob Quelle existiert
-if [ ! -d "$JASSTAFEL_SUPPORT_ROOT/public/screenshots" ]; then
-  echo "❌ Fehler: Quelle-Verzeichnis nicht gefunden: $JASSTAFEL_SUPPORT_ROOT/public/screenshots"
-  exit 1
-fi
 
 # Erstelle Ziel-Verzeichnis falls nicht vorhanden
 mkdir -p "$JASSTAFEL_ROOT/public/support-images"
