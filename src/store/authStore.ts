@@ -198,6 +198,9 @@ export const useAuthStore = create<AuthStore>()(
         }
         set({ user: null, firebaseUser: null, status: "unauthenticated", isGuest: wasGuest, jvsMembership: null });
         useGroupStore.getState().resetGroupStore();
+
+        // 🆕 playerNamesStore Subscriptions abbauen + Cache leeren.
+        import("./playerNamesStore").then((m) => m.usePlayerNamesStore.getState().clear()).catch(() => {});
       },
 
       login: async (email: string, password: string) => {
@@ -489,6 +492,18 @@ export const useAuthStore = create<AuthStore>()(
           if (updates.displayName !== undefined) {
             const groupIds = (currentUser as any)?.groupIds as string[] | undefined;
             invalidateGroupMembersCache(groupIds && groupIds.length > 0 ? groupIds : undefined);
+
+            // 🆕 Eigenen Namen sofort im playerNamesStore setzen, damit alle
+            //    Render-Stellen ohne Reload den neuen Namen zeigen — bevor
+            //    der Realtime-Listener das auch aus Firestore zurückreicht.
+            try {
+              const { usePlayerNamesStore } = await import("../store/playerNamesStore");
+              const setName = usePlayerNamesStore.getState().setName;
+              const pid = (currentUser as any)?.playerId;
+              const uid = (currentUser as any)?.uid;
+              if (pid) setName(pid, updates.displayName);
+              if (uid) setName(uid, updates.displayName);
+            } catch {}
           }
 
           set(state => ({

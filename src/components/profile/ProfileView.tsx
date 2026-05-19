@@ -19,6 +19,7 @@ import { Timestamp } from 'firebase/firestore';
 import type { StricheRecord, FirestorePlayer } from '@/types/jass';
 import type { TournamentInstance } from '@/types/tournament';
 import ProfileImage from '@/components/ui/ProfileImage';
+import { usePlayerNamesStore } from '@/store/playerNamesStore';
 import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import { transformComputedStatsToExtended, type TransformedPlayerStats } from '@/utils/statsTransformer';
 import NotableEventsList from "@/components/profile/NotableEventsList";
@@ -523,9 +524,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const photoURL = currentPlayer?.photoURL;
   const jassSpruch = currentPlayer?.statusMessage || "Hallo! Ich jasse mit jassguru.ch";
 
-  // Aktuelle Namen per Spieler-ID auflösen (gegen Stale-Snapshots in Partner/Gegner-Aggregaten).
-  // Quelle ist `members` (aus Firestore `players/`/Members-Subcollection), nicht die snapshots
-  // in `playerComputedStats` oder `jassGameSummaries`.
+  // Aktuelle Namen per Spieler-ID auflösen. Primärquelle ist der globale
+  // playerNamesStore (Realtime auf players/-Collection → reagiert live auf
+  // Renames). Members und currentPlayer dienen als sekundärer Fallback.
+  const storeNamesVersion = usePlayerNamesStore((s) => s.version);
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>();
     members?.forEach((m: any) => {
@@ -535,8 +537,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     if (currentPlayer?.id && currentPlayer.displayName) {
       map.set(currentPlayer.id, currentPlayer.displayName);
     }
+    // Store überschreibt — er ist immer aktueller als die props.
+    const storeMap = usePlayerNamesStore.getState().nameById;
+    storeMap.forEach((name, id) => map.set(id, name));
     return map;
-  }, [members, currentPlayer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [members, currentPlayer, storeNamesVersion]);
 
   const resolvePartnerName = (id: string | undefined, fallback?: string) =>
     (id && memberNameById.get(id)) || fallback || 'Unbekannt';

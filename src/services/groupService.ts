@@ -554,12 +554,22 @@ async function doFetchGroupMembers(groupId: string): Promise<FirestorePlayer[]> 
         groupIds: [groupId],
         stats: { gamesPlayed: 0, wins: 0, totalScore: 0 }
       }));
+      // 🆕 Frische Namen direkt in den globalen playerNamesStore feeden.
+      try {
+        const { usePlayerNamesStore } = await import("@/store/playerNamesStore");
+        usePlayerNamesStore.getState().hydrateFromPlayers(firestorePlayers);
+      } catch {}
       return firestorePlayers;
     }
 
     // 3. Fallback zur alten Methode (nur wenn members-Subcollection leer)
     const { getGroupMembersSortedByGames } = await import('../services/playerService');
-    return await getGroupMembersSortedByGames(groupId);
+    const fallbackPlayers = await getGroupMembersSortedByGames(groupId);
+    try {
+      const { usePlayerNamesStore } = await import("@/store/playerNamesStore");
+      usePlayerNamesStore.getState().hydrateFromPlayers(fallbackPlayers);
+    } catch {}
+    return fallbackPlayers;
 
   } catch (error) {
     console.error(`[getGroupMembersOptimized] ❌ FALLBACK: Fehler beim optimierten Laden, nutze alte Methode:`, error);

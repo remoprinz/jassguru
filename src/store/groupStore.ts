@@ -202,12 +202,24 @@ const groupStoreCreator: StateCreator<
             userGroups: groupsWithDefaults,
             // Setze currentGroup auf null, wenn es nicht mehr existiert ODER wenn es die gleiche ID hat,
             // aber möglicherweise veraltete Daten (z.B. wenn Anreicherung im Listener fehlt).
-            // Es ist sicherer, es auf null zu setzen und den User neu auswählen zu lassen, 
+            // Es ist sicherer, es auf null zu setzen und den User neu auswählen zu lassen,
             // oder den Listener robuster zu machen.
-            currentGroup: currentGroupStillExists ? currentGroup : null, 
+            currentGroup: currentGroupStillExists ? currentGroup : null,
             status: "success",
             error: null,
         }, false, 'loadGroupsByPlayerIdSuccess');
+
+        // 🆕 Realtime-Subscription auf players-Collection für diese Gruppen,
+        //    damit `playerNamesStore` Renames live mitkriegt (mid-game!).
+        try {
+          const groupIds = groupsWithDefaults.map((g: FirestoreGroup) => g.id).filter(Boolean) as string[];
+          const { usePlayerNamesStore } = await import("./playerNamesStore");
+          usePlayerNamesStore.getState().subscribeToGroups(groupIds);
+        } catch (e) {
+          if (process.env.NODE_ENV === 'development') {
+            console.warn("GROUP_STORE: subscribeToGroups failed:", e);
+          }
+        }
         
         if (currentGroup && !currentGroupStillExists) {
             const userId = useAuthStore.getState().user?.uid;

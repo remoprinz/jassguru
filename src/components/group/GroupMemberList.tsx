@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'; // Für bedingte Klassen
 import { Award } from 'lucide-react'; // Award Icon importieren
 import ProfileImage from '@/components/ui/ProfileImage';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { useResolvedName } from '@/hooks/useResolvedName';
 
 interface GroupMemberListProps {
   members: FirestorePlayer[];
@@ -15,6 +16,57 @@ interface GroupMemberListProps {
 
 // Typ für FirestorePlayer mit _isPlaceholder Eigenschaft (wie in settings.tsx)
 type PlayerWithPlaceholder = FirestorePlayer & { _isPlaceholder?: boolean };
+
+// Eine eigene Row-Komponente, damit `useResolvedName` per-Spieler aufgerufen werden kann.
+const MemberRow: React.FC<{ player: PlayerWithPlaceholder; layout: ReturnType<typeof useResponsiveLayout> }> = ({ player, layout }) => {
+  const isPlaceholder = player._isPlaceholder;
+  // Live-Resolved Name: bei Rename eines anderen Mitglieds aktualisiert sich diese Row.
+  const liveName = useResolvedName(player.id, player.displayName || 'Unbekannter Spieler');
+  return (
+    <li key={player.id}>
+      <Link
+        href={`/profile/${player.id}`}
+        passHref
+        className={cn(
+          `flex items-center gap-3 ${layout.listItemPadding} rounded-md transition-colors duration-150`,
+          isPlaceholder ? 'bg-yellow-900/20 hover:bg-yellow-900/40 cursor-default'
+          : 'border-b border-gray-500/40 hover:bg-gray-700/30'
+        )}
+      >
+        <ProfileImage
+          src={player.photoURL}
+          alt={liveName}
+          size={layout.profileImageListSize}
+          className={`${layout.listItemImageSpacing} flex-shrink-0`}
+          fallbackClassName={cn(
+            `bg-gray-700 text-gray-300 ${layout.bodySize}`,
+            isPlaceholder && "bg-yellow-700"
+          )}
+          fallbackText={liveName?.charAt(0).toUpperCase() || '?'}
+          context="list"
+        />
+        <div className="flex-1 min-w-0">
+          <p className={`${layout.bodySize} font-medium text-white truncate flex items-center gap-1.5`}>
+            {player?.metadata?.isOG && (
+              <Award className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+            )}
+            <span>{liveName}</span>
+          </p>
+          {isPlaceholder && (
+            <p className={`${layout.smallTextSize} text-yellow-400 truncate`}>
+              (Daten unvollständig)
+            </p>
+          )}
+        </div>
+        <div className="flex-shrink-0 flex items-center gap-1" />
+        <div className={`flex-shrink-0 ${layout.valueSize} text-gray-300 font-medium font-headline ml-2`}>
+          {player.stats?.gamesPlayed ?? 0}
+          <span className={`${layout.smallTextSize} text-gray-400 ml-1 font-sans`}>Spiele</span>
+        </div>
+      </Link>
+    </li>
+  );
+};
 
 export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoading }) => {
   // Responsive Layout Hook
@@ -60,66 +112,9 @@ export const GroupMemberList: React.FC<GroupMemberListProps> = ({ members, isLoa
         Spieler auswählen für Details:
       </p>
       <ul className="space-y-3 pt-2">
-        {members.map((member) => {
-        const player = member as PlayerWithPlaceholder; // Cast für Zugriff auf _isPlaceholder
-        const isPlaceholder = player._isPlaceholder;
-
-        return (
-          <li key={player.id}>
-            <Link
-              href={`/profile/${player.id}`}
-              passHref
-              className={cn(
-                `flex items-center gap-3 ${layout.listItemPadding} rounded-md transition-colors duration-150`,
-                isPlaceholder ? 'bg-yellow-900/20 hover:bg-yellow-900/40 cursor-default'
-                : 'border-b border-gray-500/40 hover:bg-gray-700/30'
-              )}
-            >
-              {/* Avatar */}
-              <ProfileImage 
-                    src={player.photoURL}
-                    alt={player.displayName || 'Mitglied'}
-                size={layout.profileImageListSize}
-                className={`${layout.listItemImageSpacing} flex-shrink-0`}
-                fallbackClassName={cn(
-                  `bg-gray-700 text-gray-300 ${layout.bodySize}`,
-                  isPlaceholder && "bg-yellow-700"
-                )}
-                fallbackText={player.displayName?.charAt(0).toUpperCase() || '?'}
-                context="list"
-              />
-
-              {/* Nickname & Placeholder Info */}
-              <div className="flex-1 min-w-0">
-                <p className={`${layout.bodySize} font-medium text-white truncate flex items-center gap-1.5`}>
-                  {/* OG Badge Icon (Annahme) - Links vom Namen */}
-                  {player?.metadata?.isOG && (
-                    <Award className="w-4 h-4 text-yellow-400 flex-shrink-0" />
-                  )}
-                  <span>{player.displayName || "Unbekannter Spieler"}</span>
-                </p>
-                {isPlaceholder && (
-                  <p className={`${layout.smallTextSize} text-yellow-400 truncate`}>
-                    (Daten unvollständig)
-                  </p>
-                )}
-              </div>
-
-              {/* Badges Area (Future) */}
-              <div className="flex-shrink-0 flex items-center gap-1">
-                {/* Beispiel: OG Badge - Logik später hinzufügen */}
-                {/* {player.metadata?.isOG && <Badge variant="outline" className="border-purple-500 text-purple-400 bg-purple-900/30">OG</Badge>} */}
-              </div>
-
-              {/* Games Played (Rechtsbündig) */}
-              <div className={`flex-shrink-0 ${layout.valueSize} text-gray-300 font-medium font-headline ml-2`}>
-                {player.stats?.gamesPlayed ?? 0}
-                <span className={`${layout.smallTextSize} text-gray-400 ml-1 font-sans`}>Spiele</span>
-              </div>
-            </Link>
-          </li>
-        );
-      })}
+        {members.map((member) => (
+          <MemberRow key={member.id} player={member as PlayerWithPlaceholder} layout={layout} />
+        ))}
       </ul>
     </>
   );
