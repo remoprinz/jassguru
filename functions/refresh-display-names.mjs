@@ -366,6 +366,142 @@ for (const doc of gcsSnap.docs) {
   if (changed) queueWrite(doc.ref, newData, `groupComputedStats/${doc.id}`);
 }
 
+// 6. players/{pid}/{partnerStats,opponentStats,groupStats,tournamentStats}
+//    Diese Subcollection-Docs sind PRO-PLAYER-PRO-PARTNER/OPPONENT und enthalten denormalisierte Namen.
+//    ProfileView liest diese direkt für die Partner-/Gegner-Listen.
+console.log('\n--- players/{pid}/{partner,opponent,group,tournament}Stats ---');
+for (const p of playersSnap.docs) {
+  const pid = p.id;
+  // partnerStats / opponentStats: Doc-ID = der ANDERE playerId, mit *.DisplayName
+  for (const subname of ['partnerStats', 'opponentStats']) {
+    const subSnap = await db.collection('players').doc(pid).collection(subname).get();
+    for (const sub of subSnap.docs) {
+      const otherPid = sub.id;
+      const data = sub.data();
+      const field = subname === 'partnerStats' ? 'partnerDisplayName' : 'opponentDisplayName';
+      if (typeof data[field] === 'string' && isStale(otherPid, data[field])) {
+        queueWrite(sub.ref, { [field]: nameById.get(otherPid) }, `players/${pid}/${subname}/${otherPid}`);
+      }
+    }
+  }
+  // groupStats / tournamentStats: enthalten ggf. playerName-Feld für den Owner-Player selbst
+  for (const subname of ['groupStats', 'tournamentStats']) {
+    const subSnap = await db.collection('players').doc(pid).collection(subname).get();
+    for (const sub of subSnap.docs) {
+      const data = sub.data();
+      const patch = {};
+      let changed = false;
+      // Owner-Player playerName
+      if (typeof data.playerName === 'string' && isStale(pid, data.playerName)) {
+        patch.playerName = nameById.get(pid);
+        changed = true;
+      }
+      // displayName (manchmal benannt)
+      if (typeof data.displayName === 'string' && isStale(pid, data.displayName)) {
+        patch.displayName = nameById.get(pid);
+        changed = true;
+      }
+      if (changed) queueWrite(sub.ref, patch, `players/${pid}/${subname}/${sub.id}`);
+    }
+  }
+}
+
+// 7. activeGames/{aid}  + Subcollection rounds/{rid}
+console.log('\n--- activeGames + rounds ---');
+const agSnap = await db.collection('activeGames').get();
+for (const ag of agSnap.docs) {
+  const data = ag.data();
+  const patch = {};
+  let changed = false;
+
+  // teams.{top,bottom}.players[].displayName
+  if (data.teams) {
+    const newTeams = JSON.parse(JSON.stringify(data.teams));
+    let teamsChanged = false;
+    for (const side of ['top','bottom']) {
+      for (const p of newTeams[side]?.players || []) {
+        const pid = p?.playerId || p?.userId;
+        if (pid && p.displayName && isStale(pid, p.displayName)) {
+          p.displayName = nameById.get(pid);
+          teamsChanged = true;
+        }
+      }
+    }
+    if (teamsChanged) { patch.teams = newTeams; changed = true; }
+  }
+
+  // playerNames map (Positions-Keys)
+  if (data.playerNames && typeof data.playerNames === 'object') {
+    const newNames = { ...data.playerNames };
+    let pnChanged = false;
+    for (const key of Object.keys(newNames)) {
+      if (typeof newNames[key] === 'string' && isStale(key, newNames[key])) {
+        newNames[key] = nameById.get(key);
+        pnChanged = true;
+      }
+    }
+    const participantIds = new Set();
+    (data.participantPlayerIds || []).forEach(id => id && participantIds.add(id));
+    ['top','bottom'].forEach(side => {
+      (data.teams?.[side]?.players || []).forEach(p => {
+        const pid = p?.playerId || p?.userId;
+        if (pid) participantIds.add(pid);
+      });
+    });
+    const currentNames = new Set();
+    for (const pid of participantIds) {
+      const cur = nameById.get(pid);
+      if (cur) currentNames.add(cur);
+    }
+    for (const key of Object.keys(newNames)) {
+      const val = newNames[key];
+      if (typeof val !== 'string') continue;
+      if (currentNames.has(val)) continue;
+      const used = new Set(Object.values(newNames));
+      const orphan = [...currentNames].find(n => !used.has(n));
+      if (orphan) { newNames[key] = orphan; pnChanged = true; }
+    }
+    if (pnChanged) { patch.playerNames = newNames; changed = true; }
+  }
+
+  if (changed) queueWrite(ag.ref, patch, `activeGames/${ag.id}`);
+
+  // rounds-Subcollection: startingPlayerName etc. — Position → Name aus Parent-Map
+  // Bauen Position→aktuellerName aus dem (ggf. gepatchten) parent activeGame.
+  const positionToCurrentName = {};
+  const parentPlayerNames = (changed && patch.playerNames) ? patch.playerNames : (data.playerNames || {});
+  for (const pos of Object.keys(parentPlayerNames)) {
+    if (typeof parentPlayerNames[pos] === 'string') {
+      positionToCurrentName[pos] = parentPlayerNames[pos];
+    }
+  }
+
+  const roundsSnap = await db.collection('activeGames').doc(ag.id).collection('rounds').get();
+  for (const r of roundsSnap.docs) {
+    const rd = r.data();
+    const rpatch = {};
+    // startingPlayer (number) → startingPlayerName
+    if (typeof rd.startingPlayer === 'number' || typeof rd.startingPlayer === 'string') {
+      const pos = String(rd.startingPlayer);
+      const cur = positionToCurrentName[pos];
+      if (cur && typeof rd.startingPlayerName === 'string' && rd.startingPlayerName !== cur) {
+        rpatch.startingPlayerName = cur;
+      }
+    }
+    // currentPlayer → currentPlayerName (falls vorhanden)
+    if ((typeof rd.currentPlayer === 'number' || typeof rd.currentPlayer === 'string') && typeof rd.currentPlayerName === 'string') {
+      const pos = String(rd.currentPlayer);
+      const cur = positionToCurrentName[pos];
+      if (cur && rd.currentPlayerName !== cur) {
+        rpatch.currentPlayerName = cur;
+      }
+    }
+    if (Object.keys(rpatch).length > 0) {
+      queueWrite(r.ref, rpatch, `activeGames/${ag.id}/rounds/${r.id}`);
+    }
+  }
+}
+
 // Zusammenfassung
 console.log(`\n=== Total zu aktualisierende Dokumente: ${writes.length} ===`);
 writes.slice(0, 30).forEach(w => console.log(`  → ${w.label}`));
