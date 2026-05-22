@@ -1,6 +1,7 @@
 "use client";
 
 import React, {useEffect, useState, useRef, useCallback, useMemo} from "react";
+import { useGroupSessionListener } from "@/hooks/useGroupSessionListener";
 import {useRouter} from "next/router";
 import {useAuthStore} from "@/store/authStore";
 import {useGroupStore} from "@/store/groupStore";
@@ -132,6 +133,10 @@ const StartPage = () => {
   const [completedSessions, setCompletedSessions] = useState<any[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
+
+  // 🔔 Realtime-Listener auf neue/aktualisierte abgeschlossene Sessions der Gruppe.
+  //    Liefert eine Revision, die in den Archiv-Lade-useEffect deps unten steht.
+  const sessionListenerRevision = useGroupSessionListener(currentGroup?.id);
 
   const [groupTournaments, setGroupTournaments] = useState<TournamentInstance[]>([]);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
@@ -394,7 +399,7 @@ const StartPage = () => {
     };
 
     loadArchiveData();
-  }, [currentGroup, showNotification]); // Abhängigkeit von user und status entfernt, da jetzt alles von currentGroup abhängt
+  }, [currentGroup, showNotification, sessionListenerRevision]); // sessionListenerRevision triggert Reload nach extern abgeschlossener Session
 
   // ===== RESUMABLE GAME DETECTION FIX =====
   

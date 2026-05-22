@@ -120,7 +120,7 @@ export function filterTimeSeriesByYear(
         const v = ds.data?.[j];
         if (v === null || v === undefined) continue;
         const n = Number(v);
-        if (Number.isFinite(n)) { baseValue = n; break; }
+        if (Number.isFinite(n)) {baseValue = n; break;}
       }
     }
     const newData = inYearIndices.map(i => {
@@ -232,7 +232,7 @@ export function aggregatePlayerStrichePointsForYear(
       const topPlayers = game.teams?.top?.players || [];
       const bottomPlayers = game.teams?.bottom?.players || [];
 
-      let topVal = 0, bottomVal = 0;
+      let topVal = 0; let bottomVal = 0;
       if (type === 'striche') {
         topVal = sumStriche(game.finalStriche?.top);
         bottomVal = sumStriche(game.finalStriche?.bottom);
@@ -287,7 +287,7 @@ export function aggregateTeamStrichePointsForYear(
       const bottomPlayers = game.teams?.bottom?.players || [];
       if (topPlayers.length !== 2 || bottomPlayers.length !== 2) continue;
 
-      let topVal = 0, bottomVal = 0;
+      let topVal = 0; let bottomVal = 0;
       if (type === 'striche') {
         topVal = sumStriche(game.finalStriche?.top);
         bottomVal = sumStriche(game.finalStriche?.bottom);
@@ -484,7 +484,7 @@ export function deriveYearEndRatingsFromChart(
       const v = ds.data[i];
       if (v === null || v === undefined) continue;
       const n = Number(v);
-      if (Number.isFinite(n)) { lastVal = n; break; }
+      if (Number.isFinite(n)) {lastVal = n; break;}
     }
     if (lastVal === null) continue;
     const tier = getRatingTier(lastVal);
@@ -519,7 +519,7 @@ export function derivePlayerRatingsFromChart(
       const v = ds.data[i];
       if (v === null || v === undefined) continue;
       const n = Number(v);
-      if (Number.isFinite(n)) { lastVal = n; break; }
+      if (Number.isFinite(n)) {lastVal = n; break;}
     }
     if (lastVal === null) continue;
     const tier = getRatingTier(lastVal);

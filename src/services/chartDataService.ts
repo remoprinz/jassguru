@@ -623,12 +623,12 @@ export async function getYearPlayerWinRates(
         const bottomIds: string[] = (teams.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
 
         if (winnerTeamKey === 'draw') {
-          [...topIds, ...bottomIds].forEach(id => { bump(id).sessionDraws++; });
+          [...topIds, ...bottomIds].forEach(id => {bump(id).sessionDraws++;});
         } else if (winnerTeamKey === 'top' || winnerTeamKey === 'bottom') {
           const winners = winnerTeamKey === 'top' ? topIds : bottomIds;
           const losers = winnerTeamKey === 'top' ? bottomIds : topIds;
-          winners.forEach(id => { bump(id).sessionWins++; });
-          losers.forEach(id => { bump(id).sessionLosses++; });
+          winners.forEach(id => {bump(id).sessionWins++;});
+          losers.forEach(id => {bump(id).sessionLosses++;});
         }
       }
 
@@ -643,8 +643,8 @@ export async function getYearPlayerWinRates(
         const gBottomIds: string[] = (g.teams?.bottom?.players || []).map((p: any) => p?.playerId).filter(Boolean);
         const winners = wt === 'top' ? gTopIds : gBottomIds;
         const losers = wt === 'top' ? gBottomIds : gTopIds;
-        winners.forEach(id => { bump(id).gameWins++; });
-        losers.forEach(id => { bump(id).gameLosses++; });
+        winners.forEach(id => {bump(id).gameWins++;});
+        losers.forEach(id => {bump(id).gameLosses++;});
       });
     });
   } catch (error) {
@@ -673,7 +673,7 @@ export async function getYearPlayerWeis(
         const d = doc.data();
         if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
       });
-    } catch { /* */ }
+    } catch {/* */}
 
     const summariesSnap = await getGroupSessionsSnapshot(groupId);
     summariesSnap.docs.forEach(docSnap => {
@@ -730,7 +730,7 @@ export async function getYearTeamWeis(
         const d = doc.data();
         if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
       });
-    } catch { /* */ }
+    } catch {/* */}
 
     const summariesSnap = await getGroupSessionsSnapshot(groupId);
     summariesSnap.docs.forEach(docSnap => {
@@ -798,7 +798,7 @@ export async function getYearTeamWinRates(
         const d = doc.data();
         if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
       });
-    } catch { /* */ }
+    } catch {/* */}
 
     const summariesSnap = await getGroupSessionsSnapshot(groupId);
 
@@ -906,7 +906,7 @@ export async function getYearTeamRoundTimes(
         const d = doc.data();
         if (d?.displayName) playerDisplayNames.set(doc.id, d.displayName);
       });
-    } catch { /* leeres Mapping → playerId als Name */ }
+    } catch {/* leeres Mapping → playerId als Name */}
 
     const summariesSnap = await getGroupSessionsSnapshot(groupId);
     summariesSnap.docs.forEach(docSnap => {

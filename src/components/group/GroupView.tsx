@@ -1,4 +1,5 @@
 import React, { useRef, useMemo, useState, useEffect } from "react";
+import { useGroupSessionListener } from "@/hooks/useGroupSessionListener";
 import Image from "next/image";
 import MainLayout from "@/components/layout/MainLayout";
 import { GroupSelector } from "@/components/group/GroupSelector";
@@ -392,6 +393,12 @@ export const GroupView: React.FC<GroupViewProps> = ({
   })();
   const [selectedYear, setSelectedYearState] = useState<'gesamt' | number>(initialYear);
 
+  // 🔔 Realtime-Listener: Bei neuer abgeschlossener Session (auch von anderen Geräten)
+  //    werden alle Caches invalidiert und sessionListenerRevision inkrementiert.
+  //    Diese Revision steht in den Deps ALLER data-loading useEffects unten →
+  //    automatisches Refetch ohne User-Aktion.
+  const sessionListenerRevision = useGroupSessionListener(currentGroup?.id);
+
   // Sync mit URL bei Änderung des Query-Params (z.B. Browser-Back)
   useEffect(() => {
     const v: 'gesamt' | number = (() => {
@@ -439,7 +446,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setRawYearSessions(res); })
       .catch(err => console.warn('[GroupView] getYearRawSessions:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // NEU: State für Strichdifferenz-Chart
   const [stricheChartData, setStricheChartData] = useState<{
@@ -939,7 +946,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     };
     
     loadGroupSpecificStats();
-  }, [currentGroup?.id, members]);
+  }, [currentGroup?.id, members, sessionListenerRevision]);
   
 
   // 🗓️ Year-Filter: Siegquoten (Partien + Spiele) pro Spieler.
@@ -956,7 +963,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearWinRates(res); })
       .catch(err => console.warn('[GroupView] getYearPlayerWinRates:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // ✅ Session Win Rate Ranking — im Gesamt-Mode aus playerStats (globalStats.current),
   //    im Year-Mode aus yearWinRates (year-aware Aggregation aus jassGameSummaries).
@@ -1193,7 +1200,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       })
       .catch(err => console.warn('[GroupView] getYearEndPlayerRatings:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // 🗓️ Year-Filter: Trumpfansagen-Statistik aus Sessions im Zieljahr.
   React.useEffect(() => {
@@ -1206,7 +1213,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearTrumpfStats(res); })
       .catch(err => console.warn('[GroupView] getYearTrumpfStats:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // 🗓️ Year-Filter: Rundentempo (Median pro Spieler) aus Sessions im Zieljahr.
   const [yearRoundTimes, setYearRoundTimes] = React.useState<Array<{ playerId: string; playerName: string; value: number }> | null>(null);
@@ -1220,7 +1227,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearRoundTimes(res); })
       .catch(err => console.warn('[GroupView] getYearPlayerRoundTimes:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // 🗓️ Year-Filter: Player-Weisdifferenz aus Sessions im Zieljahr.
   const [yearPlayerWeis, setYearPlayerWeis] = React.useState<Array<{ playerId: string; playerName: string; eventsMade: number; eventsReceived: number; value: number }> | null>(null);
@@ -1234,7 +1241,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearPlayerWeis(res); })
       .catch(err => console.warn('[GroupView] getYearPlayerWeis:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // 🗓️ Year-Filter: Team-Weisdifferenz.
   const [yearTeamWeis, setYearTeamWeis] = React.useState<Array<{ names: string[]; playerIds: string[]; eventsMade: number; eventsReceived: number; value: number }> | null>(null);
@@ -1248,7 +1255,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearTeamWeis(res); })
       .catch(err => console.warn('[GroupView] getYearTeamWeis:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // 🗓️ Year-Filter: Team-Siegquoten (Partien + Spiele).
   const [yearTeamWinRates, setYearTeamWinRates] = React.useState<{ session: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }>; game: Array<{ names: string[]; playerIds: string[]; value: number; eventsPlayed: number }> } | null>(null);
@@ -1262,7 +1269,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearTeamWinRates(res); })
       .catch(err => console.warn('[GroupView] getYearTeamWinRates:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // Active-Sources (Gesamt = groupStats, Year = year-aware).
   const activePlayerWeisDifference = useMemo(() => {
@@ -1314,7 +1321,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearTeamRoundTimes(res); })
       .catch(err => console.warn('[GroupView] getYearTeamRoundTimes:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   const activeTeamRoundTimes = useMemo(() => {
     if (selectedYear === 'gesamt') return groupStats?.teamWithFastestRounds || [];
@@ -1344,7 +1351,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setYearGroupStats(res); })
       .catch(err => console.warn('[GroupView] getYearGroupStats:', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id, selectedYear]);
+  }, [currentGroup?.id, selectedYear, sessionListenerRevision]);
 
   // 🌍 Gesamt-Modus: dieselbe Logik wie getYearGroupStats, aber ohne Year-Filter.
   //    Damit sind Ø Dauer/Spiel, Ø Runden/Spiel, Ø Matsch/Spiel und Ø Rundentempo
@@ -1361,7 +1368,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .then(res => { if (!cancelled) setAllTimeRegularStats(res); })
       .catch(err => console.warn('[GroupView] getYearGroupStats(all):', err));
     return () => { cancelled = true; };
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // Pro-Feld-Override: im Year-Mode aus yearGroupStats, im Gesamt-Mode bevorzugt
   // aus allTimeRegularStats (turnierfrei). Fallback auf groupStats (precomputed)
@@ -1677,7 +1684,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
       .finally(() => {
         setEloRatingsLoading(false);
       });
-  }, [members, currentGroup?.id]);
+  }, [members, currentGroup?.id, sessionListenerRevision]);
 
   // ⚡ ENTFERNT: separater playerDeltas-Loader aus jassGameSummaries.
   // Wir nutzen jetzt direkt `rating.lastSessionDelta` aus playerRatings (denormalisiertes
@@ -1704,7 +1711,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         // Session-Deltas werden separat geladen (siehe useEffect oben)
       })
       .catch(e => console.warn('Fehler beim Laden der globalen Elo-Ratings für öffentliche Ansicht:', (e as any)?.message));
-  }, [currentGroup?.id, isPublicView, members]);
+  }, [currentGroup?.id, isPublicView, members, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Elo-Rating-Chart-Daten mit Backfill-Priorität
   React.useEffect(() => {
@@ -1737,7 +1744,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
 
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
   
   // 🚀 OPTIMIERT: Lade Strichdifferenz-Verlauf mit Backfill-Priorität
   React.useEffect(() => {
@@ -1763,7 +1770,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Punktedifferenz-Verlauf mit Backfill-Priorität
   React.useEffect(() => {
@@ -1789,7 +1796,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Matsch-Verlauf mit Backfill-Priorität
   React.useEffect(() => {
@@ -1815,7 +1822,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Schneider-Verlauf mit Backfill-Priorität
   React.useEffect(() => {
@@ -1841,7 +1848,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Team-Strichdifferenz-Verlauf
   React.useEffect(() => {
@@ -1866,7 +1873,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Team-Punktedifferenz-Verlauf
   React.useEffect(() => {
@@ -1891,7 +1898,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // 🚀 OPTIMIERT: Lade Team-Matsch-Bilanz-Verlauf
   React.useEffect(() => {
@@ -1916,7 +1923,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
     }, 50);
     
     return () => clearTimeout(timer);
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
   
   // ✅ NEU: Lade Team Event-Counts (Made/Received) direkt aus jassGameSummaries
   React.useEffect(() => {
@@ -1930,7 +1937,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         console.warn('Fehler beim Laden der Team Event-Counts:', error);
         setTeamEventCountsMap(new Map());
       });
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // ✅ NEU: Lade Spieler-Event-Counts (Matsch, Schneider) direkt aus jassGameSummaries
   React.useEffect(() => {
@@ -1949,7 +1956,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         setPlayerMatschCounts(new Map());
         setPlayerSchneiderCounts(new Map());
       });
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // ✅ NEU: Lade Spieler-Striche/Punkte-Totals
   React.useEffect(() => {
@@ -1968,7 +1975,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         setPlayerStricheTotals(new Map());
         setPlayerPointsTotals(new Map());
       });
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // ✅ NEU: Lade Team-Striche/Punkte-Totals
   React.useEffect(() => {
@@ -1987,7 +1994,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         setTeamStricheTotals(new Map());
         setTeamPointsTotals(new Map());
       });
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // ✅ NEU: Lade Team-Weis-Punkte-Totals
   React.useEffect(() => {
@@ -2001,7 +2008,7 @@ export const GroupView: React.FC<GroupViewProps> = ({
         console.warn('Fehler beim Laden der Team Weis-Punkte-Totals:', error);
         setTeamWeisPointsTotals(new Map());
       });
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   if (groupStatus === 'loading' && !currentGroup) {
     return (

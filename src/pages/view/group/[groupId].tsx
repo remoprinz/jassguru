@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
+import { useGroupSessionListener } from '@/hooks/useGroupSessionListener';
 import { useRouter } from 'next/router';
 import { getFirestore, doc, getDoc, collection, getDocs, query, where, orderBy, limit, Timestamp, FieldValue } from 'firebase/firestore';
 import { firebaseApp } from '@/services/firebaseInit';
@@ -68,6 +69,9 @@ const PublicGroupPage = () => {
   const [members, setMembers] = useState<FirestorePlayer[]>([]);
   const [groupStats, setGroupStats] = useState<GroupStatistics | null>(null);
   const [completedSessions, setCompletedSessions] = useState<any[]>([]);
+
+  // 🔔 Realtime-Listener auf neue abgeschlossene Sessions (auch von anderen Geräten).
+  const sessionListenerRevision = useGroupSessionListener(currentGroup?.id);
   const [groupTournaments, setGroupTournaments] = useState<TournamentInstance[]>([]);
 
   // ===== LOADING & ERROR STATES =====
@@ -333,7 +337,7 @@ const PublicGroupPage = () => {
     };
 
     loadArchiveData();
-  }, [currentGroup?.id]);
+  }, [currentGroup?.id, sessionListenerRevision]);
 
   // ===== ARCHIV-KOMBINIERUNG =====
   const combinedArchiveItems = useMemo(() => {
