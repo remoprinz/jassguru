@@ -503,8 +503,13 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
     return;
   }
 
+  // 🔒 Tutorial NUR im Gästemodus (= nicht eingeloggt). Authentifizierte User
+  //    bekommen kein Auto-Tutorial — sie können es jederzeit manuell starten.
+  const isAuthed = authStatus === 'authenticated';
+
   const conditionsMetForTutorialStart =
     !currentHasCompleted &&
+    !isAuthed &&
     !isGameStarted &&
     !isJassStarted &&
     !isTutorialInfoOpen;
@@ -514,7 +519,7 @@ const JassKreidetafel: React.FC<JassKreidetafelProps> = ({
   if (mounted && !currentIsActive && (conditionsMetForTutorialStart || devTutorialCondition)) {
     startTutorial();
   }
-  }, [mounted, isPWAInstalled, isGameStarted, isJassStarted, isTutorialInfoOpen, isReadOnlyMode, startTutorial, isTutorialActive, hasCompletedTutorial, isDev]);
+  }, [mounted, isPWAInstalled, isGameStarted, isJassStarted, isTutorialInfoOpen, isReadOnlyMode, startTutorial, isTutorialActive, hasCompletedTutorial, isDev, authStatus]);
 
   const tutorialInteractions = useMemo(() => {
     if (!isTutorialActive) return null;
