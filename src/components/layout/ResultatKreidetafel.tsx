@@ -1123,8 +1123,7 @@ const ResultatKreidetafel = ({
                     ? sessionDocData.participantPlayerIds
                     : (freshJassStore.currentSession?.participantPlayerIds || []);
 
-                // 🔍 DEBUG-LOGGING (wird beim Erfolgsfall mit deployt, sonst sehen
-                //    wir nicht was tatsächlich gesendet wird. Entfernen sobald stabil.)
+                // 🔍 DEBUG-LOGGING (entfernen sobald stabil)
                 console.log('[handleBeendenClick DEBUG] Daten vor Cloud-Call:', {
                   sessionDocPresent: !!sessionDocData,
                   sessionDoc_participantPlayerIds_type: Array.isArray(sessionDocData?.participantPlayerIds) ? 'array' : typeof sessionDocData?.participantPlayerIds,
@@ -1136,8 +1135,8 @@ const ResultatKreidetafel = ({
                   resolved_participantPlayerIdsLocal_type: Array.isArray(participantPlayerIdsLocal) ? 'array' : typeof participantPlayerIdsLocal,
                   resolved_participantPlayerIdsLocal_length: participantPlayerIdsLocal?.length,
                   resolved_participantUidsLocal: participantUidsLocal,
-                  gruppeIdEffective,
                   sessionId,
+                  // gruppeIdEffective wird unten deklariert — hier weglassen wegen TDZ.
                 });
 
                 if (!participantPlayerIdsLocal.length) {
