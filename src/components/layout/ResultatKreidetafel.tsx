@@ -62,7 +62,7 @@ import { DEFAULT_FARBE_SETTINGS } from '@/config/FarbeSettings';
 import { DEFAULT_SCORE_SETTINGS } from '@/config/ScoreSettings';
 
 // --- Werte aus firebase/firestore ---
-import { getFirestore, doc, updateDoc, increment, serverTimestamp, Timestamp, collection, query, orderBy, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc } from 'firebase/firestore';
+import { getFirestore, doc, updateDoc, increment, serverTimestamp, Timestamp, collection, query, orderBy, onSnapshot, Unsubscribe, writeBatch, runTransaction, getDoc, getDocs } from 'firebase/firestore';
 
 // --- Firebase Init & Services ---
 import { firebaseApp } from "@/services/firebaseInit";
@@ -1026,14 +1026,151 @@ const ResultatKreidetafel = ({
       return;
     }
 
-    // --- NEUE LOGIK --- 
-    const currentActiveGameId = gameStore.activeGameId; 
+    // --- NEUE LOGIK ---
+    const currentActiveGameId = gameStore.activeGameId;
     const isUserAuthenticated = authStore.isAuthenticated();
+
+    // 🔙 Fall 0: Back-Navigated-State — User hat zurück-navigiert, will Jass nach
+    //    aktuell angezeigtem Spiel beenden, das in-progress Spiel verwerfen.
+    //    Wir umgehen den Signierprozess (es gibt kein Ergebnis zu unterschreiben)
+    //    und rufen die Cloud Function direkt mit der Anzahl tatsächlich abgeschlossener
+    //    Spiele auf — analog zum scripts/force-finalize-session.mjs.
+    const canNavigateForwardNow = jassStore.canNavigateForward();
+    const sessionId = jassStore.currentSession?.id;
+    const groupId = jassStore.currentSession?.gruppeId;
+    const isTournamentSession = !!jassStore.currentSession?.tournamentId || !!(jassStore.currentSession as any)?.isTournamentSession;
+    if (isUserAuthenticated && canNavigateForwardNow && sessionId && groupId && !isTournamentSession) {
+      const db = getFirestore(firebaseApp);
+      // 1. Echte Anzahl gespeicherter Spiele aus Firestore lesen
+      let expectedGameNumber = 0;
+      try {
+        const completedSnap = await getDocs(
+          collection(db, `groups/${groupId}/jassGameSummaries/${sessionId}/completedGames`)
+        );
+        expectedGameNumber = completedSnap.size;
+      } catch (e) {
+        console.error('[handleBeendenClick] Konnte completedGames nicht zählen:', e);
+        uiStore.showNotification({ type: 'error', message: 'Fehler beim Lesen der Session-Daten.' });
+        return;
+      }
+      if (expectedGameNumber === 0) {
+        uiStore.showNotification({
+          type: 'warning',
+          message: 'Keine abgeschlossenen Spiele in dieser Session. Bitte das aktuelle Spiel zuerst zu Ende spielen oder ganz über das Menü abbrechen.',
+          actions: [{ label: 'Verstanden', onClick: () => {} }],
+        });
+        return;
+      }
+      uiStore.showNotification({
+        type: 'warning',
+        message: `Das angefangene Spiel wird verworfen. Jass mit ${expectedGameNumber} abgeschlossenen Spielen beenden?`,
+        duration: 15000,
+        position: swipePosition ?? undefined,
+        isFlipped: swipePosition === 'top',
+        actions: [
+          { label: 'Abbrechen', onClick: () => {} },
+          {
+            label: 'Ja, beenden',
+            onClick: async () => {
+              useUIStore.getState().setFinalizingSession(true);
+              try {
+                // 2. session.currentActiveGameId aus Firestore holen (kann stale sein)
+                let realActiveGameId: string | null = null;
+                try {
+                  const sessionSnap = await getDoc(doc(db, 'sessions', sessionId));
+                  realActiveGameId = sessionSnap.data()?.currentActiveGameId ?? null;
+                } catch (e) {
+                  console.warn('[handleBeendenClick] Konnte session-doc nicht lesen:', e);
+                }
+
+                // 3. initialSessionData zusammenbauen (analog zum Normalpfad)
+                const playerNamesLocal = useGameStore.getState().playerNames;
+                const participantUidsLocal = jassStore.currentSession?.participantUids || [];
+                const participantPlayerIdsLocal = jassStore.currentSession?.participantPlayerIds || [];
+                const sessionTeamsData = prepareSessionTeamsData(participantPlayerIdsLocal, playerNamesLocal);
+                const startedAtRaw = jassStore.currentSession?.startedAt;
+                const startedAtValue =
+                  startedAtRaw instanceof Timestamp ? startedAtRaw :
+                  typeof startedAtRaw === 'number' ? startedAtRaw :
+                  (jassStore.games[0]?.timestamp && typeof jassStore.games[0].timestamp === 'number' ? jassStore.games[0].timestamp : Date.now());
+                const initialSessionData = {
+                  participantUids: participantUidsLocal,
+                  participantPlayerIds: participantPlayerIdsLocal,
+                  playerNames: playerNamesLocal,
+                  gruppeId: groupId,
+                  startedAt: startedAtValue,
+                  teams: sessionTeamsData.teams,
+                  pairingIdentifiers: sessionTeamsData.pairingIdentifiers,
+                };
+
+                // 4. finalizeSession Cloud Function — ZUERST, vor Cleanup.
+                //    Wenn das schiefgeht, ist nichts kaputt → User kann retry.
+                const functions = getFunctions(firebaseApp, 'europe-west1');
+                const finalizeFunction = httpsCallable<any, { success: boolean; message?: string }>(functions, 'finalizeSession');
+                const result = await finalizeFunction({
+                  sessionId,
+                  expectedGameNumber,
+                  initialSessionData,
+                });
+                if (!(result.data as any)?.success) {
+                  throw new Error((result.data as any)?.message || 'finalizeSession returned success=false');
+                }
+
+                // 5. Cleanup: in-progress activeGame als aborted markieren (best-effort)
+                if (realActiveGameId) {
+                  try {
+                    await updateDoc(doc(db, 'activeGames', realActiveGameId), { status: 'aborted' });
+                  } catch (e) {
+                    console.warn('[handleBeendenClick] activeGame abort schlug fehl (vermutlich bereits gelöscht):', e);
+                  }
+                }
+
+                // 6. Session-Pointer leeren (best-effort)
+                try {
+                  await updateSessionActiveGameId(sessionId, null);
+                } catch (e) {
+                  console.warn('[handleBeendenClick] updateSessionActiveGameId fehlgeschlagen:', e);
+                }
+
+                // 7. Caches leeren + Local Reset (analog zum Normalpfad)
+                invalidateAllSessionCaches();
+                timerStore.finalizeJassEnd();
+                useJassStore.getState().resetJass();
+                useGameStore.getState().resetGameState({
+                  newActiveGameId: null,
+                  settings: {
+                    farbeSettings: DEFAULT_FARBE_SETTINGS,
+                    scoreSettings: DEFAULT_SCORE_SETTINGS,
+                    strokeSettings: DEFAULT_STROKE_SETTINGS,
+                  },
+                });
+                uiStore.resetSigningProcess();
+                uiStore.closeJassFinishNotification();
+                closeResultatKreidetafel();
+                // Optional: Navigation zur Session-Detailansicht
+                if (sessionId) {
+                  router.push(`/view/session/${sessionId}`).catch(() => {});
+                }
+              } catch (err) {
+                console.error('[handleBeendenClick] Back-Mode-Finalize fehlgeschlagen:', err);
+                uiStore.showNotification({
+                  type: 'error',
+                  message: 'Fehler beim Beenden der Session. Bitte erneut versuchen.',
+                });
+              } finally {
+                useUIStore.getState().setFinalizingSession(false);
+              }
+            },
+          },
+        ],
+      });
+      return;
+    }
 
     // Fall 1: Eingeloggter Benutzer im Online-Modus -> Signieren starten
     if (isUserAuthenticated && currentActiveGameId) {
-        uiStore.startSigningProcess(); 
-        return; 
+        uiStore.startSigningProcess();
+        return;
     }
 
     // Fall 2a: Gastmodus -> Bestätigungsdialog, kein Loader, kein Navigate
@@ -2387,14 +2524,21 @@ const ResultatKreidetafel = ({
 
     const finalGamesWithDisplayNumber = sortedGames.map((game, index) => ({
       ...game,
-      displayNumber: index + 1 
+      displayNumber: index + 1
     }));
-    
+
+    // 🔙 Back-Navigated-State: nur Spiele bis (inklusive) currentGameId anzeigen.
+    //    Das versteckt das in-progress-Spiel visuell, OHNE Daten anzutasten →
+    //    „1 Spiel vorwärts" bleibt funktional, weil jassStore.games unverändert ist.
+    if (currentJassGameId > 0 && finalGamesWithDisplayNumber.length > currentJassGameId) {
+      return finalGamesWithDisplayNumber.slice(0, currentJassGameId);
+    }
+
     return finalGamesWithDisplayNumber;
 
   // }, [isOnlineMode, onlineCompletedGames, localGames, storeStriche, currentSessionId, currentGameId, useGameStore.getState()]); // Alter Kommentar
   // NEUE Abhängigkeiten: isTournamentPasse und gameStore states hinzufügen, die verwendet werden
-  }, [isTournamentPasse, isOnlineMode, onlineCompletedGames, localGames, storeStriche, currentSessionId, useGameStore.getState().isGameStarted, useGameStore.getState().isGameCompleted, useGameStore.getState().activeGameId]);
+  }, [isTournamentPasse, isOnlineMode, onlineCompletedGames, localGames, storeStriche, currentSessionId, currentGameId, useGameStore.getState().isGameStarted, useGameStore.getState().isGameCompleted, useGameStore.getState().activeGameId]);
 
   // --- ENDE NEU ---
 
