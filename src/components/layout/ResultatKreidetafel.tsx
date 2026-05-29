@@ -1459,100 +1459,44 @@ const ResultatKreidetafel = ({
       }
       await new Promise(resolve => setTimeout(resolve, 500)); // 500ms Wartezeit für Firestore Eventual Consistency
 
-      // --- NEUE ROBUSTE LOGIK FÜR NÄCHSTEN STARTER ---
-      // Hole die AKTUELLEN Striche aus dem gameStore (nicht aus dem jassStore!)
+      // --- NÄCHSTER STARTER: Einfache, einheitliche Regel ---
+      // (1) Kandidat = der Spieler NACH dem zuletzt aktiven (= getNextPlayer(currentPlayer))
+      // (2) WENN Kandidat im Verlierer-Team → er beginnt
+      //     WENN Kandidat im Sieger-Team   → einen weiter (Skip)
+      //
+      // Das ersetzt die alte +3-Formel-Logik (annahme: Runde komplett gespielt),
+      // die bei mid-game-Hingewerfen falsch lag. currentPlayer ist die zuverlässige
+      // Quelle, weil sie immer den Nächst-Spieler nach der letzten Aktion enthält.
       const currentGameStore = useGameStore.getState();
       const currentStriche = currentGameStore.striche;
-      
-      // Bestimme das Gewinnerteam basierend auf den aktuellen Strichen
+
       let gewinnerTeam: TeamPosition | undefined;
       if (currentStriche.top.sieg > 0) {
         gewinnerTeam = "top";
       } else if (currentStriche.bottom.sieg > 0) {
         gewinnerTeam = "bottom";
       }
-      
-      // --- KORRIGIERT: Ermittle den TATSÄCHLICH letzten Spieler aus der History ---
-      let lastRoundFinishingPlayer: PlayerNumber;
-      
-      // Die sicherste Methode: Verwende die letzte Runde aus der History
-      // und berechne, wer sie beendet hat
-      const roundHistory = currentGameStore.roundHistory || [];
-      const lastRound = roundHistory.length > 0 ? roundHistory[roundHistory.length - 1] : null;
-      
-      if (lastRound && typeof lastRound.startingPlayer === 'number') {
-        // In einer 4-Spieler-Runde: Der Spieler, der die Runde beendet,
-        // ist immer 3 Positionen nach dem Startspieler (im Kreis)
-        // Beispiel: Start bei 1 → 1,2,3,4 → endet bei 4
-        // Beispiel: Start bei 2 → 2,3,4,1 → endet bei 1
-        // Beispiel: Start bei 3 → 3,4,1,2 → endet bei 2
-        // Beispiel: Start bei 4 → 4,1,2,3 → endet bei 3
-        const startingPlayer = lastRound.startingPlayer;
-        lastRoundFinishingPlayer = (((startingPlayer + 3 - 1) % 4) + 1) as PlayerNumber;
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`[ResultatKreidetafel] Letzte Runde gestartet von ${startingPlayer} (${lastRound.startingPlayerName}), beendet von Spieler ${lastRoundFinishingPlayer}`);
-        }
-      } else {
-        // Fallback 1: Verwende currentPlayer aus dem aktuellen Spiel
-        const jassStoreCurrentGame = useJassStore.getState().getCurrentGame();
-        const currentPlayerFromStore = currentGameStore.currentPlayer || jassStoreCurrentGame?.currentPlayer;
-        if (currentPlayerFromStore) {
-          // currentPlayer zeigt, wer als NÄCHSTES dran wäre
-          // Also war der letzte Spieler der davor
-          lastRoundFinishingPlayer = (((currentPlayerFromStore - 2 + 4) % 4) + 1) as PlayerNumber;
-          
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[ResultatKreidetafel] Fallback - currentPlayer: ${currentPlayerFromStore}, letzter Spieler: ${lastRoundFinishingPlayer}`);
-          }
-        } else {
-          // Letzter Fallback: Verwende initialStartingPlayer
-          const initialStarter = currentGameStore.initialStartingPlayer || 1;
-          lastRoundFinishingPlayer = initialStarter;
-          
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`[ResultatKreidetafel] Letzter Fallback - verwende initialStartingPlayer: ${lastRoundFinishingPlayer}`);
-          }
-        }
-      }
-      
-      // Bestimme den nächsten Startspieler
-      let initialStartingPlayerForNextGame = getNextPlayer(lastRoundFinishingPlayer);
-      
-      // KORRIGIERT: Wenn es ein Gewinnerteam gibt und der nächste Spieler diesem Team angehört,
-      // überspringe ihn (gehe zum übernächsten Spieler)
+
+      const currentPlayerSnap = (currentGameStore.currentPlayer
+        ?? useJassStore.getState().getCurrentGame()?.currentPlayer
+        ?? currentGameStore.initialStartingPlayer
+        ?? 1) as PlayerNumber;
+
+      let initialStartingPlayerForNextGame = getNextPlayer(currentPlayerSnap);
       if (gewinnerTeam && isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam)) {
         initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
       }
-      
-      // 🆕 NEU: Vorzeitiges-Ende-Regel (Edge Case für Bedanken ohne Calculator)
-      // Diese Regel greift nur, wenn das Spiel vorzeitig beendet wurde UND der letzte bekannte
-      // Spieler zum Gewinnerteam gehört (was bedeutet, dass bereits jemand vom Verliererteam dran war)
-      const topTotalScore = topScore + weisPoints.top;
-      const bottomTotalScore = bottomScore + weisPoints.bottom;
-      const siegPunkte = activeScoreSettings.values.sieg;
-      const wasVorzeitigesEnde = topTotalScore < siegPunkte && bottomTotalScore < siegPunkte;
 
-      if (wasVorzeitigesEnde && gewinnerTeam && isPlayerInTeam(lastRoundFinishingPlayer, gewinnerTeam)) {
-        initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
-        
-        // Erneute Gewinner-Prüfung nach Übersprung
-        if (gewinnerTeam && isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam)) {
-          initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
-        }
-      }
-      
-      // Debug-Logging für bessere Nachvollziehbarkeit
       if (process.env.NODE_ENV === 'development') {
         console.log(`[ResultatKreidetafel] Nächster Starter berechnet:`, {
-          lastPlayer: lastRoundFinishingPlayer,
+          currentPlayer: currentPlayerSnap,
           winnerTeam: gewinnerTeam || 'keine Sieg-Striche gefunden',
-          nextPlayerBeforeCheck: getNextPlayer(lastRoundFinishingPlayer),
+          rawCandidate: getNextPlayer(currentPlayerSnap),
           finalNextPlayer: initialStartingPlayerForNextGame,
           currentStriche: {
             top: currentStriche.top.sieg,
-            bottom: currentStriche.bottom.sieg
-          }
+            bottom: currentStriche.bottom.sieg,
+          },
         });
       }
 

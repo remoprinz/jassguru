@@ -819,16 +819,7 @@ export const getNextPlayer = (current: PlayerNumber): PlayerNumber => {
   return isValidPlayerNumber(next) ? next : 1;
 };
 
-// Hilfsfunktionen für determineNextStartingPlayer
-export const determineWinningTeam = (game: GameEntry): TeamPosition | undefined => {
-  if (game.teams.top.striche.sieg > 0) {
-    return "top";
-  } else if (game.teams.bottom.striche.sieg > 0) {
-    return "bottom";
-  }
-  return undefined;
-};
-
+// Team-Zugehörigkeit (bottom = {1,3}, top = {2,4}).
 export const isPlayerInTeam = (player: PlayerNumber, team: TeamPosition): boolean => {
   return (
     (team === "top" && (player === 2 || player === 4)) ||
@@ -836,32 +827,9 @@ export const isPlayerInTeam = (player: PlayerNumber, team: TeamPosition): boolea
   );
 };
 
-export const determineNextStartingPlayer = (
-  lastGame: GameEntry | null,
-  lastRoundFinishingPlayer: PlayerNumber
-): PlayerNumber => {
-  // Wenn kein vorheriges Spiel, einfach zum nächsten Spieler in der Reihenfolge
-  if (!lastGame) {
-    return getNextPlayer(lastRoundFinishingPlayer);
-  }
-
-  // Bestimme den nächsten Spieler in der Standardreihenfolge
-  let nextPlayer = getNextPlayer(lastRoundFinishingPlayer);
-
-  // Bestimme das Gewinnerteam
-  const gewinnerTeam = determineWinningTeam(lastGame);
-  
-  // Wenn es ein Gewinnerteam gibt und der nächste Spieler diesem Team angehört,
-  // überspringe ihn (gehe zum übernächsten Spieler)
-  if (gewinnerTeam && isPlayerInTeam(nextPlayer, gewinnerTeam)) {
-    nextPlayer = getNextPlayer(nextPlayer);
-  }
-  
-  // Debugging-Log zur besseren Nachvollziehbarkeit
-  // console.log(`[determineNextStartingPlayer] Last player: ${lastRoundFinishingPlayer}, Winner team: ${gewinnerTeam || 'none'}, Next player: ${nextPlayer}`);
-
-  return nextPlayer;
-};
+// ⚠️ Entfernt: determineNextStartingPlayer + determineWinningTeam.
+//    Tote Funktionen (nirgends aufgerufen) mit veralteter +3-Annahme.
+//    Die produktive Logik lebt in ResultatKreidetafel.handleNextGameClick.
 
 // Startspieler-Management Types
 export interface StartingPlayerState {
