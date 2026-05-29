@@ -792,16 +792,18 @@ const ResultatKreidetafel = ({
     const gameStore = useGameStore.getState();
     
     if (jassStore.canNavigateBack()) {
-      // 2. Zum vorherigen Spiel navigieren
+      // 2. Zum vorherigen Spiel navigieren (snapshotet aktuellen gameStore-State
+      //    nach games[prevId-1] BEVOR currentGameId wechselt, siehe navigateToGame)
       jassStore.navigateToPreviousGame();
-      
-      // 3. GameStore VOLLSTÄNDIG mit historischen Daten aktualisieren
+
+      // 3. GameStore mit historischen Daten aktualisieren.
+      //    🔧 KRITISCH: WIR RUFEN gameStore.resetGame() ABSICHTLICH NICHT auf —
+      //    die Funktion ist async (Firestore-Settings-Lookup) und ihr scheduletes
+      //    set() überschreibt unser sync setState mit Nullen → Datenverlust!
+      //    Stattdessen setzen wir alles explizit in einem set, inkl. reset-relevanter
+      //    Felder (farbe, isTransitioning, currentHistoryIndex).
       const previousGame = jassStore.getCurrentGame();
       if (previousGame) {
-        // Erst alles zurücksetzen MIT dem Starter des vorherigen Spiels
-        gameStore.resetGame(previousGame.initialStartingPlayer);
-        
-        // Dann VOLLSTÄNDIGEN Spielzustand wiederherstellen
         useGameStore.setState(state => ({
           ...state,
           isGameStarted: true,
@@ -809,8 +811,7 @@ const ResultatKreidetafel = ({
           currentPlayer: previousGame.currentPlayer,
           startingPlayer: previousGame.startingPlayer,
           initialStartingPlayer: previousGame.initialStartingPlayer,
-          
-          // Alle Punkte
+
           scores: {
             top: (previousGame.teams.top.jassPoints || 0) + (previousGame.teams.top.weisPoints || 0),
             bottom: (previousGame.teams.bottom.jassPoints || 0) + (previousGame.teams.bottom.weisPoints || 0)
@@ -819,19 +820,18 @@ const ResultatKreidetafel = ({
             top: previousGame.teams.top.weisPoints,
             bottom: previousGame.teams.bottom.weisPoints
           },
-          
-          // Alle Striche
           striche: {
             top: { ...previousGame.teams.top.striche },
             bottom: { ...previousGame.teams.bottom.striche }
           },
-          
-          // Wichtig: Spielhistorie
           roundHistory: previousGame.roundHistory || [],
-          
-          // Spielstatus
-          isGameCompleted: false,  // Wichtig: Auf false setzen damit weitergespielt werden kann!
-          isRoundCompleted: false
+
+          // Reset-relevante Felder explizit
+          currentHistoryIndex: (previousGame.roundHistory?.length || 0) - 1,
+          farbe: undefined,
+          isTransitioning: false,
+          isGameCompleted: false,
+          isRoundCompleted: false,
         }));
       }
     }
@@ -1168,11 +1168,12 @@ const ResultatKreidetafel = ({
                 if (sessionId) {
                   router.push(`/view/session/${sessionId}`).catch(() => {});
                 }
-              } catch (err) {
+              } catch (err: any) {
                 console.error('[handleBeendenClick] Back-Mode-Finalize fehlgeschlagen:', err);
+                const detail = err?.message || err?.code || (typeof err === 'string' ? err : 'unbekannt');
                 uiStore.showNotification({
                   type: 'error',
-                  message: 'Fehler beim Beenden der Session. Bitte erneut versuchen.',
+                  message: `Fehler beim Beenden: ${detail}`,
                 });
               } finally {
                 useUIStore.getState().setFinalizingSession(false);
@@ -1841,7 +1842,9 @@ const ResultatKreidetafel = ({
                 });
               }
               
-              gameStore.resetGame(nextGame.initialStartingPlayer, undefined, settingsForNavigation);
+              // 🔧 KRITISCH: KEIN gameStore.resetGame() — sein async set überschreibt
+              //    unser sync setState mit Nullen. Stattdessen Settings + State in einem
+              //    setState zusammenführen.
               useGameStore.setState(state => ({
                 ...state,
                 isGameStarted: true,
@@ -1862,6 +1865,12 @@ const ResultatKreidetafel = ({
                   bottom: { ...defaultStriche, ...(nextGame.teams.bottom.striche ?? {}) }
                 },
                 roundHistory: nextGame.roundHistory ?? [],
+                currentHistoryIndex: (nextGame.roundHistory?.length || 0) - 1,
+                farbe: undefined,
+                isTransitioning: false,
+                scoreSettings: settingsForNavigation.scoreSettings,
+                strokeSettings: settingsForNavigation.strokeSettings,
+                farbeSettings: settingsForNavigation.farbeSettings,
                 isGameCompleted: false,
                 isRoundCompleted: false
               }));
