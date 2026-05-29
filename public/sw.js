@@ -43,7 +43,7 @@ if (workbox) {
   // Veraltete Caches aufräumen
   workbox.precaching.cleanupOutdatedCaches();
 
-  const APP_VERSION = '2.10.0';
+  const APP_VERSION = '2.10.1';
 
   // 0) 🚨 KRITISCH: Firestore + Firebase-APIs NICHT cachen.
   //    Diese Endpoints nutzen Streaming / Listen-Channels — der SW darf
