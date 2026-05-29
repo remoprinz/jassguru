@@ -546,13 +546,21 @@ const ResultatKreidetafel = ({
       return totalValue;
     };
 
-    // Summe der Strich-Werte aller *vorherigen* Spiele
-    const baseTotals = gamesToDisplay // Verwende gamesToDisplay
+    // 🔙 Back-Navigated-State: das aktuell angezeigte Spiel ist bereits abgeschlossen
+    //    (z.B. nach „Neues Spiel" und Back). Source-of-Truth ist jassStore.games[]
+    //    (lokaler Snapshot, von finalizeGame() synchron gepflegt) — robuster als
+    //    onlineCompletedGames, das asynchron über die Firestore-Subscription kommt.
+    const isBackNavigated = jassStore.canNavigateForward();
+    const sourceForBaseTotals: Array<any> = isBackNavigated
+      ? useJassStore.getState().games
+      : gamesToDisplay;
+    // Summe der Strich-/Punkte-Werte (im Back-Mode: inkl. currentGameId).
+    const baseTotals = sourceForBaseTotals
       .filter(game => {
          // Filter logic needs to handle both types correctly
          const gameId = 'gameNumber' in game ? game.gameNumber : ('id' in game ? game.id : 0);
-         // Ensure comparison works for numbers and potential string IDs (less likely here but safer)
-         return (typeof gameId === 'number' ? gameId : 0) < currentGameId; 
+         const numericGameId = typeof gameId === 'number' ? gameId : 0;
+         return isBackNavigated ? numericGameId <= currentGameId : numericGameId < currentGameId;
       })
       .reduce((totals, game) => {
          // Initialize with defaults
@@ -599,7 +607,15 @@ const ResultatKreidetafel = ({
     const currentTopStricheValue = calculateStricheValue(uiStriche.top, activeStrokeSettings, activeScoreSettings.enabled);
     const currentBottomStricheValue = calculateStricheValue(uiStriche.bottom, activeStrokeSettings, activeScoreSettings.enabled);
 
-    // Endgültiges Total = Summe vorheriger Spiele + aktuelles Spiel (inkl. aktueller Weis)
+    // Endgültiges Total: im normalen Live-Modus = vorherige Spiele + aktuelles
+    // gameStore-State. Im Back-Mode ist das Aktuelle aber schon in baseTotals →
+    // gameStore wird ignoriert (sonst Doppelzählung oder 0 0 durch transient State).
+    if (isBackNavigated) {
+      return {
+        striche: { top: baseTotals.striche.top, bottom: baseTotals.striche.bottom },
+        punkte: { top: baseTotals.punkte.top, bottom: baseTotals.punkte.bottom },
+      };
+    }
     return {
       striche: {
         top: baseTotals.striche.top + currentTopStricheValue,
