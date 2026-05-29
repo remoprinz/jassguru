@@ -1000,6 +1000,51 @@ const createJassStore: StateCreator<JassStore> = (set, get): JassState & JassSto
     const targetGame = state.games.find((game) => game.id === gameId);
     if (!targetGame) return;
 
+    // 🔧 FIX: Snapshot des aktuellen gameStore-States in games[prevId] BEVOR wir
+    //    wegnavigieren. Sonst gehen in-progress Striche / Scores / Weis / Runden
+    //    verloren, wenn der User back→forward navigiert (finalizeGame läuft nur
+    //    bei „Neues Spiel" / „Jass beenden", nicht bei reiner Navigation).
+    //
+    //    Encoding kompatibel mit finalizeGame (= jassPoints enthält scores.total),
+    //    damit handleBack (`scores = jassPoints + weisPoints`) und navigateToGame
+    //    (`scores = jassPoints`) keine zusätzlichen Regressions zeigen — wir
+    //    lassen weisPoints in games[N] auf dem alten Wert, exakt wie finalizeGame
+    //    es macht.
+    const prevId = state.currentGameId;
+    if (prevId && prevId !== gameId) {
+      const gs = useGameStore.getState();
+      const prevGame = state.games.find((g) => g.id === prevId);
+      if (prevGame) {
+        set((s) => ({
+          ...s,
+          games: s.games.map((g) =>
+            g.id === prevId
+              ? {
+                  ...g,
+                  teams: {
+                    top: {
+                      ...g.teams.top,
+                      jassPoints: gs.scores.top,
+                      total: gs.scores.top,
+                      striche: { ...gs.striche.top },
+                    },
+                    bottom: {
+                      ...g.teams.bottom,
+                      jassPoints: gs.scores.bottom,
+                      total: gs.scores.bottom,
+                      striche: { ...gs.striche.bottom },
+                    },
+                  },
+                  currentRound: gs.currentRound ?? g.currentRound,
+                  currentPlayer: gs.currentPlayer ?? g.currentPlayer,
+                  roundHistory: gs.roundHistory ?? g.roundHistory,
+                }
+              : g,
+          ),
+        }));
+      }
+    }
+
     const isLatestGame = gameId === state.games.length;
     const lastHistoryIndex = (targetGame.roundHistory?.length || 0) - 1;
 
