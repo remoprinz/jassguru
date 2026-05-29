@@ -550,9 +550,10 @@ const ResultatKreidetafel = ({
     //    (z.B. nach „Neues Spiel" und Back). Source-of-Truth ist jassStore.games[]
     //    (lokaler Snapshot, von finalizeGame() synchron gepflegt) — robuster als
     //    onlineCompletedGames, das asynchron über die Firestore-Subscription kommt.
-    const isBackNavigated = jassStore.canNavigateForward();
+    const jassStoreSnap = useJassStore.getState();
+    const isBackNavigated = jassStoreSnap.canNavigateForward();
     const sourceForBaseTotals: Array<any> = isBackNavigated
-      ? useJassStore.getState().games
+      ? jassStoreSnap.games
       : gamesToDisplay;
     // Summe der Strich-/Punkte-Werte (im Back-Mode: inkl. currentGameId).
     const baseTotals = sourceForBaseTotals
