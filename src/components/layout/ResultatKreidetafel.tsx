@@ -1091,30 +1091,61 @@ const ResultatKreidetafel = ({
             onClick: async () => {
               useUIStore.getState().setFinalizingSession(true);
               try {
-                // 2. session.currentActiveGameId aus Firestore holen (kann stale sein)
+                // 2. Session-Dokument frisch aus Firestore lesen — das ist die
+                //    autoritative Quelle (lokaler jassStore-Snapshot kann veraltet
+                //    sein, oder Felder fehlen in bestimmten Zuständen).
+                let sessionDocData: any = null;
                 let realActiveGameId: string | null = null;
                 try {
                   const sessionSnap = await getDoc(doc(db, 'sessions', sessionId));
-                  realActiveGameId = sessionSnap.data()?.currentActiveGameId ?? null;
+                  sessionDocData = sessionSnap.data() || null;
+                  realActiveGameId = sessionDocData?.currentActiveGameId ?? null;
                 } catch (e) {
                   console.warn('[handleBeendenClick] Konnte session-doc nicht lesen:', e);
                 }
 
-                // 3. initialSessionData zusammenbauen (analog zum Normalpfad)
-                const playerNamesLocal = useGameStore.getState().playerNames;
-                const participantUidsLocal = jassStore.currentSession?.participantUids || [];
-                const participantPlayerIdsLocal = jassStore.currentSession?.participantPlayerIds || [];
+                // 3. Fresh local state als Fallback (jassStore-Variable im outer scope
+                //    ist ein Snapshot vom Zeitpunkt des Button-Klicks, hier evtl. veraltet).
+                const freshJassStore = useJassStore.getState();
+
+                // Prefer Firestore → Fallback freshLocal → leerer Default.
+                const playerNamesLocal =
+                  sessionDocData?.playerNames ||
+                  freshJassStore.currentSession?.playerNames ||
+                  useGameStore.getState().playerNames ||
+                  {};
+                const participantUidsLocal =
+                  (sessionDocData?.participantUids && sessionDocData.participantUids.length > 0)
+                    ? sessionDocData.participantUids
+                    : (freshJassStore.currentSession?.participantUids || []);
+                const participantPlayerIdsLocal =
+                  (sessionDocData?.participantPlayerIds && sessionDocData.participantPlayerIds.length > 0)
+                    ? sessionDocData.participantPlayerIds
+                    : (freshJassStore.currentSession?.participantPlayerIds || []);
+
+                if (!participantPlayerIdsLocal.length) {
+                  throw new Error('participantPlayerIds nicht verfügbar (weder in Firestore noch lokal). Session-Daten unvollständig.');
+                }
+
                 const sessionTeamsData = prepareSessionTeamsData(participantPlayerIdsLocal, playerNamesLocal);
-                const startedAtRaw = jassStore.currentSession?.startedAt;
+
+                // startedAt: Firestore-Timestamp → Number → lokal-fallback.
+                const startedAtRaw = sessionDocData?.startedAt ?? freshJassStore.currentSession?.startedAt;
                 const startedAtValue =
                   startedAtRaw instanceof Timestamp ? startedAtRaw :
                   typeof startedAtRaw === 'number' ? startedAtRaw :
-                  (jassStore.games[0]?.timestamp && typeof jassStore.games[0].timestamp === 'number' ? jassStore.games[0].timestamp : Date.now());
+                  (typeof startedAtRaw?.toMillis === 'function' ? startedAtRaw.toMillis() :
+                  (freshJassStore.games[0]?.timestamp && typeof freshJassStore.games[0].timestamp === 'number'
+                    ? freshJassStore.games[0].timestamp
+                    : Date.now()));
+
+                const gruppeIdEffective = sessionDocData?.groupId || sessionDocData?.gruppeId || groupId;
+
                 const initialSessionData = {
                   participantUids: participantUidsLocal,
                   participantPlayerIds: participantPlayerIdsLocal,
                   playerNames: playerNamesLocal,
-                  gruppeId: groupId,
+                  gruppeId: gruppeIdEffective,
                   startedAt: startedAtValue,
                   teams: sessionTeamsData.teams,
                   pairingIdentifiers: sessionTeamsData.pairingIdentifiers,
