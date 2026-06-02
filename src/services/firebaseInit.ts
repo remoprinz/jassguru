@@ -152,9 +152,15 @@ try {
       // - iOS WebViews (WKWebView): z.B. WhatsApp, Instagram In-App-Browser
       // - Private-Modus auf iOS Safari: IDB existiert, wirft aber beim Öffnen
       // - Standalone-PWA auf iOS ist stabil, daher ausdrücklich erlaubt
+      //   (UA enthält auch hier kein "Safari/", muss separat über navigator.standalone
+      //   / display-mode: standalone aus dem WebView-Bucket geholt werden — sonst
+      //   bekommt jede iOS-PWA keinen Firestore-Cache und liest alles über's Netz.)
       const ua = navigator.userAgent;
       const isIOS = /iPad|iPhone|iPod/.test(ua);
-      const isWebView = isIOS && !/Safari\//.test(ua); // iOS WebView hat kein "Safari/" im UA
+      const isStandalonePWA =
+        (window.navigator as any).standalone === true ||
+        window.matchMedia('(display-mode: standalone)').matches;
+      const isWebView = isIOS && !/Safari\//.test(ua) && !isStandalonePWA;
       const isPrivateIOS = isIOS && !isWebView && (() => {
         try {
           localStorage.setItem('_idb_test', '1');
