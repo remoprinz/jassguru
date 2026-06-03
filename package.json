@@ -59,6 +59,9 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "@google/generative-ai": "^0.1.3",
