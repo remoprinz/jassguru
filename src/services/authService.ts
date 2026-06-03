@@ -185,7 +185,12 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
       throw new Error("Anmeldung fehlgeschlagen: Kein Benutzerobjekt erhalten.");
     }
   } catch (error) {
-    console.error("Login Fehler (Email):", {email, error});
+    console.error("Login Fehler (Email):", {
+      email,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : undefined,
+      errorCode: (error as FirebaseAuthError)?.code,
+    });
     if (error instanceof Error) {
       const errorCode = (error as FirebaseAuthError).code;
       if (errorCode === "auth/user-not-found" || errorCode === "auth/wrong-password" || errorCode === "auth/invalid-credential") {

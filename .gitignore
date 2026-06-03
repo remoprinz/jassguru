@@ -73,6 +73,10 @@ firebase-service-account.json
 /functions/serviceAccountKey.json
 /functions/ser.json
 
+# Firebase iOS/Android native config (enthält API-Keys + Client-IDs)
+GoogleService-Info.plist
+google-services.json
+
 # Credentials
 credentials.json
 token.json
