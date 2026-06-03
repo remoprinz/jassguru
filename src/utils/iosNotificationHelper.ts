@@ -1,5 +1,5 @@
 // iOS Bildschirmsperre Notification Helper
-import { isIOS } from './browserDetection';
+import { isIOS, isCapacitorApp } from './browserDetection';
 import { useUIStore } from '../store/uiStore';
 
 // App-Version für localStorage Key (bei App-Updates wird Notification wieder angezeigt)
@@ -44,7 +44,14 @@ export const shouldShowiOSScreenLockWarning = (): boolean => {
   if (!isIOS()) {
     return false;
   }
-  
+
+  // In der nativen Capacitor-App nicht anzeigen — dort wird der Bildschirm
+  // später nativ via @capacitor/keep-awake aktiv gehalten, nicht per User-
+  // Settings-Anleitung. Die Warnung ist ein PWA-Onboarding-Konzept.
+  if (isCapacitorApp()) {
+    return false;
+  }
+
   // Synchronisiere localStorage mit uiStore beim ersten Aufruf
   syncLocalStorageWithStore();
   
