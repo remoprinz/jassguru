@@ -22,6 +22,7 @@ import Image from "next/image";
 import {useUIStore} from "@/store/uiStore";
 import { getTournamentToken, getGroupToken } from "@/utils/tokenStorage";
 import { authLogger } from "@/utils/logger";
+import { isCapacitorApp } from "@/utils/browserDetection";
 
 const loginSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse"),
@@ -240,41 +241,46 @@ export function LoginForm() {
         </form>
       </Form>
 
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t border-gray-700" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-gray-800 px-2 text-gray-400">
-            oder
-          </span>
-        </div>
-      </div>
-
-      <Button
-        variant="outline"
-        className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
-        onClick={handleGoogleLogin}
-        disabled={isAnyLoading}
-      >
-        {isGoogleLoginSubmitting ? (
-          <div className="flex items-center justify-center">
-            <div className="h-4 w-4 rounded-full border-2 border-gray-600 border-t-transparent animate-spin mr-2"></div>
-            Anmeldung läuft...
+      {/* Google-Login nur im Web/PWA — in Capacitor-App fehlt Native-Plugin noch */}
+      {!isCapacitorApp() && (
+        <>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-700" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-gray-800 px-2 text-gray-400">
+                oder
+              </span>
+            </div>
           </div>
-        ) : (
-          <>
-            <Image
-              src="/google-logo.svg"
-              alt="Google Logo"
-              width={18}
-              height={18}
-              className="mr-3"
-            />
-            Mit Google fortfahren
-          </>
-        )}
-      </Button>
+
+          <Button
+            variant="outline"
+            className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
+            onClick={handleGoogleLogin}
+            disabled={isAnyLoading}
+          >
+            {isGoogleLoginSubmitting ? (
+              <div className="flex items-center justify-center">
+                <div className="h-4 w-4 rounded-full border-2 border-gray-600 border-t-transparent animate-spin mr-2"></div>
+                Anmeldung läuft...
+              </div>
+            ) : (
+              <>
+                <Image
+                  src="/google-logo.svg"
+                  alt="Google Logo"
+                  width={18}
+                  height={18}
+                  className="mr-3"
+                />
+                Mit Google fortfahren
+              </>
+            )}
+          </Button>
+        </>
+      )}
 
       <p className="text-center text-sm text-gray-400">
         <Link href="/auth/reset-password" className="text-blue-400 hover:underline">
