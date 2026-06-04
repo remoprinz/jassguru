@@ -883,6 +883,9 @@ export const finalizeSession = finalizeSessionLogic.finalizeSession;
 import * as migrateRoundDurationsLogic from './migrateRoundDurations';
 export const migrateRoundDurations = migrateRoundDurationsLogic.migrateRoundDurations;
 
+// --- deleteMyAccount: In-App Account-Löschung (Apple-Pflicht, DSGVO) ---
+export { deleteMyAccount } from './deleteMyAccount';
+
 // --- NEU: cleanupAbortedSession (Callable Function) ---
 /**
  * Löscht eine abgebrochene Session und alle zugehörigen activeGames-Einträge.

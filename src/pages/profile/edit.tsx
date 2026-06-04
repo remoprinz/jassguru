@@ -17,9 +17,11 @@ import type { CardStyle, FirestorePlayer, JassColor } from '@/types/jass';
 import { sanitizeInput } from "@/utils/sanitize";
 import { SeoHead } from '@/components/layout/SeoHead';
 import { FarbePictogram } from "@/components/settings/FarbePictogram";
+import { getFunctions, httpsCallable } from "firebase/functions";
+import { firebaseApp } from "@/services/firebaseInit";
 
 const EditProfilePage: React.FC = () => {
-  const {user, status, isAuthenticated, updateProfile} = useAuthStore();
+  const {user, status, isAuthenticated, updateProfile, logout} = useAuthStore();
   const showNotification = useUIStore((state) => state.showNotification);
   const setPageCta = useUIStore((state) => state.setPageCta);
   const resetPageCta = useUIStore((state) => state.resetPageCta);
@@ -32,6 +34,40 @@ const EditProfilePage: React.FC = () => {
   const [selectedTheme, setSelectedTheme] = useState<ThemeColor>(CURRENT_PROFILE_THEME);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Account-Löschung (Apple-Pflicht 5.1.1(v) + DSGVO Art. 17)
+  const [deleteModalStep, setDeleteModalStep] = useState<0 | 1 | 2>(0);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (isDeleting) return;
+    setIsDeleting(true);
+    try {
+      const functions = getFunctions(firebaseApp, "europe-west6");
+      const deleteMyAccount = httpsCallable<unknown, { success: boolean; anonymizedAs?: string | null }>(
+        functions,
+        "deleteMyAccount",
+      );
+      await deleteMyAccount();
+      // Logout im Client (Auth-User existiert serverseitig nicht mehr)
+      await logout();
+      showNotification({
+        type: "info",
+        message: "Dein Account wurde gelöscht. Deine Stats bleiben anonymisiert für deine Mitspieler erhalten.",
+        duration: 8000,
+      });
+      router.push("/");
+    } catch (err) {
+      console.error("[Account-Löschung] Fehler:", err);
+      showNotification({
+        type: "error",
+        message: "Account-Löschung fehlgeschlagen. Bitte später erneut versuchen oder Support kontaktieren.",
+        duration: 8000,
+      });
+      setIsDeleting(false);
+    }
+  };
   
   // 🔧 FIX: Aktuelle Player-Daten aus Firebase laden (für korrekte Theme-Anzeige)
   const [currentPlayerData, setCurrentPlayerData] = useState<FirestorePlayer | null>(null);
@@ -349,8 +385,100 @@ const EditProfilePage: React.FC = () => {
               </p>
             </div>
           </form>
+
+          {/* Account-Löschung — ganz unten, deutlich abgesetzt (Apple-Pflicht) */}
+          <div className="mt-12 pt-8 border-t border-red-900/30">
+            <h3 className="text-sm font-semibold text-red-400 mb-2">Konto löschen</h3>
+            <p className="text-xs text-gray-400 mb-4">
+              Dein Login und alle persönlichen Daten werden unwiderruflich gelöscht.
+              Deine Spielstatistiken bleiben anonymisiert (z. B. &laquo;MW-1234&raquo; statt deinem Namen) für deine
+              Mitspieler erhalten — sonst wären deren Stats kaputt.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {setDeleteModalStep(1); setDeleteConfirmInput("");}}
+              className="border-red-700/50 text-red-400 hover:bg-red-950/40 hover:text-red-300"
+              disabled={isDeleting}
+            >
+              Account löschen
+            </Button>
+          </div>
         </div>
       </div>
+
+      {/* Step-1-Modal: Aufklärung */}
+      {deleteModalStep === 1 && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-red-900/40 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-xl font-bold text-white">Account wirklich löschen?</h2>
+            <div className="text-sm text-gray-300 space-y-2">
+              <p><strong className="text-white">Was gelöscht wird:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2 text-gray-400">
+                <li>Dein Login (Email, Passwort)</li>
+                <li>Dein Profilbild</li>
+                <li>Dein angezeigter Name + Statusnachricht</li>
+                <li>Alle privaten Einstellungen</li>
+              </ul>
+              <p className="pt-2"><strong className="text-white">Was bleibt:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-2 text-gray-400">
+                <li>Deine Spielstatistiken (anonymisiert, z.B. &laquo;MW-1234&raquo;)</li>
+                <li>Aggregat-Daten deiner Mitspieler (sonst wären deren Profile kaputt)</li>
+              </ul>
+              <p className="pt-2 text-red-400 text-xs">
+                Dies kann nicht rückgängig gemacht werden. Du kannst dich danach nicht mehr einloggen.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setDeleteModalStep(0)} disabled={isDeleting}>
+                Abbrechen
+              </Button>
+              <Button
+                onClick={() => setDeleteModalStep(2)}
+                className="bg-red-700 hover:bg-red-600 text-white"
+                disabled={isDeleting}
+              >
+                Verstanden, weiter
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step-2-Modal: Bestätigung via Tippen */}
+      {deleteModalStep === 2 && (
+        <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+          <div className="bg-gray-900 border border-red-900/40 rounded-2xl max-w-md w-full p-6 space-y-4">
+            <h2 className="text-xl font-bold text-white">Letzte Sicherheitsfrage</h2>
+            <p className="text-sm text-gray-300">
+              Tippe <strong className="text-red-400 font-mono">LÖSCHEN</strong> um deinen Account endgültig zu löschen.
+            </p>
+            <Input
+              type="text"
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              placeholder="LÖSCHEN"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="bg-black/40 border-red-900/40 text-white"
+              disabled={isDeleting}
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setDeleteModalStep(0)} disabled={isDeleting}>
+                Abbrechen
+              </Button>
+              <Button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirmInput !== "LÖSCHEN" || isDeleting}
+                className="bg-red-700 hover:bg-red-600 text-white disabled:opacity-40"
+              >
+                {isDeleting ? "Lösche..." : "Endgültig löschen"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </MainLayout>
   );
 };
