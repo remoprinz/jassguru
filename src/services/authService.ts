@@ -7,6 +7,8 @@ import {
   updateProfile as firebaseUpdateProfile,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   fetchSignInMethodsForEmail,
   sendEmailVerification,
   signOut as firebaseSignOut,
@@ -200,12 +202,26 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
 
 /**
  * Meldet einen Benutzer über den Google Provider an.
- * Setzt die Persistenz auf local.
- * Erstellt oder aktualisiert das Firestore-Dokument.
+ * Im Browser/PWA: signInWithPopup (Popup-Dialog).
+ * In der Capacitor-iOS-App: signInWithRedirect (Popups werden vom WKWebView
+ * blockiert) — der Redirect-Flow lädt jassguru.ch in der WebView, geht zur
+ * Google-Auth-Seite, kommt mit ID-Token zurück. Das Result wird im _app.tsx
+ * via getRedirectResult abgeholt.
  */
 export const signInWithGoogleProvider = async (): Promise<AuthUser> => {
   try {
     const provider = new GoogleAuthProvider();
+    const isCapacitor = typeof window !== "undefined" &&
+      !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    if (isCapacitor) {
+      // Native App → Redirect-Flow. Resultiert in Reload mit Auth-State,
+      // getRedirectResult holt das User-Objekt nach dem Redirect.
+      await signInWithRedirect(getAuth(), provider);
+      // Diese Promise resolved nie (Page navigiert weg).
+      // Wir geben einen leeren User zurück — der Caller behandelt das durch
+      // den onAuthStateChanged-Listener.
+      throw new Error("redirect-in-progress");
+    }
     const result = await signInWithPopup(getAuth(), provider);
     const user = result.user;
 
