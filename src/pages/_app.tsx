@@ -123,15 +123,22 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   useEffect(() => {
     setIsClient(true);
 
-    // 📱 Capacitor-iOS-App: StatusBar überlappt WebView, damit env(safe-area-inset-top)
-    // den echten Notch-/Dynamic-Island-Wert liefert. Ohne diesen Aufruf returnt iOS
-    // 0 → CSS-Klassen wie .profile-public-btn-top rechnen falsch → Buttons hinter
-    // Status Bar. Plugin-Aufruf via window.Capacitor.Plugins (kein NPM-Import nötig,
-    // wenn das Plugin nicht da ist, schlägt der optional chain still fehl).
-    const cap = (window as unknown as { Capacitor?: { Plugins?: { StatusBar?: { setOverlaysWebView: (o: { overlay: boolean }) => Promise<void> } } } }).Capacitor;
-    cap?.Plugins?.StatusBar?.setOverlaysWebView({ overlay: true }).catch(() => {
-      // Silent fail wenn Plugin nicht verfügbar (PWA, Browser)
-    });
+    // 📱 Capacitor-iOS-App: zwei-stufiger Safe-Area-Fix
+    //   (1) Plugin-Aufruf: StatusBar überlappt WebView (eleganter Pfad, wenn's wirkt)
+    //   (2) Hardcoded CSS-Variable als Fallback: --cap-safe-top = 47px
+    //       (Standard moderner iPhones mit Notch/Dynamic Island)
+    // CSS-Klassen (.profile-public-btn-top etc.) nutzen var(--cap-safe-top, env(...))
+    // → in Capacitor greift die hardcoded Variable, in PWA das echte env().
+    const cap = (window as unknown as {
+      Capacitor?: {
+        isNativePlatform?: () => boolean;
+        Plugins?: { StatusBar?: { setOverlaysWebView: (o: { overlay: boolean }) => Promise<void> } };
+      };
+    }).Capacitor;
+    if (cap?.isNativePlatform?.()) {
+      cap.Plugins?.StatusBar?.setOverlaysWebView({ overlay: true }).catch(() => {});
+      document.documentElement.style.setProperty('--cap-safe-top', '47px');
+    }
 
     // 🔧 Browser-spezifische Fixes (Chrome-Skalierung)
     fixChromeScaling();

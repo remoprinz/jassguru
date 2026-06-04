@@ -578,7 +578,20 @@ body.lexikon-page div[id="__next"] {
   }
 }
 
-/* iOS Safe Area Support - NUR für PWA-Modus */
+/* 🎯 SAFE-AREA-FIX für Capacitor-iOS-App + PWA + Browser in einer Regel:
+   var(--cap-safe-top, env(safe-area-inset-top, 0px)) — Reihenfolge der Fallbacks:
+   1) --cap-safe-top: in Capacitor von JS auf 47px gesetzt (in PWA/Browser undefined)
+   2) env(safe-area-inset-top): in PWA standalone iOS liefert echten Notch-Wert
+   3) 0px: Browser-Fallback
+   Greift in JEDEM Kontext → PWA bleibt identisch, Capacitor wird gefixt. */
+.profile-public-btn-top {
+  top: calc(var(--cap-safe-top, env(safe-area-inset-top, 0px)) + 1rem) !important;
+}
+.profile-public-top {
+  padding-top: calc(var(--cap-safe-top, env(safe-area-inset-top, 0px)) + 3.5rem) !important;
+}
+
+/* iOS Safe Area Support - NUR für PWA-Modus (bleibt für Rückwärtskompatibilität) */
 @media (display-mode: standalone) {
   @supports (padding: env(safe-area-inset-top)) {
     /* Safe Areas nur für spezifische Container in PWA */
