@@ -122,7 +122,17 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   // Client-seitige Initialisierung & stabiler Auth-Listener
   useEffect(() => {
     setIsClient(true);
-    
+
+    // 📱 Capacitor-iOS-App: StatusBar überlappt WebView, damit env(safe-area-inset-top)
+    // den echten Notch-/Dynamic-Island-Wert liefert. Ohne diesen Aufruf returnt iOS
+    // 0 → CSS-Klassen wie .profile-public-btn-top rechnen falsch → Buttons hinter
+    // Status Bar. Plugin-Aufruf via window.Capacitor.Plugins (kein NPM-Import nötig,
+    // wenn das Plugin nicht da ist, schlägt der optional chain still fehl).
+    const cap = (window as unknown as { Capacitor?: { Plugins?: { StatusBar?: { setOverlaysWebView: (o: { overlay: boolean }) => Promise<void> } } } }).Capacitor;
+    cap?.Plugins?.StatusBar?.setOverlaysWebView({ overlay: true }).catch(() => {
+      // Silent fail wenn Plugin nicht verfügbar (PWA, Browser)
+    });
+
     // 🔧 Browser-spezifische Fixes (Chrome-Skalierung)
     fixChromeScaling();
     
