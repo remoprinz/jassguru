@@ -32,8 +32,9 @@ const JassPage: React.FC = () => {
     }
   }, [isAuthenticated, status, router, isClient]);
 
-  // Anzeige während des Ladens
-  if (!isClient || status === "loading") {
+  // Anzeige während des Ladens — NICHT im Gast-Modus, sonst hängt der
+  // Reviewer / Gast auf einem Spinner statt der spielbaren Kreidetafel.
+  if (!isClient || (status === "loading" && !isGuest)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-transparent text-white">
         <div>Laden...</div>
