@@ -21,7 +21,6 @@
     "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "vitest run --coverage",
     "version:update": "node scripts/update-version.js",
     "check:deployment": "curl -s -I https://jassguru.ch/_next/static/css/ | grep -E 'content-type|status'",
     "health": "node scripts/health-check.js",
@@ -183,7 +182,6 @@
     "typescript": "^5.9.3",
     "uglify-js": "^3.19.3",
     "vite": "^7.3.2",
-    "vitest": "^3.0.4",
     "webpack": "^5.103.0"
   },
   "overrides": {
