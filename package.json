@@ -63,6 +63,7 @@
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/ios": "^8.4.0",
+    "@capacitor/status-bar": "^8.0.2",
     "@emotion/react": "^11.11.3",
     "@emotion/styled": "^11.11.0",
     "@google/generative-ai": "^0.1.3",
@@ -148,6 +149,7 @@
   "devDependencies": {
     "@babel/preset-react": "^7.26.3",
     "@babel/preset-typescript": "^7.27.0",
+    "@capacitor/assets": "^3.0.5",
     "@rollup/plugin-babel": "^6.0.4",
     "@types/canvas-confetti": "^1.4.0",
     "@types/node": "^22.14.0",
