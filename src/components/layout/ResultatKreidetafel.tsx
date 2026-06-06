@@ -1463,10 +1463,13 @@ const ResultatKreidetafel = ({
       // Regel: nächster Spieler nach dem zuletzt Aktiven; Skip, falls Sieger-Team.
       //
       // Zwei Endspielpfade mit unterschiedlichem currentPlayer-Stand:
-      // - Calculator-Ende (finalizeRound): currentPlayer ist bereits rotiert
-      //   (= getNextPlayer(actualStarterOfFinalizedRound)) → keine weitere Rotation.
-      // - Abbruch via addSieg: currentPlayer bleibt der zuletzt Aktive → einmal rotieren.
-      // Diskriminator: letzter roundHistory-Eintrag trägt strichInfo.type === 'sieg'.
+      // - Calculator-Ende (Zielpunkte erreicht/überschritten): finalizeRound hat
+      //   currentPlayer bereits einmal rotiert (= getNextPlayer(letzterStarter)).
+      //   → keine weitere Rotation, sonst landet man eins zu weit.
+      // - Bedanken-Abbruch (Zielpunkte NICHT erreicht): addSieg rotiert nichts.
+      //   currentPlayer = Starter der abgebrochenen Runde → einmal rotieren.
+      // Diskriminator: scores erreichen/überschreiten siegPunkte aus den
+      // Score-Settings (Quelle: aktive Gruppe > UIStore, mit Fallback auf Defaults).
       const currentGameStore = useGameStore.getState();
       const currentStriche = currentGameStore.striche;
 
@@ -1482,11 +1485,17 @@ const ResultatKreidetafel = ({
         ?? currentGameStore.initialStartingPlayer
         ?? 1) as PlayerNumber;
 
-      const lastRoundEntry = currentGameStore.roundHistory?.[currentGameStore.roundHistory.length - 1];
+      const groupScoreSettings = useGroupStore.getState().currentGroup?.scoreSettings;
+      const uiScoreSettings = useUIStore.getState().scoreSettings;
+      const siegThreshold =
+        groupScoreSettings?.values?.sieg
+        ?? currentGameStore.scoreSettings?.values?.sieg
+        ?? uiScoreSettings?.values?.sieg;
+
+      const finalScores = currentGameStore.scores ?? { top: 0, bottom: 0 };
       const endedViaCalculator = !!(
-        lastRoundEntry
-        && isJassRoundEntry(lastRoundEntry)
-        && lastRoundEntry.strichInfo?.type === 'sieg'
+        siegThreshold !== undefined
+        && (finalScores.top >= siegThreshold || finalScores.bottom >= siegThreshold)
       );
 
       let initialStartingPlayerForNextGame: PlayerNumber = endedViaCalculator
@@ -1501,6 +1510,8 @@ const ResultatKreidetafel = ({
         console.log(`[ResultatKreidetafel] Nächster Starter berechnet:`, {
           currentPlayer: currentPlayerSnap,
           endedViaCalculator,
+          siegThreshold,
+          finalScores,
           winnerTeam: gewinnerTeam || 'keine Sieg-Striche gefunden',
           finalNextPlayer: initialStartingPlayerForNextGame,
           currentStriche: {
