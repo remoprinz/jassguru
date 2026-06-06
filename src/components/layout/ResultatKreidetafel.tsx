@@ -1459,14 +1459,14 @@ const ResultatKreidetafel = ({
       }
       await new Promise(resolve => setTimeout(resolve, 500)); // 500ms Wartezeit für Firestore Eventual Consistency
 
-      // --- NÄCHSTER STARTER: Einfache, einheitliche Regel ---
-      // (1) Kandidat = der Spieler NACH dem zuletzt aktiven (= getNextPlayer(currentPlayer))
-      // (2) WENN Kandidat im Verlierer-Team → er beginnt
-      //     WENN Kandidat im Sieger-Team   → einen weiter (Skip)
+      // --- NÄCHSTER STARTER ---
+      // Regel: nächster Spieler nach dem zuletzt Aktiven; Skip, falls Sieger-Team.
       //
-      // Das ersetzt die alte +3-Formel-Logik (annahme: Runde komplett gespielt),
-      // die bei mid-game-Hingewerfen falsch lag. currentPlayer ist die zuverlässige
-      // Quelle, weil sie immer den Nächst-Spieler nach der letzten Aktion enthält.
+      // Zwei Endspielpfade mit unterschiedlichem currentPlayer-Stand:
+      // - Calculator-Ende (finalizeRound): currentPlayer ist bereits rotiert
+      //   (= getNextPlayer(actualStarterOfFinalizedRound)) → keine weitere Rotation.
+      // - Abbruch via addSieg: currentPlayer bleibt der zuletzt Aktive → einmal rotieren.
+      // Diskriminator: letzter roundHistory-Eintrag trägt strichInfo.type === 'sieg'.
       const currentGameStore = useGameStore.getState();
       const currentStriche = currentGameStore.striche;
 
@@ -1482,7 +1482,17 @@ const ResultatKreidetafel = ({
         ?? currentGameStore.initialStartingPlayer
         ?? 1) as PlayerNumber;
 
-      let initialStartingPlayerForNextGame = getNextPlayer(currentPlayerSnap);
+      const lastRoundEntry = currentGameStore.roundHistory?.[currentGameStore.roundHistory.length - 1];
+      const endedViaCalculator = !!(
+        lastRoundEntry
+        && isJassRoundEntry(lastRoundEntry)
+        && lastRoundEntry.strichInfo?.type === 'sieg'
+      );
+
+      let initialStartingPlayerForNextGame: PlayerNumber = endedViaCalculator
+        ? currentPlayerSnap
+        : getNextPlayer(currentPlayerSnap);
+
       if (gewinnerTeam && isPlayerInTeam(initialStartingPlayerForNextGame, gewinnerTeam)) {
         initialStartingPlayerForNextGame = getNextPlayer(initialStartingPlayerForNextGame);
       }
@@ -1490,8 +1500,8 @@ const ResultatKreidetafel = ({
       if (process.env.NODE_ENV === 'development') {
         console.log(`[ResultatKreidetafel] Nächster Starter berechnet:`, {
           currentPlayer: currentPlayerSnap,
+          endedViaCalculator,
           winnerTeam: gewinnerTeam || 'keine Sieg-Striche gefunden',
-          rawCandidate: getNextPlayer(currentPlayerSnap),
           finalNextPlayer: initialStartingPlayerForNextGame,
           currentStriche: {
             top: currentStriche.top.sieg,
