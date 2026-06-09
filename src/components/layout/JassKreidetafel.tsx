@@ -697,10 +697,8 @@ Generiert von:
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Verdunkelungs-Overlay: Textur bleibt scharf, Dunkelheit via CSS — NICHT im StartScreen */}
-      {!showStartScreenCondition && (
-        <div className="absolute inset-0 bg-black/50 pointer-events-none" />
-      )}
+      {/* Kein Verdunkelungs-Overlay mehr — Kreidetafel-Hintergrund in voller Helligkeit
+          (User-Wunsch: heller, freundlicher Look der originalen Textur). */}
 
       {/* Loader-Overlays: INNERHALB des transform-Containers, damit z-index korrekt greift.
           NUR spezifische Flags verwenden — isLoadingGlobal ist zu generisch und crasht bei "Jass starten". */}
