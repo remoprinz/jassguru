@@ -14,7 +14,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.WELCOME,
     title: "Hoi zäme!",
-    content: "Bereit für eine kleine Führung durch die App? Führe die folgendenden Aktionen durch!",
+    content: "Mach dich mit der Jasstafel vertraut — jede Funktion mindestens einmal antippen.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -327,8 +327,8 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   },
   {
     id: TUTORIAL_STEPS.BASIC_COMPLETE,
-    title: "Bingo!",
-    content: "Du kennst nun alle wichtigen Funktionen. Du kannst jetzt losjassen!",
+    title: "Bist du parat?",
+    content: "Hast du alle Funktionen kurz ausprobiert? Wenn ja, kanns losgehen!",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -525,8 +525,8 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
 
   {
     id: TUTORIAL_STEPS.BINGO_SETTINGS,
-    title: "Bingo!",
-    content: "Du hast die Jass-Einstellungen abgeschlossen. Du kannst diese jederzeit wieder ändern. Du kannst jetzt losjassen!",
+    title: "Bist du parat?",
+    content: "Die Jass-Einstellungen sind abgeschlossen — du kannst sie jederzeit wieder ändern.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",

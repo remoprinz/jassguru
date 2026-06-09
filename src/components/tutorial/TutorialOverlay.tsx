@@ -238,29 +238,32 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
             )}
           </div>
 
-          {/* "Nicht mehr anzeigen" Checkbox - nur im letzten Step des normalen Tutorials oder Tips */}
+          {/* Prominente Bestätigungs-Checkbox am Tutorial-Ende.
+              Kombiniert "alle ausprobiert" mit "nicht mehr anzeigen" — eine Entscheidung, kein Cognitive Load.
+              FREIWILLIG: Wer Häckchen + Losjassen → Tutorial nie wieder. Wer ohne → kommt beim nächsten Start nochmal. */}
           {!isHelpMode && (
             currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
             currentStep.id === TUTORIAL_STEPS.BINGO_SETTINGS ||
             currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE
           ) && (
-            <div className="flex items-center justify-center gap-2 text-white mt-2">
+            <label
+              htmlFor="neverShowAgain"
+              className={`flex items-center justify-center gap-3 mt-4 mx-2 px-4 py-3 rounded-lg cursor-pointer transition-all
+                ${neverShowAgain
+                  ? "bg-green-600/30 border-2 border-green-500"
+                  : "bg-white/10 border-2 border-white/40 hover:bg-white/20"}`}
+            >
               <input
                 type="checkbox"
                 id="neverShowAgain"
                 checked={neverShowAgain}
-                                  onChange={(e) => {
-                    const isChecked = e.target.checked;
-                    setNeverShowAgain(isChecked);
-                    // 🔧 FIX: Tutorial NICHT sofort als abgeschlossen markieren!
-                    // Das passiert erst beim Klick auf "Fertig" in handleEndTutorial
-                  }}
-                className="w-4 h-4 rounded border-gray-300 text-yellow-600 focus:ring-yellow-500"
+                onChange={(e) => setNeverShowAgain(e.target.checked)}
+                className="w-6 h-6 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
               />
-              <label htmlFor="neverShowAgain" className="text-sm whitespace-nowrap">
-                Tutorial das nächste Mal nicht mehr anzeigen
-              </label>
-            </div>
+              <span className="text-base font-semibold text-white">
+                Ja, alle Funktionen ausprobiert
+              </span>
+            </label>
           )}
         </div>
       </motion.div>
