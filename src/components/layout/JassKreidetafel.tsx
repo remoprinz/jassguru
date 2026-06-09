@@ -697,8 +697,11 @@ Generiert von:
         backgroundRepeat: 'no-repeat',
       }}
     >
-      {/* Kein Verdunkelungs-Overlay mehr — Kreidetafel-Hintergrund in voller Helligkeit
-          (User-Wunsch: heller, freundlicher Look der originalen Textur). */}
+      {/* Mildes Verdunkelungs-Overlay (15%) — Hintergrund leicht beruhigt für Lesbarkeit,
+          aber Kreidetafel-Textur bleibt klar erkennbar. NICHT im StartScreen. */}
+      {!showStartScreenCondition && (
+        <div className="absolute inset-0 bg-black/15 pointer-events-none" />
+      )}
 
       {/* Loader-Overlays: INNERHALB des transform-Containers, damit z-index korrekt greift.
           NUR spezifische Flags verwenden — isLoadingGlobal ist zu generisch und crasht bei "Jass starten". */}
