@@ -931,8 +931,7 @@ export const useGameStore = create<GameStore>()(
           if (state.currentHistoryIndex < state.roundHistory.length - 1) {
             const {showHistoryWarning} = useUIStore.getState();
             showHistoryWarning({
-              // Korrigierter Text
-              message: "Weis wirklich korrigieren? Spätere Einträge werden überschrieben.", 
+              message: "Weis korrigieren?",
               onConfirm: () => {
                 // --- START Kernlogik (History überschreiben) ---
 
@@ -1857,7 +1856,7 @@ export const useGameStore = create<GameStore>()(
             console.log("[GameStore.addMatsch] History warning triggered.");
             
             showHistoryWarning({
-              message: "Möchten Sie wirklich einen Matsch in der Vergangenheit hinzufügen?",
+              message: "Matsch nachtragen?",
               onConfirm: () => {
                 // === START Kernlogik zum Überschreiben der History ===
                 console.log("[GameStore.addMatsch] Executing action after history warning confirmation (overwrite)");
@@ -2058,7 +2057,7 @@ export const useGameStore = create<GameStore>()(
             // console.log("[GameStore.addKontermatsch] History warning triggered.");
             
             showHistoryWarning({
-              message: "Möchten Sie wirklich einen Kontermatsch in der Vergangenheit hinzufügen?",
+              message: "Kontermatsch nachtragen?",
               onConfirm: () => {
                 // === START Kernlogik zum Überschreiben der History ===
                 // console.log("[GameStore.addKontermatsch] Executing action after history warning confirmation (overwrite)");

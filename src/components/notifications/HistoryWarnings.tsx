@@ -3,7 +3,7 @@ import {IoMdAlert} from "react-icons/io";
 import {useUIStore} from "../../store/uiStore";
 import {motion, AnimatePresence} from "framer-motion";
 
-export const HISTORY_WARNING_MESSAGE = "Resultat wirklich korrigieren? Folgerunden werden gelöscht.";
+export const HISTORY_WARNING_MESSAGE = "Resultat korrigieren?";
 
 interface HistoryWarningProps {
   message: string;
@@ -82,16 +82,16 @@ const HistoryWarning: React.FC<HistoryWarningProps> = ({
               </div>
               <div className="flex justify-between gap-4">
                 <button
-                  onClick={handleConfirm}
-                  className="flex-1 bg-yellow-600 text-white px-6 py-2 rounded-full hover:bg-yellow-700 transition-colors text-lg font-semibold"
-                >
-                  Ja
-                </button>
-                <button
                   onClick={handleDismiss}
                   className="flex-1 bg-gray-600 text-white px-6 py-2 rounded-full hover:bg-gray-700 transition-colors text-lg font-semibold"
                 >
-                  Abbrechen
+                  Nein
+                </button>
+                <button
+                  onClick={handleConfirm}
+                  className="flex-1 bg-green-600 text-white px-6 py-2 rounded-full hover:bg-green-700 transition-colors text-lg font-semibold"
+                >
+                  OK
                 </button>
               </div>
             </div>
