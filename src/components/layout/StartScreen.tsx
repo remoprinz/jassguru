@@ -747,7 +747,9 @@ const StartScreen: React.FC<StartScreenProps> = ({ onCancel, members = [] }) => 
                   const teamColor = isTeamBottom ? 'text-yellow-400' : 'text-blue-400';
 
                   return (
-                    <div key={`guest-slot-${slotNum}`} className="relative">
+                    <div key={`guest-slot-${slotNum}`} className="relative" style={{scrollMarginTop: '5rem'}}>
+                        {/* scroll-margin-top sorgt dafür, dass iOS Auto-Scroll bei Tastatur-Öffnung
+                            das Input-Feld nicht direkt unter die Status-Bar quetscht (kleine Phones). */}
                         <input
                           type="text"
                           id={`guest-input-${slotNum}`}

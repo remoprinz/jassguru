@@ -260,8 +260,8 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
                 onChange={(e) => setNeverShowAgain(e.target.checked)}
                 className="w-6 h-6 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
               />
-              <span className="text-base font-semibold text-white">
-                Ja, alle Funktionen ausprobiert
+              <span className="text-base font-semibold text-white text-center">
+                Ja, ich habe mich mit den Funktionen vertraut gemacht (nicht mehr fragen).
               </span>
             </label>
           )}
@@ -475,9 +475,12 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
             />
           )}
 
-          <p className={`text-white text-lg max-w-[90%] ${!currentStep.title ? "my-2" : ""}`}>
-            {currentStep.content}
-          </p>
+          {/* HTML aus tutorialContent.ts — z.B. <strong>...</strong> für fett markierte Aktionen.
+              Sicher hier weil content aus Source-Code stammt, nicht aus User-Input. */}
+          <p
+            className={`text-white text-lg max-w-[90%] ${!currentStep.title ? "my-2" : ""}`}
+            dangerouslySetInnerHTML={{__html: currentStep.content || ""}}
+          />
         </motion.div>
       )}
 

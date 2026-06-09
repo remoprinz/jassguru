@@ -71,7 +71,7 @@ const TutorialNavigation: React.FC<NavigationProps> = ({
         className={`bg-yellow-600 hover:bg-yellow-700 active:bg-yellow-600 
           ${!showBackButton || isFirstStep ? "ml-auto" : ""}`}
       >
-        {isLastStep ? "Fertig" : "Weiter"}
+        {isLastStep ? "Losjassen!" : "Weiter"}
         {!isLastStep && <FaArrowRight className="ml-2" />}
       </NavigationButton>
     </div>

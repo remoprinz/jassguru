@@ -13,8 +13,8 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   // Basic Tutorial Flow
   {
     id: TUTORIAL_STEPS.WELCOME,
-    title: "Hoi zäme!",
-    content: "Mach dich mit der Jasstafel vertraut — jede Funktion mindestens einmal antippen.",
+    title: "Mach dich vertraut!",
+    content: "Mach dich mit der Jasstafel vertraut und spiele jede Funktion einmal durch!",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -40,7 +40,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.MENU_GESTURE,
     title: "Menü öffnen und schliessen",
-    content: "Wische auf deiner Hälfte nach unten und oben.",
+    content: "<strong>Wische</strong> auf deiner Hälfte nach unten und oben.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -78,7 +78,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.WEIS,
     title: "Weise schreiben",
-    content: "Tippe auf die Z-Linie um Weise einzutragen. Mache das immer VOR Abschluss einer Runde!",
+    content: "<strong>Tippe auf die Z-Linie</strong> um Weise einzutragen. Mache das immer <strong>VOR</strong> Abschluss einer Runde!",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -100,7 +100,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.CALCULATOR_OPEN,
     title: "Punkte schreiben",
-    content: "Drücke lange auf die Seite des zählenden Teams, bis der Rechner erscheint. Tippe die Punkte ein, wähle die Farbe und bestätige mit OK. Matsch hat seinen eigenen Knopf.",
+    content: "<strong>Drücke lange</strong> auf die Seite, wo die Punkte gezählt wurden. Dann erscheint der Rechner. Punkte eintippen, Trumpf wählen und OK drücken. <strong>Matsch</strong> hat seinen eigenen Knopf.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -126,7 +126,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.GAME_INFO,
     title: "Berg / Bedanken / Rechnen",
-    content: "Doppelklicke auf die Seite des erfolgreichen Teams, um den Berg zu schreiben und zu bedanken. Der orange Knopf hilft bei Berechnungen.",
+    content: "<strong>Doppelklicke</strong> auf die Seite, wo <strong>Berg</strong> oder <strong>Bedanken</strong> geschrieben werden. Hier siehst du auch die Restpunkte zu Berg und Sieg.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -158,7 +158,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.RESULTAT_INFO,
     title: "Resultate / Weiterjassen / Partie beenden",
-    content: "Der wichtigste Menüpunkt! Hier findest du alle Resultate, kannst du das nächste Spiel beginnen und die Jass-Partie beenden.",
+    content: "Hier findest du den <strong>Zwischenstand</strong>, kannst das <strong>nächste Spiel</strong> beginnen oder den <strong>Jass beenden</strong>.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -192,7 +192,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.NAVIGATE_SCORES,
     title: "Punktestand korrigieren",
-    content: "Swipe nach links oder rechts, um durch den Spielverlauf zu navigieren. Du kannst so den Punktestand jederzeit korrigieren.",
+    content: "<strong>Swipe nach links oder rechts</strong>, um durch den Spielverlauf zu navigieren. Du kannst den Punktestand jederzeit <strong>korrigieren</strong>.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -209,8 +209,8 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   },
   {
     id: TUTORIAL_STEPS.NEW_GAME,
-    title: "Spiel abbrechen / Neustart",
-    content: "Im Onlinemodus brichst du hier die Partie ab. Die Daten werden dann nicht gespeichert! Im Gästemodus startest du so einfach ein neues Spiel.",
+    title: "Spiel abbrechen",
+    content: "Hier brichst du die Partie ab. Aber Achtung: Wenn du das machst, werden die Daten auch im JassGuruPro-Modus <strong>nicht gespeichert</strong>.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -269,7 +269,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.JASS_SETTINGS,
     title: "Jass-Einstellungen",
-    content: "Hier kannst du Zielpunkte, Farben und Multiplikatoren ändern. Im Online-Modus stellen Admins alles in den Gruppen-Settings ein.",
+    content: "Hier kannst du <strong>Zielpunkte</strong>, <strong>Trumpf</strong> und <strong>Multiplikator</strong> wählen. Im Online-Modus mit Statistik wird das von den Admins in den <strong>Gruppen-Einstellungen</strong> gemacht.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",
@@ -328,7 +328,7 @@ export const TUTORIAL_CONTENT: TutorialStep[] = [
   {
     id: TUTORIAL_STEPS.BASIC_COMPLETE,
     title: "Bist du parat?",
-    content: "Hast du alle Funktionen kurz ausprobiert? Wenn ja, kanns losgehen!",
+    content: "Hast du alle Funktionen durchgespielt? Wenn ja, bist du bereit für deinen ersten Jass.",
     overlayPosition: {
       vertical: "top",
       horizontal: "center",

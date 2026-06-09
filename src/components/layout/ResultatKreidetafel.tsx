@@ -1270,6 +1270,8 @@ const ResultatKreidetafel = ({
               uiStore.resetSigningProcess();
               uiStore.closeJassFinishNotification();
               closeResultatKreidetafel();
+              // Gast-Modus: zurück zum Start-Screen — vermeidet Mülleimer-Pfad
+              router.push('/start').catch(() => {});
             }
           },
           { label: 'Abbrechen', onClick: closeResultatKreidetafel }
