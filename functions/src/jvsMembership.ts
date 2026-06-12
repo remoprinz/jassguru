@@ -354,13 +354,16 @@ export const activateMembership = onCall<ActivateMembershipData>({
     
     const member = memberDoc.data() as JvsMember;
     
-    // Prüfe Berechtigung: Entweder Admin oder der Member selbst
+    // 🔒 SECURITY (C3): Nur Admins dürfen manuell aktivieren. Die bezahlte Aktivierung
+    // läuft ausschliesslich über den signatur-verifizierten Stripe-Webhook von jassverband.ch
+    // (schreibt jvs_members/jvs_subscriptions direkt via Admin SDK). Vorher erlaubte 'isSelf',
+    // dass ein Mitglied sich OHNE Zahlungsnachweis selbst aktiviert (paymentId/paymentProvider
+    // kamen ungeprüft vom Client) → Gratis-Mitgliedschaft.
     const callerUserDoc = await db.collection('users').doc(request.auth.uid).get();
     const isAdmin = callerUserDoc.exists && callerUserDoc.data()?.isAdmin === true;
-    const isSelf = member.uid === request.auth.uid;
-    
-    if (!isAdmin && !isSelf) {
-      throw new HttpsError('permission-denied', 'Keine Berechtigung.');
+
+    if (!isAdmin) {
+      throw new HttpsError('permission-denied', 'Nur Admins dürfen Mitgliedschaften manuell aktivieren.');
     }
     
     const now = admin.firestore.Timestamp.now();

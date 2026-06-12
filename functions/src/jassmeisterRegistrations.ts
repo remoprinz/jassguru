@@ -309,21 +309,12 @@ export const processJassmeisterRegistration = onDocumentCreated(
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       });
 
-      // 6. Passwort-Reset-Link generieren (nur für neue User)
-      let passwordResetLink: string | null = null;
-      if (isNewUser) {
-        try {
-          // Generiere einen Passwort-Reset-Link
-          passwordResetLink = await admin.auth().generatePasswordResetLink(captainEmail, {
-            url: 'https://jassguru.ch/auth/reset-password',
-            handleCodeInApp: false
-          });
-          logger.info(`Generated password reset link for ${captainEmail}.`);
-        } catch (resetError: any) {
-          logger.warn(`Could not generate password reset link for ${captainEmail}: ${resetError.message}`);
-          // Nicht kritisch - User kann es manuell machen
-        }
-      }
+      // 🔒 SECURITY (H4/R6): Es wird KEIN Passwort-Reset-Link mehr generiert und im
+      // Registrierungs-Dokument gespeichert. Das Doc ist `allow get: if true` (per zufälliger
+      // ID lesbar) — ein dort abgelegter Reset-Link wäre ein Account-Takeover-Vektor, sobald
+      // die ID via Logs/Referrer/geteilte Links leakt. Neue Captains setzen ihr Passwort über
+      // den Standard-"Passwort vergessen?"-Flow auf jassguru.ch (Firebase mailt den Link an die
+      // hinterlegte E-Mail). Hinweis: Kein Code konsumierte den gespeicherten Link.
 
       // 7. Registrierung abschließen
       await snapshot.ref.update({
@@ -331,8 +322,7 @@ export const processJassmeisterRegistration = onDocumentCreated(
         processedAt: admin.firestore.FieldValue.serverTimestamp(),
         createdUserId: userId,
         createdGroupId: groupId,
-        info: isNewUser ? 'User created' : 'User existed',
-        ...(passwordResetLink && { passwordResetLink }) // Speichere Link nur wenn vorhanden
+        info: isNewUser ? 'User created' : 'User existed'
       });
 
       logger.info(`Successfully processed registration ${registrationId}.`);

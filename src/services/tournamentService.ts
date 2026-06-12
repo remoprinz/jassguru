@@ -18,7 +18,7 @@ import {
   getFirestore
 } from 'firebase/firestore';
 import { db } from './firebaseInit'; // Nur db importieren
-import { getPublicPlayerProfilesByUserIds } from './playerService';
+import { getPublicPlayerProfilesByUserIds, getPlayerDocument } from './playerService';
 import { compressImage } from "@/utils/imageUtils";
 import type {
   TournamentInstance,
@@ -243,8 +243,6 @@ export const createTournamentInstance = async (
   initialStatus: 'upcoming' | 'active' | 'completed' | 'archived' = 'upcoming'
 ): Promise<string> => {
   try {
-    const tournamentsCol = collection(db, 'tournaments');
-    
     // Stelle sicher, dass participantUids ein gültiges Array ist, auch wenn leer übergeben
     const finalParticipantUids = Array.isArray(participantUids) ? [...new Set([creatorUid, ...participantUids])] : [creatorUid];
     
@@ -262,51 +260,44 @@ export const createTournamentInstance = async (
       console.log(`[tournamentService] ✅ Alle ${participantPlayerIds.length} PlayerIDs erfolgreich konvertiert`);
     }
     
-    // Stelle sicher, dass adminIds korrekt initialisiert wird
-    const adminIds = [creatorUid]; // Der Ersteller ist immer der erste Admin
-
-    const newTournamentData: Omit<TournamentInstance, 'id'> = {
-      groupId,
-      name: name.trim(),
-      description: '', // NEU: Leere Beschreibung initialisieren
-      logoUrl: null, // NEU: logoUrl initialisieren
-      instanceDate: null, 
-      status: initialStatus, // Verwende den neuen Parameter
-      createdBy: creatorUid,
-      adminIds: adminIds, // KORREKT VERWENDET
-      participantUids: finalParticipantUids,
-      participantPlayerIds: participantPlayerIds, // ✅ NEU: Player Document IDs
-      
-      // 🆕 DUALE NUMMERIERUNG & TURNIERMODUS
-      tournamentMode: 'spontaneous', // Default: Spontan-Modus
-      currentRound: 1,                // Starte mit Runde 1
-      
-      settings, // Hier sollten die Defaults bereits im Aufrufer (Store) verarbeitet worden sein
-      showInNavigation: true, // NEU: Default - Turnier wird in Navigation angezeigt
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      completedPasseCount: 0,
-      currentActiveGameId: null, // NEU: Initialisieren
-      lastActivity: serverTimestamp(), // NEU: Initialisieren
-    };
-
-    // Validierung: Prüfen, ob der Name gültig ist
-    if (!newTournamentData.name || newTournamentData.name.length < 3) {
+    // Validierung: Name (clientseitiges Schnell-Feedback; serverseitig nochmals geprüft)
+    const trimmedName = (name || '').trim();
+    if (trimmedName.length < 3) {
       throw new Error("Der Turniername muss mindestens 3 Zeichen lang sein.");
     }
-    
-    // Validierung: Mindestteilnehmer prüfen (wenn settings und minParticipants definiert sind)
-    if (newTournamentData.settings && newTournamentData.settings.minParticipants && finalParticipantUids.length < newTournamentData.settings.minParticipants) {
-        // Erlaube das Erstellen trotzdem, aber gib eine Warnung aus?
-        // console.warn(`[tournamentService] Creating tournament with ${finalParticipantUids.length} participants, but minimum required is ${newTournamentData.settings.minParticipants}.`);
-        // Optional: Hier einen Fehler werfen, wenn das Erstellen blockiert werden soll.
-        // throw new Error(`Mindestens ${newTournamentData.settings.minParticipants} Teilnehmer sind erforderlich.`);
-    }
 
-    // console.log("[tournamentService] Creating tournament with data:", newTournamentData);
-    const docRef = await addDoc(tournamentsCol, newTournamentData);
-    // console.log(`[tournamentService] Tournament instance created successfully with ID: ${docRef.id}`);
-    return docRef.id;
+    // 🔒 SECURITY/FEATURE-GATE: Erstellung läuft über die Cloud Function 'createTournament'.
+    // Sie prüft serverseitig App-Admin ODER aktives JVS-Mitglied, setzt createdBy/adminIds
+    // und alle Timestamps selbst und schreibt das Turnier. Direktes Client-Schreiben in
+    // /tournaments ist (nach Rollout) per Firestore-Rule gesperrt.
+    const functions = getFunctions(firebaseApp, 'europe-west1');
+    const createTournamentCallable = httpsCallable<
+      {
+        groupId: string;
+        name: string;
+        participantUids: string[];
+        participantPlayerIds: string[];
+        settings: TournamentSettings;
+        initialStatus: 'upcoming' | 'active' | 'completed' | 'archived';
+      },
+      { tournamentId: string }
+    >(functions, 'createTournament');
+
+    const result = await createTournamentCallable({
+      groupId,
+      name: trimmedName,
+      participantUids: finalParticipantUids,
+      participantPlayerIds,
+      settings,
+      initialStatus,
+    });
+
+    const newTournamentId = result.data?.tournamentId;
+    if (!newTournamentId) {
+      throw new Error("Turnier konnte nicht erstellt werden (keine ID zurückgegeben).");
+    }
+    console.log(`[tournamentService] Tournament instance created successfully with ID: ${newTournamentId}`);
+    return newTournamentId;
   } catch (error) {
     console.error("[tournamentService] Error creating tournament instance:", error);
     // Gib eine spezifischere Fehlermeldung zurück
@@ -792,43 +783,51 @@ export const fetchTournamentParticipants = async (
       return [];
     }
 
-    const participantUids = tournament.participantUids;
-    // ✅ Logs aufgeräumt: Participant-Log entfernt
-
-    // 2. Rufe alle Spielerprofile auf einmal mit der neuen Service-Funktion ab.
-    const validParticipants = await getPublicPlayerProfilesByUserIds(participantUids);
-
-    // 3. KRITISCHER FIX: Berechne completedPassesCount für jeden Spieler
+    // Abgeschlossene Passen einmal laden — für die completedPassesCount-Zählung
     const completedGames = await fetchTournamentGames(instanceId);
-    
-    const participantsWithPassesCount: ParticipantWithProgress[] = validParticipants.map(participant => {
-      // Zähle abgeschlossene Passen für diesen Spieler
-      // 🚨 KRITISCHER FIX: Verwende die korrekte UID für das Matching!
-      const completedPassesForPlayer = completedGames.filter(game => {
-        // Verwende participantUidsForPasse (Firebase Auth UIDs) für das Matching
-        // participant.userId ist die Firebase Auth UID, participant.id ist die Player Document ID
-        return game.participantUidsForPasse?.includes(participant.userId || '');
-      }).length;
-      
-      // DEBUG: Log für jeden Spieler (vereinfacht)
-      // ✅ Logs aufgeräumt: Player-Passes-Log entfernt
-      
+    const buildRow = (player: FirestorePlayer): ParticipantWithProgress => {
+      // Matching über die Firebase Auth UID (participantUidsForPasse enthält UIDs)
+      const completed = completedGames.filter(game =>
+        game.participantUidsForPasse?.includes(player.userId || '')
+      ).length;
       return {
-        uid: participant.userId || '', // 🚨 KRITISCHER FIX: Verwende participant.userId (Firebase Auth UID)
-        userId: participant.userId || '', // ✅ ZUSÄTZLICH: userId für Rückwärtskompatibilität mit UI
-        playerId: participant.id || undefined, // Player Document ID
-        displayName: participant.displayName,
-        photoURL: participant.photoURL || undefined,
-        completedPassesCount: completedPassesForPlayer,
-        currentPasseNumberForPlayer: completedPassesForPlayer + 1
+        uid: player.userId || '',
+        userId: player.userId || '',
+        playerId: player.id || undefined, // Player Document ID
+        displayName: player.displayName,
+        photoURL: player.photoURL || undefined,
+        completedPassesCount: completed,
+        currentPasseNumberForPlayer: completed + 1,
       };
-    });
+    };
 
-    // Optional: Sortiere die Teilnehmer nach Namen
-    participantsWithPassesCount.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+    // ✅ KANONISCHER PFAD: Teilnehmer direkt über die gespeicherten Player-Doc-IDs auflösen.
+    //    Jede playerId ist eindeutig und entspricht exakt den Profilen, mit denen gespielt
+    //    wurde. Das verhindert Geister-Zeilen: die alte userId-Abfrage lieferte bei zwei
+    //    Player-Dokumenten pro Login zwei Zeilen für dieselbe Person.
+    const playerIds = (tournament.participantPlayerIds || []).filter(Boolean);
+    let participants: ParticipantWithProgress[];
 
-    // ✅ Logs aufgeräumt: Participants-Log entfernt
-    return participantsWithPassesCount;
+    if (playerIds.length > 0) {
+      const players = await Promise.all(playerIds.map(id => getPlayerDocument(id)));
+      participants = players.filter((p): p is FirestorePlayer => !!p).map(buildRow);
+    } else {
+      // LEGACY-FALLBACK: Alte Turniere ohne participantPlayerIds → über UIDs auflösen,
+      //   aber pro UID nur EIN (kanonisches) Profil behalten (ältestes / mit Foto / mit Gruppen).
+      const profiles = await getPublicPlayerProfilesByUserIds(tournament.participantUids);
+      const canonicalScore = (p: FirestorePlayer) =>
+        (p.groupIds?.length ? 2 : 0) + (p.photoURL ? 1 : 0);
+      const byUid = new Map<string, FirestorePlayer>();
+      for (const p of profiles) {
+        const key = p.userId || p.id || '';
+        const current = byUid.get(key);
+        if (!current || canonicalScore(p) > canonicalScore(current)) byUid.set(key, p);
+      }
+      participants = Array.from(byUid.values()).map(buildRow);
+    }
+
+    participants.sort((a, b) => (a.displayName || '').localeCompare(b.displayName || ''));
+    return participants;
 
   } catch (error) {
     console.error(`[tournamentService] Error fetching participants for tournament ${instanceId}:`, error);

@@ -35,9 +35,14 @@ export const migrateRoundDurations = onCall<MigrateRoundDurationsData>(
   async (request: CallableRequest<MigrateRoundDurationsData>) => {
     logger.info("--- migrateRoundDurations START ---", { data: request.data });
 
-    // Admin-Check
+    // 🔒 SECURITY (H2): Admin-Check (fehlte vorher trotz Kommentar). Migration kann Sessions
+    // ALLER Gruppen umschreiben — nur App-Admins erlauben.
     if (!request.auth) {
       throw new HttpsError("unauthenticated", "Authentifizierung erforderlich.");
+    }
+    const migrateCallerDoc = await db.collection("users").doc(request.auth.uid).get();
+    if (!migrateCallerDoc.exists || migrateCallerDoc.data()?.isAdmin !== true) {
+      throw new HttpsError("permission-denied", "Nur Admins dürfen diese Migration ausführen.");
     }
 
     const { groupId, dryRun = false } = request.data;

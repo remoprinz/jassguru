@@ -260,6 +260,24 @@ export const finalizeSession = onCall({ region: "europe-west1" }, async (request
   
   const groupId = initialDataFromClient.gruppeId;
   logger.info(`[finalizeSession] Using NEW structure for group ${groupId}`);
+
+  // 🔒 SECURITY (H1): Der Aufrufer muss Mitglied oder Admin der Zielgruppe sein.
+  // Geprüft wird gegen die SERVER-seitige Wahrheit (groups.playerIds/adminIds), NICHT gegen die
+  // client-gelieferten participantPlayerIds (die manipulierbar wären). Spiegelt exakt die
+  // Firestore-Rule für direkte jassGameSummaries-Writes. Vorher konnte jeder eingeloggte User
+  // Partien beliebiger Gruppen finalisieren/überschreiben und so Resultate/Elo fälschen.
+  const callerUid = request.auth!.uid;
+  const groupSnap = await db.collection("groups").doc(groupId).get();
+  if (!groupSnap.exists) {
+    throw new HttpsError("not-found", "Gruppe nicht gefunden.");
+  }
+  const groupAuthData = groupSnap.data() || {};
+  const groupMemberUids: string[] = groupAuthData.playerIds || [];
+  const groupAdminUids: string[] = groupAuthData.adminIds || [];
+  if (!groupMemberUids.includes(callerUid) && !groupAdminUids.includes(callerUid)) {
+    logger.warn(`[finalizeSession] User ${callerUid} ist weder Mitglied noch Admin von Gruppe ${groupId} — abgelehnt.`);
+    throw new HttpsError("permission-denied", "Nur Mitglieder dieser Gruppe dürfen ihre Partien abschliessen.");
+  }
   
   // 🚀 NEUE ARCHITEKTUR: Alle Daten unter der Gruppe
   const summaryDocRef = db.collection(`groups/${groupId}/jassGameSummaries`).doc(sessionId);

@@ -2466,11 +2466,39 @@ export const finalizeTournament = onCall<FinalizeTournamentData>(
   async (request: CallableRequest<FinalizeTournamentData>) => {
     logger.info("--- finalizeTournament CALLABLE START ---", { data: request.data });
 
+    // 🔒 SECURITY: Authentifizierung erforderlich.
+    if (!request.auth) {
+      throw new HttpsError("unauthenticated", "Anmeldung erforderlich.");
+    }
+
     const { tournamentId } = request.data;
 
     if (!tournamentId || typeof tournamentId !== 'string') {
       logger.error("Invalid tournamentId received.", { tournamentId });
       throw new HttpsError("invalid-argument", "Turnier-ID fehlt oder ist ungültig.");
+    }
+
+    // 🔒 SECURITY: Nur Turnier-Admins (adminIds) oder App-Admins (isAdmin) dürfen finalisieren.
+    // Verhindert, dass beliebige (auch unauthentifizierte) Aufrufer fremde Turniere
+    // finalisieren und damit Resultate/Elo verfälschen oder teure Berechnungen auslösen.
+    // Bewusst KEINE erneute JVS-Mitgliedschaftsprüfung: Wer das Turnier eröffnet hat
+    // (= adminIds), soll es auch abschliessen können, selbst wenn die Mitgliedschaft
+    // während des laufenden Turniers abgelaufen ist. Das Feature-Gate sitzt an der Eröffnung.
+    const uid = request.auth.uid;
+    const tournamentSnap = await db.collection("tournaments").doc(tournamentId).get();
+    if (!tournamentSnap.exists) {
+      throw new HttpsError("not-found", "Turnier nicht gefunden.");
+    }
+    const tournamentData = tournamentSnap.data() as { adminIds?: string[] };
+    const isTournamentAdmin = (tournamentData.adminIds || []).includes(uid);
+    let isAppAdmin = false;
+    if (!isTournamentAdmin) {
+      const callerDoc = await db.collection("users").doc(uid).get();
+      isAppAdmin = callerDoc.exists && callerDoc.data()?.isAdmin === true;
+    }
+    if (!isTournamentAdmin && !isAppAdmin) {
+      logger.warn(`finalizeTournament: User ${uid} ist weder Turnier-Admin noch App-Admin von ${tournamentId}.`);
+      throw new HttpsError("permission-denied", "Nur Turnier-Admins dürfen das Turnier abschliessen.");
     }
 
     // Rufe interne Funktion auf

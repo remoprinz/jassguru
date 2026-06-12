@@ -770,7 +770,8 @@ export const joinGroupByToken = onCall<JoinGroupByTokenData>(async (request) => 
                     userId: userId,
                     nickname: finalUserDisplayName || `Spieler_${userId.substring(0, 6)}`,
                     displayName: finalUserDisplayName,
-                    email: finalUserEmail ?? null,
+                    // 🔒 SECURITY (H3): KEINE email im world-readable players-Doc (PII-Leak).
+                    // Die E-Mail lebt ausschliesslich im geschützten users/{uid}-Doc (siehe unten).
                     isGuest: false,
                     stats: { gamesPlayed: 0, wins: 0, totalScore: 0 },
                     groupIds: [currentGroupIdInTx],
@@ -2148,6 +2149,9 @@ export const onGroupDocumentUpdated = onDocumentUpdated(
 // ✅ NEU: Export finalizeTournament
 export { finalizeTournament } from './finalizeTournament';
 
+// 🔒 NEU: Turnier-Eröffnung über gegatete Cloud Function (App-Admin ODER aktives JVS-Mitglied)
+export { createTournament } from './createTournament';
+
 // ✅ NEU: Export Player Scores Migration
 // ❌ REMOVED: backfillAllPlayerScores.ts (deprecated, replaced by backfillPlayerDataFromSummaries.ts)
 
@@ -2156,8 +2160,10 @@ export { finalizeTournament } from './finalizeTournament';
 // ✅ NEU: Export Master Fix Function
 export { masterFix } from './masterFixFunction';
 
-// ✅ NEU: Export Cleanup Old Rating Fields
-export { cleanupOldRatingFields } from './cleanupOldRatingFields';
+// 🔒 ENTFERNT (C4): cleanupOldRatingFields war ein offener, ungeschützter onRequest-Endpoint,
+// der die gesamte players-Collection mutierte (Kosten/DoS + Datenzerstörung durch beliebige
+// anonyme Aufrufer). Abgeschlossene Einmal-Migration → Export entfernt, damit die Function
+// beim nächsten `firebase deploy --only functions` aus GCP gelöscht wird.
 
 // ✅ NEU: Export Jassmeister Registration Processing
 export { processJassmeisterRegistration } from './jassmeisterRegistrations';

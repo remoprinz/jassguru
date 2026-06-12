@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { onCall } from 'firebase-functions/v2/https';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 
 // Firebase Admin SDK initialisieren
@@ -18,6 +18,16 @@ const db = admin.firestore();
 export const masterFix = onCall({ region: "europe-west1" }, async (request) => {
   logger.info('🔧 Master Fix Function started', { data: request.data });
   
+  // 🔒 SECURITY (H2): Nur App-Admins. Wartungs-Tool, das Elo/ratingHistory beliebiger Gruppen
+  // umschreibt — war vorher völlig ungeschützt (kein request.auth).
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Authentifizierung erforderlich.');
+  }
+  const masterFixCallerDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!masterFixCallerDoc.exists || masterFixCallerDoc.data()?.isAdmin !== true) {
+    throw new HttpsError('permission-denied', 'Nur Admins dürfen masterFix ausführen.');
+  }
+
   const { groupId, sessionId, fixAllAfterDate } = request.data;
   
   if (!groupId) {

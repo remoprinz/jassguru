@@ -261,7 +261,7 @@ const NewTournamentPage: React.FC = () => {
   if (jvsMembership?.isMember !== true) {
     return (
       <MainLayout>
-        <div className="flex flex-1 flex-col items-center justify-center p-6 text-white text-center">
+        <div className="flex flex-1 flex-col items-center justify-center p-6 text-white text-center" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1.5rem)' }}>
           <div className="max-w-md space-y-6">
             <h1 className="text-2xl font-bold">Mitgliedschaft erforderlich</h1>
             <p className="text-gray-300 leading-relaxed">
@@ -293,13 +293,13 @@ const NewTournamentPage: React.FC = () => {
         <Button
           variant="ghost"
           onClick={handleGoBack}
-          className="absolute top-5 left-4 text-white hover:bg-gray-700 p-2 sm:p-3 z-20"
+          className="absolute top-[calc(env(safe-area-inset-top,0px)+0.75rem)] left-4 text-white hover:bg-gray-700 p-2 sm:p-3 z-20"
           aria-label="Zurück"
         >
           <ArrowLeft size={24} />
           </Button>
 
-        <div className="w-full max-w-md space-y-6 mt-16 sm:mt-12 pt-6 pb-24">
+        <div className="w-full max-w-md space-y-6 pt-6 pb-24" style={{ marginTop: 'calc(env(safe-area-inset-top, 0px) + 3rem)' }}>
           <h1 className="text-center text-2xl font-bold text-white mb-6">
             Neues Turnier erstellen
           </h1>
