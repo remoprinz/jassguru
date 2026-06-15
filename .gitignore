@@ -61,6 +61,15 @@ assets/
 onboarding_pics/
 tutorial_pics/
 
+# Interne Ops-/Backfill-/Diagnose-Skripts — bleiben lokal, NICHT im Public-Repo
+# (enthalten teils echte Spieler-/Mail-Daten; via package.json lokal nutzbar)
+/scripts/
+/functions/scripts/
+
+# JetBrains/Android Studio
+.idea/
+**/.idea/
+
 # ============================================
 # DEPENDENCIES
 # ============================================
