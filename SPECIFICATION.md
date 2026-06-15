@@ -15,7 +15,7 @@ Die "Jassguru Kreidetafel" ist eine Progressive Web Application (PWA), die als d
 ## 2. TECHNOLOGIE-STACK
 
 ### Frontend
-- **Basis-Framework**: React 18+ mit Next.js 14+ (App Router)
+- **Basis-Framework**: React 19 mit Next.js 16 (Pages Router)
 - **State Management**: Zustand
 - **UI-Bibliotheken**: 
   - Tailwind CSS für Styling

@@ -17,4 +17,5 @@ If you discover a security vulnerability within this project, please report it p
 - Removed historical secrets from Git history and strengthened `.gitignore` patterns to prevent future leaks.
 - Rotated compromised service account keys and restricted Firebase Web API keys to authorized domains.
 - Scripts now explicitly require environment variables for API keys and do not hardcode secrets.
-- Implemented a CI check to prevent accidental pushes of duplicate files (e.g., `file 2.tsx`), which could indicate mismanaged backups or sensitive data copies.
+- Enforced `.gitignore` patterns that block accidental commits of macOS duplicate files (e.g., `file 2.tsx`), which could indicate mismanaged backups or sensitive data copies.
+- Moved internal operational scripts (backfill, diagnostics, migrations) out of version control to keep player data and contact details out of the public repository.
