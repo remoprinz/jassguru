@@ -18,7 +18,6 @@
     "validate": "node scripts/validate-deployment.js",
     "deploy": "npm run build && firebase deploy",
     "deploy:force": "npm run build && firebase deploy --only hosting",
-    "preview": "vite preview",
     "test": "jest",
     "test:watch": "jest --watch",
     "version:update": "node scripts/update-version.js",
@@ -158,7 +157,6 @@
     "@types/styled-components": "^5.1.0",
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
-    "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.17",
     "baseline-browser-mapping": "^2.10.9",
     "clean-webpack-plugin": "^4.0.0",
@@ -182,7 +180,6 @@
     "tsx": "^4.20.3",
     "typescript": "^5.9.3",
     "uglify-js": "^3.19.3",
-    "vite": "^7.3.2",
     "webpack": "^5.103.0"
   },
   "overrides": {
