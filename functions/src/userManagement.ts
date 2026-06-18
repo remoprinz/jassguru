@@ -385,8 +385,11 @@ export const cleanupUnverifiedUsers = onSchedule({
   timeoutSeconds: 300,
 }, async (event) => {
   logger.info("🧹 Starting cleanup of unverified users...");
-  
-  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 Tage in Millisekunden
+
+  // 🚀 QUICK-FIX (vor iOS-Submission): Window 7 → 30 Tage hochgesetzt. Da unverifizierte
+  // User jetzt geduldet werden (siehe LoginForm), löschen wir erst nach 30 Tagen — bis der
+  // finale Fix mit eigener E-Mail-Domain deployed ist.
+  const cleanupThreshold = Date.now() - (30 * 24 * 60 * 60 * 1000); // 30 Tage in Millisekunden
   let deletedCount = 0;
   let skippedInviteCount = 0;
   let errorCount = 0;
@@ -396,10 +399,10 @@ export const cleanupUnverifiedUsers = onSchedule({
     const listUsersResult = await admin.auth().listUsers();
     
     for (const userRecord of listUsersResult.users) {
-      // Prüfe: Nicht verifiziert UND älter als 7 Tage
-      if (!userRecord.emailVerified && 
-          userRecord.metadata.creationTime && 
-          new Date(userRecord.metadata.creationTime).getTime() < sevenDaysAgo) {
+      // Prüfe: Nicht verifiziert UND älter als 30 Tage
+      if (!userRecord.emailVerified &&
+          userRecord.metadata.creationTime &&
+          new Date(userRecord.metadata.creationTime).getTime() < cleanupThreshold) {
         try {
           // ✅ NEU: Prüfe ob User via Einladung registriert wurde
           const userDocRef = db.collection(USERS_COLLECTION).doc(userRecord.uid);

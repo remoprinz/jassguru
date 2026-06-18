@@ -68,27 +68,38 @@ export function LoginForm() {
       const loggedInUser = useAuthStore.getState().user;
 
       if (loggedInUser) {
-        if (loggedInUser.emailVerified) {
-          setTimeout(() => {
-            authLogger.debug("Verzögerte Navigation: Status=", useAuthStore.getState().status);
-            
-            const tournamentToken = getTournamentToken();
-            const groupToken = getGroupToken();
-            
-            if (tournamentToken) {
-              authLogger.info("Turniertoken im Storage gefunden, leite zu /join weiter:", tournamentToken);
-              router.push(`/join?tournamentToken=${tournamentToken}`);
-            } else if (groupToken) {
-              authLogger.info("Gruppentoken im Storage gefunden, leite zu /join weiter:", groupToken);
-              router.push(`/join?token=${groupToken}`);
-            } else {
-              router.push("/start");
-            }
-          }, 500);
-        } else {
-          setShowVerificationWarning(true);
-          clearError();
+        // 🚀 QUICK-FIX (vor iOS-Submission): Unverifizierte User werden NICHT mehr
+        // blockiert — die Navigation erfolgt immer. Fehlt die E-Mail-Bestätigung,
+        // zeigen wir eine nicht-blockierende Erinnerung mit der Möglichkeit, die
+        // Bestätigungs-E-Mail erneut zu senden. (Wir dulden unverifizierte Accounts,
+        // bis der finale Fix mit eigener E-Mail-Domain live ist.)
+        if (!loggedInUser.emailVerified) {
+          showNotification({
+            message: "Bitte bestätige deine E-Mail-Adresse. Prüfe dein Postfach (inkl. Spam-Ordner).",
+            type: "warning",
+            actions: [
+              {label: "Später", onClick: () => {}},
+              {label: "E-Mail erneut senden", onClick: () => { void handleResendVerification(); }},
+            ],
+          });
         }
+
+        setTimeout(() => {
+          authLogger.debug("Verzögerte Navigation: Status=", useAuthStore.getState().status);
+
+          const tournamentToken = getTournamentToken();
+          const groupToken = getGroupToken();
+
+          if (tournamentToken) {
+            authLogger.info("Turniertoken im Storage gefunden, leite zu /join weiter:", tournamentToken);
+            router.push(`/join?tournamentToken=${tournamentToken}`);
+          } else if (groupToken) {
+            authLogger.info("Gruppentoken im Storage gefunden, leite zu /join weiter:", groupToken);
+            router.push(`/join?token=${groupToken}`);
+          } else {
+            router.push("/start");
+          }
+        }, 500);
       } else {
         throw new Error("Benutzerdaten nach Login nicht verfügbar.");
       }
