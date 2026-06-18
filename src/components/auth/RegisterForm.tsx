@@ -55,7 +55,21 @@ export function RegisterForm() {
     },
   });
 
+  // Zeigt einen Hinweis, wenn die Nutzungsbedingungen noch nicht akzeptiert sind.
+  // So bekommt der User Feedback statt eines stumm ausgegrauten Buttons.
+  const ensureTermsAccepted = (): boolean => {
+    if (!agreedToTerms) {
+      showNotification({
+        type: "warning",
+        message: "Bitte akzeptiere zuerst die Nutzungsbedingungen und die Datenschutzerklärung.",
+      });
+      return false;
+    }
+    return true;
+  };
+
   const onSubmit = async (data: RegisterFormValues) => {
+    if (!ensureTermsAccepted()) return;
     clearError();
     try {
       await register(data.email, data.password, data.displayName);
@@ -116,6 +130,7 @@ export function RegisterForm() {
   };
 
   const handleGoogleRegister = async () => {
+    if (!ensureTermsAccepted()) return;
     clearError();
     try {
       await loginWithGoogle();
@@ -151,6 +166,7 @@ export function RegisterForm() {
   };
 
   const handleAppleRegister = async () => {
+    if (!ensureTermsAccepted()) return;
     clearError();
     try {
       await loginWithApple();
@@ -300,7 +316,7 @@ export function RegisterForm() {
             <Button
               type="submit"
               className="w-full bg-green-600 hover:bg-green-700 text-white h-12 rounded-md"
-              disabled={form.formState.isSubmitting || !agreedToTerms}
+              disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? "Registrierung läuft..." : "Registrieren"}
             </Button>
@@ -322,7 +338,7 @@ export function RegisterForm() {
         <Button
           className="w-full bg-black hover:bg-gray-900 text-white border border-black font-medium h-12 rounded-md flex items-center justify-center"
           onClick={handleAppleRegister}
-          disabled={form.formState.isSubmitting || !agreedToTerms}
+          disabled={form.formState.isSubmitting}
         >
           <FaApple className="w-5 h-5 mr-3 -mt-0.5" />
           Mit Apple fortfahren
@@ -332,7 +348,7 @@ export function RegisterForm() {
           variant="outline"
           className="w-full bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-medium h-12 rounded-md flex items-center justify-center"
           onClick={handleGoogleRegister}
-          disabled={form.formState.isSubmitting || !agreedToTerms}
+          disabled={form.formState.isSubmitting}
         >
           <Image
             src="/google-logo.svg"
