@@ -63,8 +63,10 @@ html {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Chrome-spezifische Button-Größen-Korrektur */
-.chrome-browser button {
+/* Chrome-spezifische Button-Größen-Korrektur.
+   Form-Controls (Radix Checkbox/Radio/Switch sind <button>!) ausnehmen —
+   sonst zwingt min-height:44px die Checkbox in ein hohes Rechteck. */
+.chrome-browser button:not([role="checkbox"]):not([role="radio"]):not([role="switch"]) {
   min-height: 44px; /* iOS/Android Touch-Target-Größe */
 }
 
@@ -201,9 +203,17 @@ body:not(.lexikon-page) #__next {
 
 /* Jass-spezifische Styles - nur für Nicht-Lexikon-Seiten */
 body:not(.lexikon-page) {
-  /* Kreidetafel-Basisfarbe statt reinem Schwarz: exponierte Safe-Area-/Toolbar-Zonen
-     im Browser-Modus erscheinen so chalkboard-getönt statt als schwarzer Balken. */
+  /* Kreidetafel-Textur DIREKT auf den body: dessen Hintergrund propagiert auf den
+     gesamten Canvas (voller Screen inkl. Safe-Areas/Toolbar-Zonen). Das fragile
+     position:fixed-::before erreicht die Safe-Areas auf iOS NICHT — dort blieb nur
+     die flache #1a1a1a-Farbe sichtbar (= schwarze Balken). Mit Textur auf dem body
+     ist die Tafel randlos, kein Kanten-Sprung mehr. */
   background-color: #1a1a1a;
+  background-image: url('/images/backgrounds/chalkboard-mobile.webp');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   touch-action: none;
   display: flex;
   align-items: center;
