@@ -15,9 +15,8 @@ const useViewportHeight = () => {
       // Verwende visualViewport für präzise Höhe, falle zurück auf innerHeight
       const newHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
       setHeight(newHeight);
-      // Setze eine CSS-Variable für --vh, die von anderen Komponenten genutzt werden kann
-      // WICHTIG: Berechne vh-Wert basierend auf tatsächlichem Viewport (berücksichtigt mobile Browser-UI)
-      document.documentElement.style.setProperty("--vh", `${(newHeight / window.innerHeight) * 100}vh`);
+      // Hinweis: Das frühere Setzen von --vh ist entfernt — die Viewport-Höhe
+      // kommt jetzt via 100dvh direkt aus CSS, --vh wird nirgends mehr gelesen.
     };
 
     // Überprüfe, ob visualViewport unterstützt wird

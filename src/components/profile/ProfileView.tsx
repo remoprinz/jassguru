@@ -34,7 +34,6 @@ import { useClickAndScrollHandler } from '@/hooks/useClickAndScrollHandler';
 import { StatLink } from '@/components/statistics/StatLink';
 import {fetchCompletedSessionsForUser, fetchCompletedSessionsForPlayer, SessionSummary} from '@/services/sessionService';
 import { LegalFooter } from '@/components/layout/LegalFooter';
-import { PublicViewTopBar } from '@/components/layout/PublicViewTopBar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ThemeColor } from '@/config/theme';

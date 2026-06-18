@@ -28,7 +28,6 @@ import AvatarPreloader from '@/components/ui/AvatarPreloader';
 import InviteModal from '@/components/group/InviteModal';
 import ImageCropModal from '@/components/ui/ImageCropModal';
 import { LegalFooter } from '@/components/layout/LegalFooter';
-import { PublicViewTopBar } from '@/components/layout/PublicViewTopBar';
 // NEU: PLZ-Service für Hauptspielort-Anzeige
 import { getOrtNameByPlz } from '@/utils/locationUtils';
 import { generateBlurPlaceholder } from '@/utils/imageOptimization';
