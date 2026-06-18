@@ -90,7 +90,7 @@ class MyDocument extends Document {
           <meta name="apple-mobile-web-app-title" content="jassguru.ch" />
           <meta name="format-detection" content="telephone=no" />
           <meta name="mobile-web-app-capable" content="yes" />
-          <meta name="theme-color" content="#000000" />
+          <meta name="theme-color" content="#1a1a1a" />
 
           {/* iOS-spezifische Icons */}
           <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=7" />
