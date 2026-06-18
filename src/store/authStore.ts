@@ -7,6 +7,7 @@ import {
   loginWithEmail,
   registerWithEmail,
   signInWithGoogleProvider,
+  signInWithAppleProvider,
   logout as serviceLogout,
   sendPasswordReset,
   mapUserToAuthUser,
@@ -43,6 +44,7 @@ interface AuthState {
 interface AuthActions {
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
+  loginWithApple: () => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -226,6 +228,25 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({status: "loading", error: null});
           const user = await signInWithGoogleProvider();
+          set({
+            user,
+            status: "authenticated",
+            appMode: "online",
+            isGuest: false,
+          });
+        } catch (error) {
+          set({
+            status: "error",
+            error: error instanceof Error ? error.message : "Ein unbekannter Fehler ist aufgetreten",
+          });
+          throw error;
+        }
+      },
+
+      loginWithApple: async () => {
+        try {
+          set({status: "loading", error: null});
+          const user = await signInWithAppleProvider();
           set({
             user,
             status: "authenticated",

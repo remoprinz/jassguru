@@ -24,6 +24,8 @@ const config: CapacitorConfig = {
       'accounts.google.com',
       'apis.google.com',
       'jassguru.firebaseapp.com',
+      // Apple-OAuth-Redirect (Sign in with Apple)
+      'appleid.apple.com',
     ],
     // Wenn jassguru.ch nicht erreichbar (Flugmodus / kein Netz beim App-Start),
     // zeigt Capacitor diese lokal gebündelte HTML-Seite. Apple-Reviewer

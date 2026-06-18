@@ -19,6 +19,7 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import Image from "next/image";
+import {FaApple} from "react-icons/fa";
 import { getTournamentToken, getGroupToken } from "@/utils/tokenStorage";
 import { authLogger } from "@/utils/logger";
 
@@ -30,10 +31,11 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const {login, loginWithGoogle, status, error, clearError} = useAuthStore();
+  const {login, loginWithGoogle, loginWithApple, status, error, clearError} = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isEmailLoginSubmitting, setIsEmailLoginSubmitting] = useState(false); // 🚀 NEU: Separater State für Email-Login
   const [isGoogleLoginSubmitting, setIsGoogleLoginSubmitting] = useState(false); // 🚀 NEU: Separater State für Google-Login
+  const [isAppleLoginSubmitting, setIsAppleLoginSubmitting] = useState(false); // 🍎 Separater State für Apple-Login
   const router = useRouter();
 
   const form = useForm<LoginFormValues>({
@@ -116,7 +118,33 @@ export function LoginForm() {
     }
   };
 
-  const isAnyLoading = status === "loading" || isEmailLoginSubmitting || isGoogleLoginSubmitting; // 🚀 Globaler Loading-State für Disabled-Status
+  const handleAppleLogin = async () => {
+    setIsAppleLoginSubmitting(true);
+    clearError();
+    try {
+      await loginWithApple();
+      setTimeout(() => {
+        authLogger.debug("Verzögerte Navigation (Apple): Status=", useAuthStore.getState().status);
+
+        const tournamentToken = getTournamentToken();
+        const groupToken = getGroupToken();
+
+        if (tournamentToken) {
+          router.push(`/join?tournamentToken=${tournamentToken}`);
+        } else if (groupToken) {
+          router.push(`/join?token=${groupToken}`);
+        } else {
+          router.push("/start");
+        }
+      }, 500);
+    } catch (error) {
+      authLogger.error("Apple login error:", error);
+    } finally {
+      setIsAppleLoginSubmitting(false);
+    }
+  };
+
+  const isAnyLoading = status === "loading" || isEmailLoginSubmitting || isGoogleLoginSubmitting || isAppleLoginSubmitting; // 🚀 Globaler Loading-State für Disabled-Status
 
   return (
     <div className="w-full space-y-4">
@@ -206,6 +234,26 @@ export function LoginForm() {
           </span>
         </div>
       </div>
+
+      {/* Apple-Login — HIG: über Google platziert, gleich prominent.
+          Web/PWA via signInWithPopup, Capacitor via signInWithRedirect (analog Google). */}
+      <Button
+        className="w-full bg-black hover:bg-gray-900 text-white border border-black font-medium h-12 rounded-md flex items-center justify-center"
+        onClick={handleAppleLogin}
+        disabled={isAnyLoading}
+      >
+        {isAppleLoginSubmitting ? (
+          <div className="flex items-center justify-center">
+            <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></div>
+            Anmeldung läuft...
+          </div>
+        ) : (
+          <>
+            <FaApple className="w-5 h-5 mr-3 -mt-0.5" />
+            Mit Apple fortfahren
+          </>
+        )}
+      </Button>
 
       <Button
         variant="outline"

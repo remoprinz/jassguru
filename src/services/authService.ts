@@ -6,6 +6,7 @@ import {
   sendPasswordResetEmail,
   updateProfile as firebaseUpdateProfile,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
@@ -251,6 +252,54 @@ export const signInWithGoogleProvider = async (): Promise<AuthUser> => {
       }
     }
     throw new Error("Google Sign-In fehlgeschlagen. Bitte versuchen Sie es erneut.");
+  }
+};
+
+/**
+ * Meldet einen Benutzer über „Sign in with Apple" an.
+ * Im Browser/PWA: signInWithPopup. In der Capacitor-iOS-App: signInWithRedirect
+ * (Popups werden vom WKWebView blockiert) — analog zum Google-Flow. Das Ergebnis
+ * wird nach dem Redirect über den globalen onAuthStateChanged-Listener (_app.tsx)
+ * abgeholt.
+ */
+export const signInWithAppleProvider = async (): Promise<AuthUser> => {
+  try {
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    provider.setCustomParameters({locale: "de"});
+
+    const isCapacitor = typeof window !== "undefined" &&
+      !!(window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    if (isCapacitor) {
+      // Native App → Redirect-Flow (wie Google). Promise resolved nie (Page navigiert weg).
+      await signInWithRedirect(getAuth(), provider);
+      throw new Error("redirect-in-progress");
+    }
+    const result = await signInWithPopup(getAuth(), provider);
+    const user = result.user;
+
+    const userDocRef = doc(db, "users", user.uid);
+    const docSnap = await getDoc(userDocRef);
+    await createOrUpdateFirestoreUser(user, !docSnap.exists());
+
+    return mapUserToAuthUser(user);
+  } catch (error) {
+    console.error("Apple Sign-In Fehler:", {error});
+    if (error instanceof Error) {
+      const errorCode = (error as FirebaseAuthError).code;
+      if (errorCode === "auth/popup-closed-by-user") {
+        throw new Error("Anmeldung mit Apple wurde abgebrochen.");
+      } else if (errorCode === "auth/account-exists-with-different-credential") {
+        const email = (error as any)?.customData?.email;
+        if (email) {
+          const methods = await fetchSignInMethodsForEmail(getAuth(), email);
+          throw new Error(`Ein Konto existiert bereits mit dieser E-Mail (${email}), aber mit einer anderen Anmeldemethode (${methods.join(", ")}).`);
+        }
+        throw new Error("Ein Konto existiert bereits mit dieser E-Mail, aber mit einer anderen Anmeldemethode.");
+      }
+    }
+    throw new Error("Anmeldung mit Apple fehlgeschlagen. Bitte versuche es erneut.");
   }
 };
 

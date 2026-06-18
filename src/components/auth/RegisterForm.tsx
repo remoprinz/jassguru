@@ -21,6 +21,7 @@ import {useUIStore} from "@/store/uiStore";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import {useRouter} from "next/router";
 import Image from "next/image";
+import {FaApple} from "react-icons/fa";
 import { getTournamentToken, getGroupToken } from "@/utils/tokenStorage"; // Token-Storage-Helper importieren
 import { authLogger } from "@/utils/logger"; // Logger importieren
 
@@ -34,7 +35,7 @@ const registerSchema = z.object({
 type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export function RegisterForm() {
-  const {register, loginWithGoogle, status, error, clearError} = useAuthStore();
+  const {register, loginWithGoogle, loginWithApple, status, error, clearError} = useAuthStore();
   const showNotification = useUIStore((state) => state.showNotification);
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -146,6 +147,38 @@ export function RegisterForm() {
 
     } catch (error) {
       authLogger.error("Google-Registrierungsfehler:", error);
+    }
+  };
+
+  const handleAppleRegister = async () => {
+    clearError();
+    try {
+      await loginWithApple();
+
+      const tournamentToken = getTournamentToken();
+      const groupToken = getGroupToken();
+
+      // ✅ EINLADUNGS-FLOW: Bei vorhandenem Token direkt zu /join
+      if (tournamentToken || groupToken) {
+        authLogger.info("Token vorhanden (Apple), navigiere zu /join:", { tournamentToken, groupToken });
+        setTimeout(() => {
+          if (tournamentToken) {
+            router.push(`/join?tournamentToken=${tournamentToken}`);
+          } else if (groupToken) {
+            router.push(`/join?token=${groupToken}`);
+          }
+        }, 500);
+        return;
+      }
+
+      // ✅ STANDARD-FLOW: Ohne Token direkt zur Startseite.
+      setTimeout(() => {
+        authLogger.debug("Navigation zur Startseite (Apple):", useAuthStore.getState().status);
+        router.push("/start");
+      }, 500);
+
+    } catch (error) {
+      authLogger.error("Apple-Registrierungsfehler:", error);
     }
   };
 
@@ -284,6 +317,16 @@ export function RegisterForm() {
             </span>
           </div>
         </div>
+
+        {/* Apple-Login — HIG: über Google platziert, gleich prominent. */}
+        <Button
+          className="w-full bg-black hover:bg-gray-900 text-white border border-black font-medium h-12 rounded-md flex items-center justify-center"
+          onClick={handleAppleRegister}
+          disabled={form.formState.isSubmitting || !agreedToTerms}
+        >
+          <FaApple className="w-5 h-5 mr-3 -mt-0.5" />
+          Mit Apple fortfahren
+        </Button>
 
         <Button
           variant="outline"
