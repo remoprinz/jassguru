@@ -34,6 +34,7 @@ const JASSGURU_SCHEMA = {
       "description": "JassGuru (Jasstafel) ist die digitale Jass-Kreidetafel der Schweiz mit Elo-Ratingsystem, Statistiken, Gruppenranglisten und Turniermodul für die Schweizer Jass-Community.",
       "applicationCategory": "SportsApplication",
       "operatingSystem": "iOS, Android, Web",
+      "sameAs": ["https://www.wikidata.org/wiki/Q140268082"],
       "offers": {
         "@type": "Offer",
         "price": "0",
@@ -49,14 +50,13 @@ const JASSGURU_SCHEMA = {
         "description": "Der Jassverband Schweiz ist der nationale Verband für das Schweizer Kartenspiel Jass. Er organisiert die Schweizer Jassmeisterschaft und fördert Jass als lebendige Tradition.",
         "foundingDate": "2026-01-15",
         "sameAs": [
-          "https://www.wikidata.org/wiki/Q786768",
-          "https://www.lebendige-traditionen.ch/tradition/de/home/traditionen/jassen.html"
+          "https://www.wikidata.org/wiki/Q139042763"
         ]
       },
       "about": { "@id": "https://jassguru.ch/#jass-tradition" },
       "knowsAbout": [
         { "@type": "Thing", "name": "Jass", "sameAs": "https://www.wikidata.org/wiki/Q786768" },
-        { "@type": "Thing", "name": "Schieber", "sameAs": "https://www.wikidata.org/wiki/Q137900251" },
+        { "@type": "Thing", "name": "Schieber", "sameAs": "https://www.wikidata.org/wiki/Q137727247" },
         "Elo-Rating-System",
         "Jass-Statistik",
         "Jass-Turnier"
