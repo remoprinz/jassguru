@@ -267,7 +267,7 @@ export function RegisterForm() {
                 id="terms" 
                 checked={agreedToTerms} 
                 onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                className="mt-0.5 border-2 border-gray-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-5 w-5 rounded-none"
+                className="mt-0.5 shrink-0 border-2 border-gray-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-5 w-5 rounded-none"
               />
               <div className="grid gap-1.5 leading-none">
                 <label
