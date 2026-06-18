@@ -1,6 +1,6 @@
 "use client";
 
-import {useState} from "react";
+import {useState, useEffect} from "react";
 import {useForm} from "react-hook-form";
 import {zodResolver} from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -17,6 +17,7 @@ import {
 import {useAuthStore} from "@/store/authStore";
 import {Alert, AlertDescription} from "@/components/ui/alert";
 import Link from "next/link";
+import {useRouter} from "next/router";
 
 const resetPasswordSchema = z.object({
   email: z.string().email("Ungültige E-Mail-Adresse"),
@@ -27,6 +28,7 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 export function ResetPasswordForm() {
   const {resetPassword, status, error, clearError} = useAuthStore();
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const router = useRouter();
 
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
@@ -34,6 +36,15 @@ export function ResetPasswordForm() {
       email: "",
     },
   });
+
+  // E-Mail aus dem Query-Param vorbefüllen (aus Login/Register weitergereicht),
+  // damit JVS-Beitritte ihr Passwort ohne erneutes Tippen setzen können.
+  useEffect(() => {
+    const qEmail = router.query.email;
+    if (typeof qEmail === "string" && qEmail) {
+      form.setValue("email", qEmail);
+    }
+  }, [router.query.email, form]);
 
   const onSubmit = async (data: ResetPasswordFormValues) => {
     try {
@@ -87,6 +98,9 @@ export function ResetPasswordForm() {
       <div className="space-y-2 text-center">
         <h1 className="text-2xl font-bold text-white">Neues Passwort erstellen</h1>
         <p className="text-gray-300">Gib deine Email ein, um ein neues Passwort zu erstellen.</p>
+        <p className="text-sm text-gray-400">
+          Auch wenn du über jassverband.ch beigetreten bist: Hier legst du dein erstes Passwort fest.
+        </p>
       </div>
 
       {error && (

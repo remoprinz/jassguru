@@ -55,6 +55,10 @@ export function RegisterForm() {
     },
   });
 
+  // Aktueller E-Mail-Wert für den "Passwort setzen"-Hinweis bei bereits
+  // registrierten Adressen (z. B. via jassverband.ch angelegte Konten).
+  const emailValue = form.watch("email");
+
   // Zeigt einen Hinweis, wenn die Nutzungsbedingungen noch nicht akzeptiert sind.
   // So bekommt der User Feedback statt eines stumm ausgegrauten Buttons.
   const ensureTermsAccepted = (): boolean => {
@@ -109,9 +113,9 @@ export function RegisterForm() {
       // ✅ STANDARD-FLOW: Registrierung abgeschlossen → direkt in die App.
       // Der User ist nach createUserWithEmailAndPassword bereits eingeloggt, daher
       // KEINE Umleitung auf die Login-Seite und KEIN "Prüfe deine Email"-Dead-End.
-      // E-Mail-Verifizierung wird derzeit nicht erzwungen (Mailversand via
-      // Custom-Domain noch nicht verifiziert). Sobald der Maildomain-Fix live ist,
-      // kann hier wieder eine sanfte, nicht-blockierende Erinnerung rein.
+      // E-Mail-Verifizierung wird bewusst nicht erzwungen (kein Dead-End). Der
+      // Mailversand via Custom-Domain (noreply@jassguru.ch) ist inzwischen aktiv;
+      // eine sanfte, nicht-blockierende Erinnerung könnte hier künftig rein.
       showNotification({
         type: "success",
         message: "Willkommen bei JassGuru! Dein Konto ist startklar.",
@@ -206,6 +210,20 @@ export function RegisterForm() {
         </Alert>
       )}
 
+      {/* Auffang-Pfad: Adresse bereits registriert (häufig via jassverband.ch
+          angelegt) → direkt zum Passwort-Setzen statt Sackgasse. */}
+      {error && error.includes("bereits verwendet") && (
+        <p className="text-center text-sm text-gray-400">
+          Du hast wahrscheinlich schon ein Konto — z. B. über jassverband.ch.{" "}
+          <Link
+            href={emailValue ? `/auth/reset-password?email=${encodeURIComponent(emailValue)}` : "/auth/reset-password"}
+            className="text-blue-400 hover:underline"
+          >
+            Passwort setzen und einloggen
+          </Link>
+        </p>
+      )}
+
       <>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -283,7 +301,7 @@ export function RegisterForm() {
                 id="terms" 
                 checked={agreedToTerms} 
                 onCheckedChange={(checked) => setAgreedToTerms(checked === true)}
-                className="mt-0.5 shrink-0 border-2 border-gray-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-5 w-5 rounded-none"
+                className="mt-0.5 self-start shrink-0 aspect-square border-2 border-gray-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 h-5 w-5 rounded-none"
               />
               <div className="grid gap-1.5 leading-none">
                 <label

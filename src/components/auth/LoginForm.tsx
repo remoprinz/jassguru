@@ -51,6 +51,10 @@ export function LoginForm() {
     clearError();
   }, [clearError]);
 
+  // Aktueller E-Mail-Wert, um ihn an den "Passwort vergessen/setzen"-Link
+  // weiterzureichen (JVS-Beitritte landen so vorbefüllt auf der Reset-Seite).
+  const emailValue = form.watch("email");
+
   const onSubmit = async (data: LoginFormValues) => {
     setIsEmailLoginSubmitting(true); // 🚀 Nur Email-Login Loading aktivieren
     clearError();
@@ -61,9 +65,9 @@ export function LoginForm() {
 
       if (loggedInUser) {
         // Login erfolgreich → immer in die App navigieren. E-Mail-Verifizierung
-        // wird derzeit NICHT erzwungen (Versand via Custom-Domain ist noch nicht
-        // verifiziert — kein Mailversand möglich). Sobald der Maildomain-Fix live
-        // ist, kann hier wieder eine sanfte, nicht-blockierende Erinnerung rein.
+        // wird bewusst NICHT erzwungen (kein blockierendes Dead-End). Der Mailversand
+        // via Custom-Domain (noreply@jassguru.ch) ist inzwischen aktiv; eine sanfte,
+        // nicht-blockierende Verifizierungs-Erinnerung könnte hier künftig rein.
         setTimeout(() => {
           authLogger.debug("Verzögerte Navigation: Status=", useAuthStore.getState().status);
 
@@ -281,8 +285,11 @@ export function LoginForm() {
       </Button>
 
       <p className="text-center text-sm text-gray-400">
-        <Link href="/auth/reset-password" className="text-blue-400 hover:underline">
-          Passwort vergessen?
+        <Link
+          href={emailValue ? `/auth/reset-password?email=${encodeURIComponent(emailValue)}` : "/auth/reset-password"}
+          className="text-blue-400 hover:underline"
+        >
+          Passwort vergessen oder neu setzen?
         </Link>
       </p>
     </div>

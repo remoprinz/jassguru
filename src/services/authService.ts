@@ -197,7 +197,7 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
     if (error instanceof Error) {
       const errorCode = (error as FirebaseAuthError).code;
       if (errorCode === "auth/user-not-found" || errorCode === "auth/wrong-password" || errorCode === "auth/invalid-credential") {
-        throw new Error("Ungültige E-Mail-Adresse oder Passwort.");
+        throw new Error("E-Mail oder Passwort stimmt nicht. Falls du über jassverband.ch beigetreten bist oder dein Passwort vergessen hast, setze es unten neu.");
       } else if (errorCode === "auth/user-disabled") {
         throw new Error("Dieses Benutzerkonto wurde deaktiviert.");
       }
@@ -304,9 +304,15 @@ export const signInWithAppleProvider = async (): Promise<AuthUser> => {
 };
 
 /**
- * Sendet eine E-Mail zum Zurücksetzen des Passworts.
+ * Sendet eine E-Mail zum Zurücksetzen/Festlegen des Passworts.
+ * continueUrl → nach Abschluss zurück in die App (Default-Seite zeigt "Weiter",
+ * gebrandeter /auth/action-Handler macht Auto-Login + Redirect).
  */
-export const sendPasswordReset = (email: string): Promise<void> => sendPasswordResetEmail(getAuth(), email);
+export const sendPasswordReset = (email: string): Promise<void> =>
+  sendPasswordResetEmail(getAuth(), email, {
+    url: "https://jassguru.ch/start",
+    handleCodeInApp: false,
+  });
 
 /**
  * Meldet den aktuellen Benutzer ab.
