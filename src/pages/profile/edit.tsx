@@ -430,7 +430,7 @@ const EditProfilePage: React.FC = () => {
               </p>
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setDeleteModalStep(0)} disabled={isDeleting}>
+              <Button variant="outline" onClick={() => setDeleteModalStep(0)} disabled={isDeleting} className="border border-gray-400 bg-transparent text-white hover:bg-gray-700 hover:text-white">
                 Abbrechen
               </Button>
               <Button
@@ -465,7 +465,7 @@ const EditProfilePage: React.FC = () => {
               disabled={isDeleting}
             />
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setDeleteModalStep(0)} disabled={isDeleting}>
+              <Button variant="outline" onClick={() => setDeleteModalStep(0)} disabled={isDeleting} className="border border-gray-400 bg-transparent text-white hover:bg-gray-700 hover:text-white">
                 Abbrechen
               </Button>
               <Button
