@@ -289,7 +289,7 @@ export function LoginForm() {
           href={emailValue ? `/auth/reset-password?email=${encodeURIComponent(emailValue)}` : "/auth/reset-password"}
           className="text-blue-400 hover:underline"
         >
-          Passwort vergessen oder neu setzen?
+          Neues Passwort erstellen
         </Link>
       </p>
     </div>

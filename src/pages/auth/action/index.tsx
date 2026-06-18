@@ -206,7 +206,7 @@ function AuthActionInner() {
   return (
     <div className="w-full max-w-md space-y-6">
       <div className="space-y-2 text-center">
-        <h1 className="text-2xl font-bold text-white">Passwort festlegen</h1>
+        <h1 className="text-2xl font-bold text-white">Neues Passwort erstellen</h1>
         <p className="text-gray-300">
           Wähle ein Passwort für <span className="text-white font-medium">{email}</span>. Danach bist du
           direkt eingeloggt.
