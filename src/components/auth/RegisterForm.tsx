@@ -91,23 +91,22 @@ export function RegisterForm() {
         return;
       }
 
-      // ✅ STANDARD-FLOW: Ohne Token muss E-Mail bestätigt werden
-      const successMessage = "Registrierung erfolgreich! Prüfe deine Email (auch Spam-Ordner), um die Registrierung abzuschliessen.";
-
-      const notificationId = showNotification({
+      // ✅ STANDARD-FLOW: Registrierung abgeschlossen → direkt in die App.
+      // Der User ist nach createUserWithEmailAndPassword bereits eingeloggt, daher
+      // KEINE Umleitung auf die Login-Seite und KEIN "Prüfe deine Email"-Dead-End.
+      // E-Mail-Verifizierung wird derzeit nicht erzwungen (Mailversand via
+      // Custom-Domain noch nicht verifiziert). Sobald der Maildomain-Fix live ist,
+      // kann hier wieder eine sanfte, nicht-blockierende Erinnerung rein.
+      showNotification({
         type: "success",
-        message: successMessage,
-        preventClose: true,
-        actions: [
-          {
-            label: "Verstanden",
-            onClick: () => {
-              useUIStore.getState().removeNotification(notificationId);
-              router.push("/auth/login");
-            }
-          }
-        ]
+        message: "Willkommen bei JassGuru! Dein Konto ist startklar.",
+        duration: 4000,
       });
+
+      authLogger.info("Registrierung erfolgreich, navigiere zu /start");
+      setTimeout(() => {
+        router.push("/start");
+      }, 500);
 
       form.reset();
     } catch (err) {
@@ -119,18 +118,15 @@ export function RegisterForm() {
     clearError();
     try {
       await loginWithGoogle();
-      
-      // Google-User sind automatisch verifiziert, daher direkt navigieren
-      const loggedInUser = useAuthStore.getState().user;
-      
+
       // Prüfe auf Einladungs-Tokens
       const tournamentToken = getTournamentToken();
       const groupToken = getGroupToken();
-      
+
       // ✅ EINLADUNGS-FLOW: Bei vorhandenem Token direkt zu /join
       if (tournamentToken || groupToken) {
         authLogger.info("Token vorhanden (Google), navigiere zu /join:", { tournamentToken, groupToken });
-        
+
         setTimeout(() => {
           if (tournamentToken) {
             router.push(`/join?tournamentToken=${tournamentToken}`);
@@ -140,32 +136,14 @@ export function RegisterForm() {
         }, 500);
         return;
       }
-      
-      // ✅ STANDARD-FLOW: Ohne Token zur Startseite
-      if (loggedInUser && !loggedInUser.emailVerified) {
-        // Seltener Edge-Case: Google-User aber E-Mail nicht verifiziert
-        const googleNotificationId = showNotification({
-          type: "warning",
-          message: "Bitte bestätige deine E-Mail-Adresse. Prüfe dein Postfach (auch Spam-Ordner).",
-          preventClose: true,
-          actions: [
-            {
-              label: "Verstanden",
-              onClick: () => {
-                useUIStore.getState().removeNotification(googleNotificationId);
-                router.push("/auth/login");
-              }
-            }
-          ]
-        });
-      } else {
-        // Standard-Navigation zur Startseite
-        setTimeout(() => {
-          authLogger.debug("Navigation zur Startseite (Google):", useAuthStore.getState().status);
-          router.push("/start");
-        }, 500);
-      }
-      
+
+      // ✅ STANDARD-FLOW: Ohne Token direkt zur Startseite.
+      // Google-Identitäten sind vertrauenswürdig — keine E-Mail-Verifizierung nötig.
+      setTimeout(() => {
+        authLogger.debug("Navigation zur Startseite (Google):", useAuthStore.getState().status);
+        router.push("/start");
+      }, 500);
+
     } catch (error) {
       authLogger.error("Google-Registrierungsfehler:", error);
     }

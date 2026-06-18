@@ -19,7 +19,6 @@ import {Alert, AlertDescription} from "@/components/ui/alert";
 import Link from "next/link";
 import {useRouter} from "next/router";
 import Image from "next/image";
-import {useUIStore} from "@/store/uiStore";
 import { getTournamentToken, getGroupToken } from "@/utils/tokenStorage";
 import { authLogger } from "@/utils/logger";
 
@@ -31,10 +30,8 @@ const loginSchema = z.object({
 type LoginFormValues = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const {login, loginWithGoogle, status, error, clearError, resendVerificationEmail} = useAuthStore();
-  const showNotification = useUIStore((state) => state.showNotification);
+  const {login, loginWithGoogle, status, error, clearError} = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
-  const [showVerificationWarning, setShowVerificationWarning] = useState(false);
   const [isEmailLoginSubmitting, setIsEmailLoginSubmitting] = useState(false); // 🚀 NEU: Separater State für Email-Login
   const [isGoogleLoginSubmitting, setIsGoogleLoginSubmitting] = useState(false); // 🚀 NEU: Separater State für Google-Login
   const router = useRouter();
@@ -47,12 +44,6 @@ export function LoginForm() {
     },
   });
 
-  useEffect(() => {
-    if (error || status !== "error") {
-      setShowVerificationWarning(false);
-    }
-  }, [error, status]);
-
   // ✅ Error-State beim ersten Laden der Komponente leeren
   useEffect(() => {
     clearError();
@@ -61,29 +52,16 @@ export function LoginForm() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsEmailLoginSubmitting(true); // 🚀 Nur Email-Login Loading aktivieren
     clearError();
-    setShowVerificationWarning(false);
     try {
       await login(data.email, data.password);
 
       const loggedInUser = useAuthStore.getState().user;
 
       if (loggedInUser) {
-        // 🚀 QUICK-FIX (vor iOS-Submission): Unverifizierte User werden NICHT mehr
-        // blockiert — die Navigation erfolgt immer. Fehlt die E-Mail-Bestätigung,
-        // zeigen wir eine nicht-blockierende Erinnerung mit der Möglichkeit, die
-        // Bestätigungs-E-Mail erneut zu senden. (Wir dulden unverifizierte Accounts,
-        // bis der finale Fix mit eigener E-Mail-Domain live ist.)
-        if (!loggedInUser.emailVerified) {
-          showNotification({
-            message: "Bitte bestätige deine E-Mail-Adresse. Prüfe dein Postfach (inkl. Spam-Ordner).",
-            type: "warning",
-            actions: [
-              {label: "Später", onClick: () => {}},
-              {label: "E-Mail erneut senden", onClick: () => { void handleResendVerification(); }},
-            ],
-          });
-        }
-
+        // Login erfolgreich → immer in die App navigieren. E-Mail-Verifizierung
+        // wird derzeit NICHT erzwungen (Versand via Custom-Domain ist noch nicht
+        // verifiziert — kein Mailversand möglich). Sobald der Maildomain-Fix live
+        // ist, kann hier wieder eine sanfte, nicht-blockierende Erinnerung rein.
         setTimeout(() => {
           authLogger.debug("Verzögerte Navigation: Status=", useAuthStore.getState().status);
 
@@ -105,7 +83,6 @@ export function LoginForm() {
       }
     } catch (err) {
       authLogger.error("Login-Fehler im Formular:", err);
-      setShowVerificationWarning(false);
     } finally {
       setIsEmailLoginSubmitting(false); // 🚀 Email-Login Loading zurücksetzen
     }
@@ -114,7 +91,6 @@ export function LoginForm() {
   const handleGoogleLogin = async () => {
     setIsGoogleLoginSubmitting(true); // 🚀 Nur Google-Login Loading aktivieren
     clearError();
-    setShowVerificationWarning(false);
     try {
       await loginWithGoogle();
       setTimeout(() => {
@@ -140,46 +116,13 @@ export function LoginForm() {
     }
   };
 
-  const handleResendVerification = async () => {
-    try {
-      await resendVerificationEmail();
-      setShowVerificationWarning(false);
-      showNotification({
-        message: "Bestätigungs-E-Mail wurde erneut gesendet. Bitte prüfen Sie Ihr Postfach.",
-        type: "success",
-      });
-    } catch (resendError) {
-      authLogger.error("Fehler beim erneuten Senden:", resendError);
-      showNotification({
-        message: error || "Fehler beim erneuten Senden der E-Mail.",
-        type: "error",
-      });
-    }
-  };
-
   const isAnyLoading = status === "loading" || isEmailLoginSubmitting || isGoogleLoginSubmitting; // 🚀 Globaler Loading-State für Disabled-Status
 
   return (
     <div className="w-full space-y-4">
-      {error && !showVerificationWarning && (
+      {error && (
         <Alert variant="destructive" className="bg-red-900/30 border-red-900 text-red-200">
           <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {showVerificationWarning && (
-        <Alert className="bg-yellow-900/30 border-yellow-900 text-yellow-200">
-          <AlertDescription className="flex flex-col space-y-2">
-            <span>Bitte bestätigen Sie Ihre E-Mail-Adresse. Überprüfen Sie Ihr Postfach (auch Spam).</span>
-            <Button
-              variant="link"
-              className="p-0 h-auto text-yellow-300 hover:text-yellow-200 self-start"
-              onClick={handleResendVerification}
-              disabled={isAnyLoading}
-            >
-              {isAnyLoading ? "Sende..." : "Bestätigungs-E-Mail erneut senden"}
-            </Button>
-          </AlertDescription>
         </Alert>
       )}
 

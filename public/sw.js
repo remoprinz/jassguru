@@ -6,6 +6,7 @@
  *
  * Caching-Strategien:
  *   Firestore/Firebase APIs → NetworkOnly (KEIN SW-Interception!)
+ *   Navigationen (HTML-Shell) → NetworkFirst (immer frisch wenn online)
  *   /_next/static/**  → CacheFirst  (hash-basiert, unveränderlich)
  *   Google Fonts      → StaleWhileRevalidate
  *   Statische Fonts   → CacheFirst
@@ -43,7 +44,7 @@ if (workbox) {
   // Veraltete Caches aufräumen
   workbox.precaching.cleanupOutdatedCaches();
 
-  const APP_VERSION = '2.10.1';
+  const APP_VERSION = '2.10.2';
 
   // 0) 🚨 KRITISCH: Firestore + Firebase-APIs NICHT cachen.
   //    Diese Endpoints nutzen Streaming / Listen-Channels — der SW darf
@@ -68,6 +69,24 @@ if (workbox) {
   workbox.routing.registerRoute(
     /^https:\/\/.*\.cloudfunctions\.net\/.*/i,
     new workbox.strategies.NetworkOnly()
+  );
+
+  // 0.5) 🆕 App-Shell / Navigationen → NetworkFirst.
+  //    KRITISCH: Beim App-Start IMMER frisches HTML laden, wenn online — Cache nur
+  //    als Offline-Fallback. Vorher fiel die Navigation in den Catch-all (#10,
+  //    StaleWhileRevalidate) → die App bootete aus der ALTEN gecachten HTML-Shell,
+  //    die auf veraltete Chunk-Hashes zeigte → neue Deploys kamen nie an, bis man
+  //    die App mehrfach neu öffnete. Muss VOR dem Catch-all registriert sein.
+  workbox.routing.registerRoute(
+    ({ request }) => request.mode === 'navigate',
+    new workbox.strategies.NetworkFirst({
+      cacheName: 'html-pages-v' + APP_VERSION,
+      networkTimeoutSeconds: 4,
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({ maxEntries: 30, maxAgeSeconds: 24 * 60 * 60 }),
+        new workbox.cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
+      ],
+    })
   );
 
   // 1) /_next/static/** → CacheFirst (hash-basiert, immutable)
