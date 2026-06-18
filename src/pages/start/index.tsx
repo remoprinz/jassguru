@@ -1286,7 +1286,15 @@ const StartPage = () => {
         disabled: false,
         variant: "default",
       });
-    } else if (userGroups.length === 0 && !currentGroup && status !== 'loading') {
+    } else if (
+      userGroups.length === 0 &&
+      !currentGroup &&
+      status !== 'loading' &&
+      // 🛡️ Solange ein eingeloggter User seine Gruppen noch lädt (idle/loading),
+      // NICHT fälschlich den Leerzustand zeigen — sonst blitzt beim Cold-Start
+      // "Neue Gruppe erstellen" auf, bevor die bestehende Gruppe geladen ist.
+      !(status === 'authenticated' && isLoadingOrIdle(groupStatus))
+    ) {
       setPageCta({
         isVisible: true,
         text: "Neue Gruppe erstellen",
@@ -1302,7 +1310,7 @@ const StartPage = () => {
     return () => {
       resetPageCta();
     };
-  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router, resumableGameId, status, handleGameAction, isResuming, jassStore.currentSession, gameStore.isGameStarted, gameStore.isGameCompleted, gameStore.activeGameId, userActiveTournamentId, userTournamentInstances]);
+  }, [currentGroup, isGameInProgress, setPageCta, resetPageCta, userGroups, router, resumableGameId, status, groupStatus, handleGameAction, isResuming, jassStore.currentSession, gameStore.isGameStarted, gameStore.isGameCompleted, gameStore.activeGameId, userActiveTournamentId, userTournamentInstances]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
