@@ -27,6 +27,7 @@ import FullscreenLoader from '@/components/ui/FullscreenLoader';
 import { SeoHead } from "@/components/layout/SeoHead";
 import { fixChromeScaling, detectBrowserScaling } from '../utils/browserFix';
 import { useJvsMembershipRefresh } from '../hooks/useJvsMembershipRefresh';
+import { useLastAppOpen } from '../hooks/useLastAppOpen';
 import { CanonicalLink } from '@/components/seo/CanonicalLink';
 
 // App-Watchdog in index.html verschoben für frühere Ausführung
@@ -90,6 +91,8 @@ const MyApp = ({Component, pageProps}: AppProps) => {
   useBackgroundOptimization();
   // JVS Membership: Refresh bei App-Fokus (nach Zahlung sofort sichtbar)
   useJvsMembershipRefresh();
+  // Activity-Tracking: lastAppOpen ins User-Doc (gedrosselt auf 5 Min)
+  useLastAppOpen();
   
   // Client-seitige Initialisierung: Watchdog aus index.html entfernen
   useEffect(() => {
