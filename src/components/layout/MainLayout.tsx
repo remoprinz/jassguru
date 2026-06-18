@@ -10,6 +10,7 @@ import {BottomNavigation} from "@/components/layout/BottomNavigation";
 import Header from "./Header";
 import GlobalNotificationContainer from "../notifications/GlobalNotificationContainer";
 import { Toaster } from "sonner";
+import { usePictogramPreload } from "@/hooks/usePictogramPreload";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -28,6 +29,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({children}) => {
 
   // NEU: Ref für die aktuelle Session-ID um unnötige Re-Subscriptions zu vermeiden
   const currentSessionIdRef = React.useRef<string | null>(null);
+
+  // Calculator-Pictogramme im Hintergrund vorwärmen (kein "pop-in" beim Öffnen)
+  usePictogramPreload();
 
   useEffect(() => {
     // Nur subscriben wenn sich die Session-ID tatsächlich geändert hat

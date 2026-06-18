@@ -44,7 +44,7 @@ if (workbox) {
   // Veraltete Caches aufräumen
   workbox.precaching.cleanupOutdatedCaches();
 
-  const APP_VERSION = '2.10.2';
+  const APP_VERSION = '2.10.3';
 
   // 0) 🚨 KRITISCH: Firestore + Firebase-APIs NICHT cachen.
   //    Diese Endpoints nutzen Streaming / Listen-Channels — der SW darf
@@ -145,6 +145,22 @@ if (workbox) {
       cacheName: 'firebase-storage-all',
       plugins: [
         new workbox.expiration.ExpirationPlugin({ maxEntries: 1000, maxAgeSeconds: 7 * 24 * 60 * 60 }),
+        new workbox.cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
+      ],
+    })
+  );
+
+  // 5.5) 🃏 Jass-Pictogramme → CacheFirst, EIGENER Cache.
+  //    KRITISCH: Muss VOR dem allgemeinen Bilder-Catch (#6) stehen. Sonst landen die
+  //    Pictogramme im geteilten 100-Einträge-LRU-Cache und werden von Backgrounds/
+  //    Logos/Badges verdrängt → beim nächsten Calculator-Öffnen wieder Netzwerk-
+  //    Roundtrip ("pop-in"). Eigener Cache + CacheFirst = nach dem 1. Mal sofort da.
+  workbox.routing.registerRoute(
+    /\/assets\/pictograms\/.*\.(?:png|svg)$/i,
+    new workbox.strategies.CacheFirst({
+      cacheName: 'jass-pictograms-v' + APP_VERSION,
+      plugins: [
+        new workbox.expiration.ExpirationPlugin({ maxEntries: 40, maxAgeSeconds: 30 * 24 * 60 * 60 }),
         new workbox.cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] }),
       ],
     })

@@ -201,7 +201,9 @@ body:not(.lexikon-page) #__next {
 
 /* Jass-spezifische Styles - nur für Nicht-Lexikon-Seiten */
 body:not(.lexikon-page) {
-  background-color: black;
+  /* Kreidetafel-Basisfarbe statt reinem Schwarz: exponierte Safe-Area-/Toolbar-Zonen
+     im Browser-Modus erscheinen so chalkboard-getönt statt als schwarzer Balken. */
+  background-color: #1a1a1a;
   touch-action: none;
   display: flex;
   align-items: center;
@@ -619,7 +621,7 @@ body.lexikon-page div[id="__next"] {
 
     /* PWA: Vollscreen für Jass-App ohne Safe Area Padding */
     body:not(.lexikon-page) {
-      background-color: black;
+      background-color: #1a1a1a;
       height: 100vh !important;
       padding: 0 !important;
       margin: 0 !important;
@@ -662,8 +664,11 @@ body.lexikon-page div[id="__next"] {
   body:not(.lexikon-page) #__next {
     height: 100%;
     width: 100%;
-    /* WICHTIG: Stellt die korrekte Höhe für mobile Browser sicher */
-    height: var(--vh, 100vh);
+    /* WICHTIG: echte sichtbare Höhe in mobilen Browsern.
+       100dvh passt sich an ein-/ausfahrende Safari-/Chrome-Leisten an, ohne dass
+       body schrumpft und seinen Hintergrund als Balken zeigt. 100vh = Fallback. */
+    height: 100vh;
+    height: 100dvh;
   }
 }
 
