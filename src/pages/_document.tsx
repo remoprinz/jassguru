@@ -90,7 +90,11 @@ class MyDocument extends Document {
           <meta name="apple-mobile-web-app-title" content="jassguru.ch" />
           <meta name="format-detection" content="telephone=no" />
           <meta name="mobile-web-app-capable" content="yes" />
-          <meta name="theme-color" content="#1a1a1a" />
+          {/* theme-color = Ton, mit dem iOS-Safari/Chrome ihre Chrome-Leisten
+              (Status-Bar oben, Toolbar unten) einfärben. #2e2e2e ≈ Kreidetafel-
+              Mittelton (gemessen: Rand #1a–#33, Mitte #32) → Leisten verschmelzen
+              mit der Tafel statt als dunkle Balken zu erscheinen. */}
+          <meta name="theme-color" content="#2e2e2e" />
 
           {/* iOS-spezifische Icons */}
           <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=7" />

@@ -209,10 +209,21 @@ body:not(.lexikon-page) {
      die flache #1a1a1a-Farbe sichtbar (= schwarze Balken). Mit Textur auf dem body
      ist die Tafel randlos, kein Kanten-Sprung mehr. */
   background-color: #1a1a1a;
-  background-image: url('/images/backgrounds/chalkboard-mobile.webp');
-  background-size: cover;
-  background-position: center top;
-  background-repeat: no-repeat;
+  /* Identischer Rand-Verlauf wie auf <html>: oberste/unterste ~7% auf #2e2e2e,
+     damit die sichtbare Seitenkante exakt den Chrome-Ton trifft (kein dunkler
+     Balken-Sprung in Safari). Darunter die Kreidetafel-Textur. */
+  background-image:
+    linear-gradient(
+      to bottom,
+      #2e2e2e 0,
+      rgba(46, 46, 46, 0) 7%,
+      rgba(46, 46, 46, 0) 93%,
+      #2e2e2e 100%
+    ),
+    url('/images/backgrounds/chalkboard-mobile.webp');
+  background-size: cover, cover;
+  background-position: center top, center top;
+  background-repeat: no-repeat, no-repeat;
   /* KEIN background-attachment: fixed — auf iOS Safari buggy (deckt Safe-Areas nicht). */
   touch-action: none;
   display: flex;
@@ -229,6 +240,42 @@ body:not(.lexikon-page) {
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-action: none;
   touch-action: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Root-Canvas (html): Kreidetafel auch auf dem Wurzel-Element.
+   iOS-Safari malt die Zonen hinter Status-Bar, Toolbar und im
+   Overscroll/Rubber-Band aus dem <html>-Hintergrund — NICHT aus <body>.
+   Da <body> auf 100dvh + overflow:hidden festgenagelt ist, blieben diese
+   Zonen sonst leer = schwarze Balken (nur Safari sichtbar). Identische
+   Textur auf html → randlos auf allen Geräten/Browsern.
+   ═══════════════════════════════════════════════════════════════ */
+html {
+  background-color: #1a1a1a;
+  /* Oberster Layer: Verlauf, der die obersten/untersten ~7% der Fläche auf den
+     Chrome-Ton #2e2e2e zieht → nahtloser Übergang in Safaris Status-Bar/Toolbar.
+     Darunter die Kreidetafel-Textur. */
+  background-image:
+    linear-gradient(
+      to bottom,
+      #2e2e2e 0,
+      rgba(46, 46, 46, 0) 7%,
+      rgba(46, 46, 46, 0) 93%,
+      #2e2e2e 100%
+    ),
+    url('/images/backgrounds/chalkboard-mobile.webp');
+  background-size: cover, cover;
+  background-position: center top, center top;
+  background-repeat: no-repeat, no-repeat;
+}
+
+/* Scrollbare Inhalts-Seiten (Lexikon/Landing) bekommen ihren eigenen
+   Canvas-Ton zurück — passend zu ihrem body-Override weiter unten. */
+html:has(body.lexikon-page) {
+  background: #1c1917; /* stone-900 */
+}
+html:has(body.landing-page) {
+  background: #000000;
 }
 
 /* ═══════════════════════════════════════════════════════════════
