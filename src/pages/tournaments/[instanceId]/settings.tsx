@@ -92,13 +92,33 @@ const combineDateTimeToTimestamp = (dateStr: string, timeStr: string): Timestamp
   }
 };
 
+// 🔧 ROBUSTHEIT: Firestore-Timestamps können nach Serialisierung (Store-Persist /
+// Callable / Admin-SDK) als reines Objekt { seconds, nanoseconds } bzw.
+// { _seconds, _nanoseconds } ankommen — OHNE .toDate()/.isEqual(). Das verursachte den
+// "x.isEqual is not a function"-Crash (uncaught im useEffect) auf der Turnier-Settings-Seite.
+// Dieser Helper normalisiert beliebige timestamp-artige Werte auf eine echte Timestamp-Instanz.
+const toTimestampOrNull = (value: unknown): Timestamp | null => {
+  if (!value) return null;
+  if (value instanceof Timestamp) return value;
+  if (value instanceof Date) return Timestamp.fromDate(value);
+  if (typeof value === 'object') {
+    const v = value as { seconds?: number; nanoseconds?: number; _seconds?: number; _nanoseconds?: number; toDate?: unknown };
+    if (typeof v.toDate === 'function') return value as Timestamp; // bereits Timestamp-artig
+    const seconds = v.seconds ?? v._seconds;
+    const nanoseconds = v.nanoseconds ?? v._nanoseconds ?? 0;
+    if (typeof seconds === 'number') return new Timestamp(seconds, nanoseconds);
+  }
+  return null;
+};
+
 // Helper function to format Timestamp to date and time strings
 const formatTimestampToDateTime = (timestamp: Timestamp | null | undefined): { dateStr: string; timeStr: string } => {
-  if (!timestamp) {
+  const ts = toTimestampOrNull(timestamp);
+  if (!ts) {
     return { dateStr: '', timeStr: '' };
   }
   try {
-    const dateObj = timestamp.toDate();
+    const dateObj = ts.toDate();
     const dateStr = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD
     const timeStr = dateObj.toTimeString().split(':').slice(0, 2).join(':'); // HH:MM
     return { dateStr, timeStr };
@@ -249,7 +269,7 @@ const TournamentSettingsPage: React.FC = () => {
     const minParticipantsChanged = tempMinParticipants !== (tournament.settings?.minParticipants?.toString() || '4');
     const maxParticipantsChanged = tempMaxParticipants !== (tournament.settings?.maxParticipants?.toString() || '');
     // NEU: Änderungen an Startzeit prüfen
-    const initialScheduledTime = tournament.settings?.scheduledStartTime as Timestamp | undefined;
+    const initialScheduledTime = toTimestampOrNull(tournament.settings?.scheduledStartTime);
     const currentScheduledTime = combineDateTimeToTimestamp(tempStartDate, tempStartTime);
     const scheduledTimeChanged = 
         ((!initialScheduledTime && currentScheduledTime) || 
@@ -408,7 +428,7 @@ const TournamentSettingsPage: React.FC = () => {
     
     // NEU: Verarbeite Startzeit
     const newScheduledTime = combineDateTimeToTimestamp(tempStartDate, tempStartTime);
-    const oldScheduledTime = tournament.settings?.scheduledStartTime as Timestamp | undefined;
+    const oldScheduledTime = toTimestampOrNull(tournament.settings?.scheduledStartTime);
     if ((!oldScheduledTime && newScheduledTime) || 
         (oldScheduledTime && !newScheduledTime) || 
         (oldScheduledTime && newScheduledTime && !oldScheduledTime.isEqual(newScheduledTime))) {
