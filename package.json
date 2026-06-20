@@ -1,7 +1,7 @@
 {
   "name": "jasstafel-frontend",
   "private": true,
-  "version": "2.10.0",
+  "version": "3.0.0",
   "type": "module",
   "scripts": {
     "dev": "NODE_OPTIONS='--inspect' next dev",
@@ -148,7 +148,6 @@
   "devDependencies": {
     "@babel/preset-react": "^7.26.3",
     "@babel/preset-typescript": "^7.27.0",
-    "@capacitor/assets": "^3.0.5",
     "@rollup/plugin-babel": "^6.0.4",
     "@types/canvas-confetti": "^1.4.0",
     "@types/node": "^22.14.0",
