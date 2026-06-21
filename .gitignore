@@ -65,6 +65,11 @@ tutorial_pics/
 # (enthalten teils echte Spieler-/Mail-Daten; via package.json lokal nutzbar)
 /scripts/
 /functions/scripts/
+# Lose Ops-Skripts direkt in functions/ (laden serviceAccountKey.json lokal)
+/functions/inspectFirestore.js
+/functions/refresh-display-names.mjs
+/functions/runBackfill.js
+/functions/runChartDataBackfill.js
 
 # JetBrains/Android Studio
 .idea/
