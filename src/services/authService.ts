@@ -71,6 +71,7 @@ export const mapUserToAuthUser = (user: FirebaseAuthUser, firestoreUser?: Partia
     playerId: firestoreUser?.playerId ?? null,
     profileTheme: firestoreUser?.profileTheme ?? null,
     profileCardStyle: firestoreUser?.profileCardStyle ?? "DE",
+    jvsWelcomeSeenAt: firestoreUser?.jvsWelcomeSeenAt ?? null,
   };
 };
 

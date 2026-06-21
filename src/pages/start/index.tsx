@@ -4,6 +4,7 @@ import React, {useEffect, useState, useRef, useCallback, useMemo} from "react";
 import { useGroupSessionListener } from "@/hooks/useGroupSessionListener";
 import {useRouter} from "next/router";
 import {useAuthStore} from "@/store/authStore";
+import { JvsWelcome } from "@/components/jvs/JvsWelcome";
 import {useGroupStore} from "@/store/groupStore";
 import {useGameStore} from "@/store/gameStore";
 import {useJassStore, createInitialTeamStand} from "@/store/jassStore";
@@ -1978,7 +1979,8 @@ const StartPage = () => {
   // ===== FEATURE FLAG SWITCH =====
   if (USE_GROUP_VIEW_COMPONENT) {
     return (
-      <GroupView 
+      <>
+      <GroupView
         currentGroup={currentGroup}
         user={user}
         isGuest={isGuest}
@@ -2046,6 +2048,8 @@ const StartPage = () => {
         isGeneratingInvite={isGeneratingInvite}
         handleGenerateNewInvite={handleGenerateNewInvite}
       />
+      <JvsWelcome />
+      </>
     );
   }
   

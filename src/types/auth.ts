@@ -1,5 +1,6 @@
 import type { FirestorePlayer } from "@/types/jass"; // Import für referenzierte Felder
 import type { UserMetadata } from "firebase/auth"; // Import für Firebase Metadaten
+import type { Timestamp, FieldValue } from "firebase/firestore"; // für jvsWelcomeSeenAt
 
 // Umbenannt von UserProfile und ergänzt
 export interface AuthUser {
@@ -17,6 +18,7 @@ export interface AuthUser {
   playerId?: string | null;
   profileTheme?: string | null; // NEU: Profilfarbe/Theme für die UI
   profileCardStyle?: "DE" | "FR" | null; // NEU: Kartenstil-Präferenz für Profil-Stats
+  jvsWelcomeSeenAt?: Timestamp | FieldValue | null; // NEU: JVS-Welcome bereits gesehen
 }
 
 // Hinzugefügt:

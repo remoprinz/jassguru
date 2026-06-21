@@ -906,6 +906,7 @@ export interface FirestorePlayer extends FirebaseDocument { // Stelle sicher, da
   lastUpdated?: FieldValue | Timestamp;
   // --------------------------------------------------------------
   gameCount?: number; // Hinzugefügt für die Anzahl der Spiele in der Gruppe
+  jvsWelcomeSeenAt?: Timestamp | FieldValue; // NEU: einmaliges JVS-Welcome bereits gesehen
 }
 
 // +++ FirestoreGroup ZENTRAL DEFINIEREN (KORREKT EINGEFÜGT) +++
