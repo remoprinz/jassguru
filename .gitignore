@@ -70,6 +70,9 @@ tutorial_pics/
 /functions/refresh-display-names.mjs
 /functions/runBackfill.js
 /functions/runChartDataBackfill.js
+# Standalone Debug-/Migrate-Skripts im src-Baum (kein Runtime-Code, laden lokalen Key)
+/functions/src/scripts/
+/functions/src/utils/teamDocumentsManager.ts
 
 # JetBrains/Android Studio
 .idea/
@@ -233,3 +236,7 @@ temp-pdfs/
 public/assets/screenshots-backup/
 src/build-info.json
 next-env.d.ts
+
+# Affinity-Quelldateien (gross) + Play-Store-Assets — NIE ins public Repo
+*.af
+store-assets/
