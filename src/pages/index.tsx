@@ -49,7 +49,16 @@ const HomePage = () => {
   useEffect(() => {
     // Dieser Code wird nur im Browser ausgeführt
     const path = window.location.pathname;
+    const search = window.location.search; // enthält das führende '?' (oder '')
     const pathParts = path.split('/').filter(Boolean);
+
+    // 🛠️ FIX: Query-String der URL bewahren (z.B. ?mainTab=archive, ?statsSubTab=…,
+    // ?returnTo=…). Dieser SPA-Dispatcher fängt in Produktion alle Deep-Links ab
+    // (Hosting-Catch-all '**' → /index.html), weil die dynamischen Public-Routen aus
+    // dem Static-Export gelöscht sind. Bisher baute er query NUR aus dem Pfad-Parameter
+    // und verwarf alle ?…-Parameter — dadurch öffnete sich z.B. der Archiv-Tab auf
+    // öffentlichen Profil-/Gruppen-Links nie (mainTab ging verloren).
+    const extraQuery = Object.fromEntries(new URLSearchParams(search));
 
     let ComponentToRender: React.ComponentType | null = null;
     const newRouterState = { ...router }; // Erstelle eine Kopie des Routers zum Modifizieren
@@ -57,39 +66,40 @@ const HomePage = () => {
     if (path.startsWith('/features')) { // Erkennt /features und /features/
       ComponentToRender = FeaturesPage;
       newRouterState.pathname = '/features';
-      newRouterState.asPath = '/features';
+      newRouterState.query = { ...extraQuery };
+      newRouterState.asPath = '/features' + search;
     } else if (path.startsWith('/profile/') && pathParts.length === 2) {
       ComponentToRender = PublicProfilePage;
       const playerId = pathParts[1];
       newRouterState.pathname = '/profile/[playerId]';
-      newRouterState.query = { playerId: playerId };
-      newRouterState.asPath = path;
+      newRouterState.query = { ...extraQuery, playerId };
+      newRouterState.asPath = path + search;
     } else if (path.startsWith('/view/group/') && pathParts.length === 3) {
       ComponentToRender = PublicGroupPage;
       const groupId = pathParts[2];
       newRouterState.pathname = '/view/group/[groupId]';
-      newRouterState.query = { groupId: groupId };
-      newRouterState.asPath = path;
+      newRouterState.query = { ...extraQuery, groupId };
+      newRouterState.asPath = path + search;
     } else if (path.startsWith('/view/session/public/') && pathParts.length === 4) {
       ComponentToRender = PublicSessionPage;
       const sessionId = pathParts[3];
       newRouterState.pathname = '/view/session/public/[sessionId]';
-      newRouterState.query = { sessionId: sessionId };
-      newRouterState.asPath = path;
+      newRouterState.query = { ...extraQuery, sessionId };
+      newRouterState.asPath = path + search;
     } else if (path.startsWith('/view/tournament/') && pathParts.length === 3) {
       ComponentToRender = PublicTournamentPage;
       const instanceId = pathParts[2];
       newRouterState.pathname = '/view/tournament/[instanceId]';
-      newRouterState.query = { instanceId: instanceId };
-      newRouterState.asPath = path;
+      newRouterState.query = { ...extraQuery, instanceId };
+      newRouterState.asPath = path + search;
     } else if (path.startsWith('/tournaments/') && pathParts.length === 4 && pathParts[2] === 'passe') {
       // Route: /tournaments/[instanceId]/passe/[passeId]
       ComponentToRender = TournamentPasseDetailPage;
       const instanceId = pathParts[1];
       const passeId = pathParts[3];
       newRouterState.pathname = '/tournaments/[instanceId]/passe/[passeId]';
-      newRouterState.query = { instanceId: instanceId, passeId: passeId };
-      newRouterState.asPath = path;
+      newRouterState.query = { ...extraQuery, instanceId, passeId };
+      newRouterState.asPath = path + search;
     } else {
       // Für alle anderen Pfade (z.B. die Startseite '/')
       ComponentToRender = WelcomeScreen;
