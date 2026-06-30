@@ -410,6 +410,17 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
     }
   };
 
+  // Abschluss-Karten ("Bist du parat?"): Inhalt, Buttons UND Checkbox als EIN
+  // zentriertes, scrollbares Modal rendern. Verhindert, dass die zwei getrennten
+  // fixed-Layer (Inhalt oben verankert, Navigation unten verankert) bei
+  // abweichenden Seitenverhältnissen überlappen — z.B. die iPhone-App im
+  // iPad-Kompatibilitätsmodus, wie ihn der App-Review-Tester verwendet.
+  const isCompletionCard =
+    !isHelpMode &&
+    (currentStep.id === TUTORIAL_STEPS.BASIC_COMPLETE ||
+      currentStep.id === TUTORIAL_STEPS.BINGO_SETTINGS ||
+      currentStep.id === TUTORIAL_STEPS.TIPS_IPHONE_WAKE);
+
   return (
     <AnimatePresence key="tutorial-overlay">
       <motion.div
@@ -445,47 +456,136 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({onCloseMenu}) => {
         )}
       </motion.div>
 
-      {/* Content nur anzeigen wenn isContentVisible true ist */}
-      {isContentVisible && (
+      {isCompletionCard ? (
+        /* Abschluss-Karte: Inhalt + Checkbox + Buttons in EINEM zentrierten,
+           scrollbaren Modal. max-h-[90vh] + overflow-y-auto = passt auf jeden
+           Viewport (auch iPhone SE), nichts kann mehr überlappen. */
         <motion.div
-          key="tutorial-overlay-content"
-          className={`bg-gray-800 rounded-lg shadow-lg flex flex-col items-center text-center w-10/12 max-w-md fixed
-            ${currentStep.title ? "p-6" : "py-4 px-6"}`}
-          style={{
-            ...getPositionStyles(currentStep.overlayPosition),
-            zIndex: 1001,
-            pointerEvents: "none",
-          }}
+          key="tutorial-overlay-completion"
+          className="fixed inset-0 z-[1001] flex flex-col overflow-y-auto p-4"
+          style={{pointerEvents: "none"}}
         >
-          {currentStep.title && (
-            <h2 className="text-2xl font-bold mb-4 text-white">
-              {currentStep.title}
-            </h2>
-          )}
+          {/* m-auto zentriert die Gruppe bei genug Platz und bleibt von oben
+              scrollbar, falls der Viewport extrem kurz ist — die CTA kann so
+              nie unerreichbar/abgeschnitten sein. */}
+          <div className="m-auto flex flex-col items-center gap-5 w-full">
+            {/* Inhaltskarte — schwebt wie im Original. Nur die Bildhöhe passt
+                sich kurzen Viewports an (max-h-[28vh]), damit darunter für
+                Buttons + Checkbox immer Platz bleibt. */}
+            <div
+              className="bg-gray-800 rounded-lg shadow-lg flex flex-col items-center text-center
+                w-10/12 max-w-md p-6"
+              style={{pointerEvents: "auto"}}
+            >
+              {currentStep.title && (
+                <h2 className="text-2xl font-bold mb-4 text-white">
+                  {currentStep.title}
+                </h2>
+              )}
 
-          {currentStep.icon && (
-            <currentStep.icon className="w-12 h-12 text-yellow-600 mb-4" />
-          )}
+              {currentStep.icon && (
+                <currentStep.icon className="w-12 h-12 text-yellow-600 mb-4" />
+              )}
 
-          {currentStep.image && (
-            <img
-              src={currentStep.image}
-              alt=""
-              className="w-64 h-64 mb-6 rounded-lg object-cover"
-            />
-          )}
+              {currentStep.image && (
+                <img
+                  src={currentStep.image}
+                  alt=""
+                  className="w-48 h-48 max-h-[28vh] mb-4 rounded-lg object-cover"
+                />
+              )}
 
-          {/* HTML aus tutorialContent.ts — z.B. <strong>...</strong> für fett markierte Aktionen.
-              Sicher hier weil content aus Source-Code stammt, nicht aus User-Input. */}
-          <p
-            className={`text-white text-lg max-w-[90%] ${!currentStep.title ? "my-2" : ""}`}
-            dangerouslySetInnerHTML={{__html: currentStep.content || ""}}
-          />
+              {/* HTML aus tutorialContent.ts — Source-Code, kein User-Input. */}
+              <p
+                className="text-white text-lg max-w-[90%]"
+                dangerouslySetInnerHTML={{__html: currentStep.content || ""}}
+              />
+            </div>
+
+            {/* Buttons + Checkbox darunter — separat wie im Original (nicht in der
+                grauen Karte), aber Teil derselben Flex-Spalte: keine Überlappung.
+                Reihenfolge: CTA über der Checkbox, damit der wichtigste Button
+                bei knappem Platz zuletzt wegfällt, nie zuerst. */}
+            <div
+              className="w-10/12 max-w-md flex flex-col items-center gap-4"
+              style={{pointerEvents: "auto"}}
+            >
+              <div className="w-full">
+                <TutorialNavigation
+                  showBackButton={!currentStep.hideBackButton}
+                  isFirstStep={false}
+                  isLastStep={true}
+                  onNext={handleEndTutorial}
+                />
+              </div>
+
+              {/* Prominente Bestätigungs-Checkbox (freiwillig: Häkchen + Losjassen → nie wieder). */}
+              <label
+                htmlFor="neverShowAgain"
+                className={`flex items-center justify-center gap-3 w-full px-4 py-3 rounded-lg cursor-pointer transition-all
+                  ${neverShowAgain
+                    ? "bg-green-600/30 border-2 border-green-500"
+                    : "bg-white/10 border-2 border-white/40 hover:bg-white/20"}`}
+              >
+                <input
+                  type="checkbox"
+                  id="neverShowAgain"
+                  checked={neverShowAgain}
+                  onChange={(e) => setNeverShowAgain(e.target.checked)}
+                  className="w-6 h-6 flex-shrink-0 rounded border-gray-300 text-green-600 focus:ring-green-500 cursor-pointer"
+                />
+                <span className="text-base font-semibold text-white text-center">
+                  Ja, ich habe mich mit den Funktionen vertraut gemacht (nicht mehr fragen).
+                </span>
+              </label>
+            </div>
+          </div>
         </motion.div>
-      )}
+      ) : (
+        <>
+          {/* Content nur anzeigen wenn isContentVisible true ist */}
+          {isContentVisible && (
+            <motion.div
+              key="tutorial-overlay-content"
+              className={`bg-gray-800 rounded-lg shadow-lg flex flex-col items-center text-center w-10/12 max-w-md fixed
+                ${currentStep.title ? "p-6" : "py-4 px-6"}`}
+              style={{
+                ...getPositionStyles(currentStep.overlayPosition),
+                zIndex: 1001,
+                pointerEvents: "none",
+              }}
+            >
+              {currentStep.title && (
+                <h2 className="text-2xl font-bold mb-4 text-white">
+                  {currentStep.title}
+                </h2>
+              )}
 
-      {/* Navigation mit renderNavigation() Funktion */}
-      {renderNavigation()}
+              {currentStep.icon && (
+                <currentStep.icon className="w-12 h-12 text-yellow-600 mb-4" />
+              )}
+
+              {currentStep.image && (
+                <img
+                  src={currentStep.image}
+                  alt=""
+                  className="w-64 h-64 mb-6 rounded-lg object-cover"
+                />
+              )}
+
+              {/* HTML aus tutorialContent.ts — z.B. <strong>...</strong> für fett markierte Aktionen.
+                  Sicher hier weil content aus Source-Code stammt, nicht aus User-Input. */}
+              <p
+                className={`text-white text-lg max-w-[90%] ${!currentStep.title ? "my-2" : ""}`}
+                dangerouslySetInnerHTML={{__html: currentStep.content || ""}}
+              />
+            </motion.div>
+          )}
+
+          {/* Navigation mit renderNavigation() Funktion */}
+          {renderNavigation()}
+        </>
+      )}
     </AnimatePresence>
   );
 };
